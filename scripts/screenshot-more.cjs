@@ -55,6 +55,21 @@ async function login(page, email, password, loginUrl, successUrl) {
   await p.screenshot({ path: path.join(DIR, 'store-profile.png'), fullPage: true });
   console.log('✓ store-profile');
 
+  // Social Feed
+  await p.goto(BASE + '/feed', { waitUntil: 'networkidle' });
+  await p.screenshot({ path: path.join(DIR, 'store-feed.png'), fullPage: true });
+  console.log('✓ store-feed');
+
+  // Group Buys
+  await p.goto(BASE + '/group-buys', { waitUntil: 'networkidle' });
+  await p.screenshot({ path: path.join(DIR, 'store-group-buys.png'), fullPage: true });
+  console.log('✓ store-group-buys');
+
+  // Leaderboard
+  await p.goto(BASE + '/leaderboard', { waitUntil: 'networkidle' });
+  await p.screenshot({ path: path.join(DIR, 'store-leaderboard.png'), fullPage: true });
+  console.log('✓ store-leaderboard');
+
   // Login as vendor
   const vp = await ctx.newPage();
   await login(vp, 'vendor@multivendor.test', 'password', BASE + '/vendor/login', '**/vendor/dashboard');
