@@ -8,14 +8,15 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CouponController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
+use App\Http\Controllers\Admin\DealOfTheDayController;
 use App\Http\Controllers\Admin\DeliveryManController;
+use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\FlashDealController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProviderController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\ProductSeoController;
-use App\Http\Controllers\Admin\MostDemandedController;
 use App\Http\Controllers\Admin\SupportTicketController as AdminTicketController;
 use App\Http\Controllers\Storefront\ProfileController;
 use App\Http\Controllers\Storefront\ReviewController as StoreReviewController;
@@ -25,6 +26,7 @@ use App\Http\Controllers\Vendor\OrderEditController;
 use App\Http\Controllers\Admin\PushNotificationController;
 use App\Http\Controllers\Admin\DeliveryManController as AdminDeliveryManController;
 use App\Http\Controllers\Admin\FeaturedDealController;
+use App\Http\Controllers\Admin\MostDemandedController;
 use App\Http\Controllers\Admin\WithdrawController as AdminWithdrawController;
 use App\Http\Controllers\Storefront\ShopController as StoreShopController;
 use App\Http\Controllers\Storefront\AuthController as SocialAuthController;
@@ -383,6 +385,8 @@ Route::prefix('admin')->name('admin.')->group(function () {
         })->name('export.transactions');
 
         Route::get('most-demanded', [MostDemandedController::class, 'index'])->name('most-demanded.index');
+
+        Route::resource('employees', EmployeeController::class);
 
         Route::get('vat', fn()=>view('admin.vat.index'))->name('vat.index');
         Route::post('vat', function(Request $request){ \App\Models\VatTax::create($request->only(['name','rate']) + ['is_active'=>true]); return back()->with('success','Pajak ditambahkan.'); })->name('vat.store');
