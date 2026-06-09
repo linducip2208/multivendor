@@ -152,6 +152,7 @@
 
             <h3><span class="step">5</span> Checkout</h3>
             <p>Pilih alamat, payment gateway, shipping per toko, kupon. Klik Bayar.</p>
+            <img src="/screenshots/store-cart.png" class="ss" alt="Checkout" loading="lazy">
 
             <h3><span class="step">6</span> Pesanan</h3>
             <p>Lihat semua pesanan dengan status. Klik detail untuk lihat item + riwayat status.</p>
@@ -183,12 +184,15 @@
 
             <h3><span class="step">13</span> Social Feed</h3>
             <p>Scroll produk ala TikTok di <a href="/feed">/feed</a>. Video + foto + caption. Klik beli langsung.</p>
+            <img src="/screenshots/store-feed.png" class="ss" alt="Social Feed" loading="lazy">
 
             <h3><span class="step">14</span> Group Buy</h3>
             <p>Beli bareng untuk diskon lebih besar. Progress bar peserta. Join dan share.</p>
+            <img src="/screenshots/store-group-buys.png" class="ss" alt="Group Buy" loading="lazy">
 
             <h3><span class="step">15</span> Leaderboard</h3>
             <p>Top 20 pembeli dengan total belanja. Badge tier (bronze/silver/gold).</p>
+            <img src="/screenshots/store-leaderboard.png" class="ss" alt="Leaderboard" loading="lazy">
         </div>
 
         {{-- Payment --}}
