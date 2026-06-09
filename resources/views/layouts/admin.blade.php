@@ -65,19 +65,14 @@
     {{-- Mobile sidebar overlay --}}
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
-    {{-- Sidebar --}}
+    {{-- Sidebar — Alur Bisnis --}}
     <nav class="sidebar" id="sidebar">
         <div class="logo">
             <i class="fas fa-store-alt me-2"></i> {{ config('app.name') }}
         </div>
-        <div class="nav-section">Dashboard</div>
-        <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-            <i class="fas fa-tachometer-alt"></i> Dashboard
-        </a>
-
-        <div class="nav-section">Manajemen</div>
+        <div class="nav-section">🏪 Master Data</div>
         <a href="{{ route('admin.vendors.index') }}" class="nav-link {{ request()->routeIs('admin.vendors.*') ? 'active' : '' }}">
-            <i class="fas fa-store"></i> Toko / Vendor
+            <i class="fas fa-store"></i> Vendor
         </a>
         <a href="{{ route('admin.products.index') }}" class="nav-link {{ request()->routeIs('admin.products.*') ? 'active' : '' }}">
             <i class="fas fa-box"></i> Moderasi Produk
@@ -89,13 +84,15 @@
             <i class="fas fa-tag"></i> Brand
         </a>
 
-        <div class="nav-section">Transaksi</div>
+        <div class="nav-section">💰 Transaksi</div>
         <a href="{{ route('admin.orders.index') }}" class="nav-link {{ request()->routeIs('admin.orders.*') ? 'active' : '' }}">
             <i class="fas fa-shopping-cart"></i> Pesanan
         </a>
         <a href="{{ route('admin.transactions.index') }}" class="nav-link {{ request()->routeIs('admin.transactions.*') ? 'active' : '' }}">
             <i class="fas fa-money-bill-wave"></i> Transaksi
         </a>
+
+        <div class="nav-section">🎯 Promosi</div>
         <a href="{{ route('admin.coupons.index') }}" class="nav-link {{ request()->routeIs('admin.coupons.*') ? 'active' : '' }}">
             <i class="fas fa-ticket-alt"></i> Kupon
         </a>
@@ -111,8 +108,11 @@
         <a href="{{ route('admin.most-demanded.index') }}" class="nav-link {{ request()->routeIs('admin.most-demanded.*') ? 'active' : '' }}">
             <i class="fas fa-fire"></i> Most Demanded
         </a>
+        <a href="{{ route('admin.bundles') }}" class="nav-link {{ request()->routeIs('admin.bundles') ? 'active' : '' }}">
+            <i class="fas fa-cubes"></i> Product Bundles
+        </a>
 
-        <div class="nav-section">Pengguna</div>
+        <div class="nav-section">👥 Pengguna</div>
         <a href="{{ route('admin.customers.index') }}" class="nav-link {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}">
             <i class="fas fa-users"></i> Pelanggan
         </a>
@@ -122,8 +122,25 @@
         <a href="{{ route('admin.employees.index') }}" class="nav-link {{ request()->routeIs('admin.employees.*') ? 'active' : '' }}">
             <i class="fas fa-user-tie"></i> Employee
         </a>
+        <a href="{{ route('admin.roles.index') }}" class="nav-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
+            <i class="fas fa-user-tag"></i> Custom Role
+        </a>
 
-        <div class="nav-section">Marketing</div>
+        <div class="nav-section">📊 Laporan</div>
+        <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
+            <i class="fas fa-file-invoice"></i> Laporan (AI)
+        </a>
+        <a href="{{ route('admin.stock-report.index') }}" class="nav-link {{ request()->routeIs('admin.stock-report.*') ? 'active' : '' }}">
+            <i class="fas fa-boxes"></i> Stok Produk
+        </a>
+        <a href="{{ route('admin.vendor-sale-report.index') }}" class="nav-link {{ request()->routeIs('admin.vendor-sale-report.*') ? 'active' : '' }}">
+            <i class="fas fa-store-alt"></i> Penjualan Vendor
+        </a>
+        <a href="{{ route('admin.export.index') }}" class="nav-link {{ request()->routeIs('admin.export.*') ? 'active' : '' }}">
+            <i class="fas fa-file-export"></i> Export CSV
+        </a>
+
+        <div class="nav-section">📣 Marketing</div>
         <a href="{{ route('admin.banners.index') }}" class="nav-link {{ request()->routeIs('admin.banners.*') ? 'active' : '' }}">
             <i class="fas fa-image"></i> Banner
         </a>
@@ -139,8 +156,39 @@
         <a href="{{ route('admin.support-tickets.index') }}" class="nav-link {{ request()->routeIs('admin.support-tickets.*') ? 'active' : '' }}">
             <i class="fas fa-headset"></i> Tiket Support
         </a>
+        <a href="{{ route('admin.pages.index') }}" class="nav-link {{ request()->routeIs('admin.pages.*') ? 'active' : '' }}">
+            <i class="fas fa-file-alt"></i> Halaman
+        </a>
+        <a href="{{ route('admin.contacts.index') }}" class="nav-link {{ request()->routeIs('admin.contacts.*') ? 'active' : '' }}">
+            <i class="fas fa-address-book"></i> Kontak
+        </a>
 
-        <div class="nav-section">Sistem</div>
+        <div class="nav-section">🔌 Integrasi</div>
+        <a href="{{ route('admin.providers.index') }}" class="nav-link {{ request()->routeIs('admin.providers.*') ? 'active' : '' }}">
+            <i class="fas fa-plug"></i> Provider
+        </a>
+        <a href="{{ route('admin.sms-gateway.index') }}" class="nav-link {{ request()->routeIs('admin.sms-gateway.*') ? 'active' : '' }}">
+            <i class="fas fa-sms"></i> SMS Gateway
+        </a>
+        <a href="{{ route('admin.third-party.index') }}" class="nav-link {{ request()->routeIs('admin.third-party.*') ? 'active' : '' }}">
+            <i class="fas fa-cogs"></i> 3rd Party
+        </a>
+        <a href="{{ route('admin.file-manager.index') }}" class="nav-link {{ request()->routeIs('admin.file-manager.*') ? 'active' : '' }}">
+            <i class="fas fa-folder"></i> File Manager
+        </a>
+
+        <div class="nav-section">💳 Keuangan</div>
+        <a href="{{ route('admin.withdraws.index') }}" class="nav-link {{ request()->routeIs('admin.withdraws.*') ? 'active' : '' }}">
+            <i class="fas fa-hand-holding-usd"></i> Withdraw
+        </a>
+        <a href="{{ route('admin.offline-payment.index') }}" class="nav-link {{ request()->routeIs('admin.offline-payment.*') ? 'active' : '' }}">
+            <i class="fas fa-money-check"></i> Pembayaran Offline
+        </a>
+        <a href="{{ route('admin.email-templates.index') }}" class="nav-link {{ request()->routeIs('admin.email-templates.*') ? 'active' : '' }}">
+            <i class="fas fa-envelope"></i> Email Templates
+        </a>
+
+        <div class="nav-section">⚙️ Sistem</div>
         <a href="{{ route('admin.settings') }}" class="nav-link {{ request()->routeIs('admin.settings') ? 'active' : '' }}">
             <i class="fas fa-cog"></i> Pengaturan
         </a>
@@ -156,46 +204,17 @@
         <a href="{{ route('admin.translation.index') }}" class="nav-link {{ request()->routeIs('admin.translation.*') ? 'active' : '' }}">
             <i class="fas fa-language"></i> Translation DB
         </a>
-        <a href="{{ route('admin.roles.index') }}" class="nav-link {{ request()->routeIs('admin.roles.*') ? 'active' : '' }}">
-            <i class="fas fa-user-tag"></i> Custom Role
+        <a href="{{ route('admin.inhouse-shop.index') }}" class="nav-link {{ request()->routeIs('admin.inhouse-shop.*') ? 'active' : '' }}">
+            <i class="fas fa-store"></i> Inhouse Shop
         </a>
-        <a href="{{ route('admin.withdraws.index') }}" class="nav-link {{ request()->routeIs('admin.withdraws.*') ? 'active' : '' }}">
-            <i class="fas fa-hand-holding-usd"></i> Withdraw
-        </a>
-        <a href="{{ route('admin.email-templates.index') }}" class="nav-link {{ request()->routeIs('admin.email-templates.*') ? 'active' : '' }}">
-            <i class="fas fa-envelope"></i> Email Templates
-        </a>
-        <a href="{{ route('admin.offline-payment.index') }}" class="nav-link {{ request()->routeIs('admin.offline-payment.*') ? 'active' : '' }}">
-            <i class="fas fa-money-check"></i> Pembayaran Offline
-        </a>
-        <a href="{{ route('admin.providers.index') }}" class="nav-link {{ request()->routeIs('admin.providers.*') ? 'active' : '' }}">
-            <i class="fas fa-plug"></i> Integrasi
-        </a>
-        <a href="{{ route('admin.file-manager.index') }}" class="nav-link {{ request()->routeIs('admin.file-manager.*') ? 'active' : '' }}">
-            <i class="fas fa-folder"></i> File Manager
-        </a>
-        <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
-            <i class="fas fa-file-invoice"></i> Laporan (AI)
-        </a>
-        <a href="{{ route('admin.stock-report.index') }}" class="nav-link {{ request()->routeIs('admin.stock-report.*') ? 'active' : '' }}">
-            <i class="fas fa-boxes"></i> Stok Produk
-        </a>
-        <a href="{{ route('admin.vendor-sale-report.index') }}" class="nav-link {{ request()->routeIs('admin.vendor-sale-report.*') ? 'active' : '' }}">
-            <i class="fas fa-store-alt"></i> Penjualan Vendor
-        </a>
-        <a href="{{ route('admin.export.index') }}" class="nav-link {{ request()->routeIs('admin.export.*') ? 'active' : '' }}">
-            <i class="fas fa-file-export"></i> Export CSV
-        </a>
-
-        <div class="nav-section">Tools</div>
-        <a href="{{ route('admin.sms-gateway.index') }}" class="nav-link {{ request()->routeIs('admin.sms-gateway.*') ? 'active' : '' }}">
-            <i class="fas fa-sms"></i> SMS Gateway
-        </a>
-        <a href="{{ route('admin.third-party.index') }}" class="nav-link {{ request()->routeIs('admin.third-party.*') ? 'active' : '' }}">
-            <i class="fas fa-cogs"></i> 3rd Party
+        <a href="{{ route('admin.vendor-settings.index') }}" class="nav-link {{ request()->routeIs('admin.vendor-settings.*') ? 'active' : '' }}">
+            <i class="fas fa-cog"></i> Vendor Settings
         </a>
         <a href="{{ route('admin.maintenance.index') }}" class="nav-link {{ request()->routeIs('admin.maintenance.*') ? 'active' : '' }}">
             <i class="fas fa-tools"></i> Maintenance
+        </a>
+        <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
         </a>
         <a href="{{ route('admin.logout') }}" class="nav-link" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();">
             <i class="fas fa-sign-out-alt"></i> Keluar
