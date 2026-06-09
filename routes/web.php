@@ -162,7 +162,7 @@ Route::middleware('customer')->group(function () {
         if ($request->has('order_number')) {
             $order = \App\Models\Order::where('order_number', $request->order_number)->with(['items.product','statusHistory','shop'])->first();
         }
-        return view('storefront.track-order', compact('order'));
+        return view('storefront.track-order.index', compact('order'));
     })->name('track-order');
     Route::get('/loyalty', [LoyaltyController::class, 'index'])->name('loyalty.index');
     Route::post('/loyalty/redeem', [LoyaltyController::class, 'redeem'])->name('loyalty.redeem');
