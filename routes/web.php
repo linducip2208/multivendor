@@ -395,6 +395,14 @@ Route::prefix('admin')->name('admin.')->group(function () {
 
         Route::get('most-demanded', [MostDemandedController::class, 'index'])->name('most-demanded.index');
 
+        Route::get('bundles', fn() => view('admin.bundles.index', ['bundles' => \App\Models\ProductBundle::with('products')->get()]))->name('admin.bundles.index');
+        Route::post('bundles', function(\Illuminate\Http\Request $request) {
+            $bundle = \App\Models\ProductBundle::create($request->only(['title', 'discount_percentage']));
+            $bundle->products()->sync($request->product_ids);
+            return back()->with('success', 'Bundle dibuat.');
+        })->name('admin.bundles.store');
+        Route::delete('bundles/{bundle}', function(\App\Models\ProductBundle $bundle) { $bundle->delete(); return back(); })->name('admin.bundles.destroy');
+
         Route::resource('employees', EmployeeController::class);
 
         Route::get('vat', fn()=>view('admin.vat.index'))->name('vat.index');
