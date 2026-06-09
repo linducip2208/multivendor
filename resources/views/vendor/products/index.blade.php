@@ -18,9 +18,9 @@
             <div class="col-md-2">
                 <select name="status" class="form-select">
                     <option value="">Semua</option>
-                    <option value="pending" {{ request('status')==='pending'?'selected##A##' }}>Pending</option>
-                    <option value="approved" {{ request('status')==='approved'?'selected##A##' }}>Approved</option>
-                    <option value="suspended" {{ request('status')==='suspended'?'selected##A##' }}>Suspended</option>
+                    <option value="pending" {{ request('status')==='pending'?'selected'=>'' }}>Pending</option>
+                    <option value="approved" {{ request('status')==='approved'?'selected'=>'' }}>Approved</option>
+                    <option value="suspended" {{ request('status')==='suspended'?'selected'=>'' }}>Suspended</option>
                 </select>
             </div>
             <div class="col-md-2"><button class="btn btn-outline-success w-100"><i class="fas fa-search me-1"></i>Filter</button></div>
@@ -39,7 +39,7 @@
                     <td>Rp {{ number_format($p->price, 0, ',', '.') }}</td>
                     <td>{{ $p->current_stock }}</td>
                     <td>
-                        @php $b = ['pending##A##warning','approved##A##success','suspended##A##danger']; @endphp
+                        @php $b = ['pending'=>'warning','approved'=>'success','suspended'=>'danger']; @endphp
                         <span class="badge bg-{{ $b[$p->status] }}-subtle text-{{ $b[$p->status] }}">{{ ucfirst($p->status) }}</span>
                     </td>
                     <td>
