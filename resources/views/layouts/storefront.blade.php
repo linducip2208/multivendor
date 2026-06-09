@@ -134,6 +134,48 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 @stack('scripts')
+
+{{-- Source Code Sales Popup --}}
+@if(!request()->is('admin*') && !request()->is('vendor*') && !request()->is('login') && !request()->is('register'))
+<div class="modal fade" id="sourceCodePopup" tabindex="-1" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content border-0 rounded-4 overflow-hidden">
+      <div class="modal-header border-0 text-white" style="background:linear-gradient(135deg,#4F46E5,#7C3AED)">
+        <h5 class="fw-bold mb-0">🚀 Butuh Aplikasi Seperti Ini?</h5>
+        <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <h4 class="fw-bold text-center mb-3">Source Code Multivendor — Pengganti Shopee, Tokopedia, Lazada</h4>
+        <div class="row g-3 mb-3">
+          <div class="col-6"><div class="border rounded-3 p-2 text-center"><i class="fas fa-store-alt fa-2x text-primary mb-2"></i><div class="fw-bold">Multi-Vendor</div><small class="text-muted">Ratusan toko dalam 1 platform</small></div></div>
+          <div class="col-6"><div class="border rounded-3 p-2 text-center"><i class="fas fa-credit-card fa-2x text-success mb-2"></i><div class="fw-bold">Payment Gateway</div><small class="text-muted">Midtrans, Xendit, Tripay, dll</small></div></div>
+          <div class="col-6"><div class="border rounded-3 p-2 text-center"><i class="fas fa-truck fa-2x text-warning mb-2"></i><div class="fw-bold">Ongkos Kirim</div><small class="text-muted">JNE, J&T, SiCepat, dll</small></div></div>
+          <div class="col-6"><div class="border rounded-3 p-2 text-center"><i class="fas fa-robot fa-2x text-purple mb-2"></i><div class="fw-bold">AI Analytics</div><small class="text-muted">DeepSeek, OpenAI, Ollama</small></div></div>
+        </div>
+        <div class="text-center bg-light rounded-3 p-3 mb-3">
+          <div class="fw-bold fs-5">💰 Mulai dari Rp 5.000.000</div>
+          <small class="text-muted">Free Install + Setup + 1 Bulan Support</small>
+        </div>
+        <div class="d-flex gap-2 justify-content-center">
+          <a href="https://wa.me/6281296052010?text=Halo%20saya%20tertarik%20source%20code%20multivendor%20ecommerce" target="_blank" class="btn btn-success btn-lg px-4"><i class="fab fa-whatsapp me-2"></i>Chat WhatsApp</a>
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Nanti Saja</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded',function(){
+  if(!sessionStorage.getItem('popupShown')){
+    setTimeout(function(){
+      var popup = new bootstrap.Modal(document.getElementById('sourceCodePopup'));
+      popup.show();
+      sessionStorage.setItem('popupShown','1');
+    },5000);
+  }
+});
+</script>
+@endif
 <a href="https://wa.me/6281234567890?text=Halo%20saya%20mau%20tanya" target="_blank" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:56px;height:56px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,.4);text-decoration:none;" title="Chat WhatsApp">
     <i class="fab fa-whatsapp fa-2x text-white"></i>
 </a>

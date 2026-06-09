@@ -22,7 +22,7 @@
         <h2 class="fw-bold mb-3">🚀 Butuh Aplikasi Multivendor Seperti Ini?</h2>
         <p class="mb-3" style="font-size:1.1rem">Source code siap pakai. Payment gateway Indonesia lengkap, ongkos kirim, AI analytics. Full-stack Laravel + Flutter.</p>
         <div class="d-flex justify-content-center gap-3 flex-wrap">
-            <a href="https://wa.me/6281234567890?text=Halo%20saya%20tertarik%20source%20code%20multivendor" class="btn btn-warning btn-lg"><i class="fab fa-whatsapp me-2"></i>Chat WhatsApp</a>
+            <a href="https://wa.me/6281296052010?text=Halo%20saya%20tertarik%20source%20code%20multivendor" class="btn btn-warning btn-lg"><i class="fab fa-whatsapp me-2"></i>Chat WhatsApp</a>
             <a href="/docs" class="btn btn-outline-light btn-lg">📖 Dokumentasi</a>
         </div>
     </div>
@@ -32,7 +32,7 @@
     <p>&copy; {{ date('Y') }} {{ config('app.name') }} — Platform Multivendor E-Commerce Indonesia. Source Code Multivendor, Aplikasi Toko Online, Pengganti Shopee, Payment Gateway Terbaik.</p>
 </div></footer>
 
-<a href="https://wa.me/6281234567890?text=Halo%20saya%20mau%20tanya%20source%20code%20multivendor" class="whatsapp-float text-white text-decoration-none" target="_blank"><i class="fab fa-whatsapp fa-2x"></i></a>
+<a href="https://wa.me/6281296052010?text=Halo%20saya%20mau%20tanya%20source%20code%20multivendor" class="whatsapp-float text-white text-decoration-none" target="_blank"><i class="fab fa-whatsapp fa-2x"></i></a>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

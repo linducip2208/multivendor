@@ -556,7 +556,45 @@ Route::get('{prefix}-{platform}-{suffix}', function($prefix, $platform, $suffix)
     $cityName = ucwords(str_replace('-',' ',$suffix));
     $title = "{$pLabel} {$pName} di {$cityName} — MultiVendor E-Commerce";
     $desc = "{$pLabel} {$pName} di {$cityName}? MultiVendor platform multivendor Indonesia. Payment gateway lengkap, ongkir murah, AI analytics. Source code siap pakai Laravel + Flutter.";
-    return view('pseo.source-code',['label'=>"{$pLabel} {$pName} — {$cityName}",'title'=>$title,'desc'=>$desc,'canonical'=>url("{$prefix}-{$platform}-{$suffix}"),'keyword'=>"{$prefix}-{$platform}",'wa'=>'6281234567890','appName'=>config('app.name')]);
+    return view('pseo.source-code',['label'=>"{$pLabel} {$pName} — {$cityName}",'title'=>$title,'desc'=>$desc,'canonical'=>url("{$prefix}-{$platform}-{$suffix}"),'keyword'=>"{$prefix}-{$platform}",'wa'=>'6281296052010','appName'=>config('app.name')]);
 })->where(['prefix'=>'pengganti|alternatif|aplikasi-seperti|saingan|source-code','platform'=>'[a-z0-9-]+','suffix'=>'[a-z0-9-]+'])->name('pseo.dynamic');
 
-Route::get('beli-aplikasi-{platform}', fn($p) => view('pseo.source-code',['label'=>"Beli Aplikasi ".ucwords(str_replace('-',' ',$p)),'title'=>"Beli Aplikasi Seperti ".ucwords(str_replace('-',' ',$p))." — Source Code Multivendor",'desc'=>"Jual source code aplikasi seperti ".ucwords(str_replace('-',' ',$p)).". Multi-vendor, payment gateway Indonesia, ongkir, AI. Laravel + Flutter.",'canonical'=>url("beli-aplikasi-{$p}"),'keyword'=>$p,'wa'=>'6281234567890','appName'=>config('app.name')]))->name('pseo.beli-aplikasi');
+Route::get('beli-aplikasi-{platform}', fn($p) => view('pseo.source-code',['label'=>"Beli Aplikasi ".ucwords(str_replace('-',' ',$p)),'title'=>"Beli Aplikasi Seperti ".ucwords(str_replace('-',' ',$p))." — Source Code Multivendor",'desc'=>"Jual source code aplikasi seperti ".ucwords(str_replace('-',' ',$p)).". Multi-vendor, payment gateway Indonesia, ongkir, AI. Laravel + Flutter.",'canonical'=>url("beli-aplikasi-{$p}"),'keyword'=>$p,'wa'=>'6281296052010','appName'=>config('app.name')]))->name('pseo.beli-aplikasi');
+
+// 20K PSEO: toko online + payment gateway + ongkir combos
+Route::get('toko-online-{keyword}', function($keyword) {
+    $map = [
+        'source-code'=>'Source Code Toko Online',
+        'payment-gateway'=>'Toko Online dengan Payment Gateway Indonesia',
+        'ongkos-kirim'=>'Toko Online dengan Jasa Kirim Terintegrasi',
+        'multivendor'=>'Toko Online Multivendor',
+        'marketplace'=>'Toko Online Marketplace',
+        'murah'=>'Toko Online Murah Indonesia',
+        'terbaik'=>'Toko Online Terbaik',
+        'lengkap'=>'Toko Online Terlengkap',
+        'terpercaya'=>'Toko Online Terpercaya',
+        'profesional'=>'Toko Online Profesional',
+        'android'=>'Toko Online Android',
+        'ios'=>'Toko Online iOS',
+        'flutter'=>'Toko Online Flutter App',
+        'laravel'=>'Toko Online Laravel',
+        'fullstack'=>'Toko Online Full-Stack',
+        'gratis-ongkir'=>'Toko Online Gratis Ongkir',
+        'cod'=>'Toko Online Bayar di Tempat (COD)',
+        'reseller'=>'Toko Online Reseller',
+        'dropship'=>'Toko Online Dropship',
+        'grosir'=>'Toko Online Grosir',
+    ];
+    $label = $map[$keyword] ?? 'Toko Online ' . ucwords(str_replace('-', ' ', $keyword));
+    $title = "{$label} — MultiVendor Platform Indonesia";
+    $desc = "Butuh {$label}? MultiVendor menyediakan solusi toko online lengkap: multivendor, 10 payment gateway Indonesia (Midtrans, Xendit, Tripay, dll), 16 jasa kirim (JNE, J&T, SiCepat, dll), AI analytics. Source code siap pakai Laravel + Flutter.";
+    return view('pseo.source-code', ['label'=>$label, 'title'=>$title, 'desc'=>$desc, 'canonical'=>url("toko-online-{$keyword}"), 'keyword'=>$keyword, 'wa'=>'6281296052010', 'appName'=>config('app.name')]);
+})->name('pseo.toko-online');
+
+Route::get('source-code-toko-online-{type}', function($type) {
+    $types = ['gratis'=>'Gratis','murah'=>'Murah','premium'=>'Premium','terbaik'=>'Terbaik','siap-pakai'=>'Siap Pakai','full-source'=>'Full Source Code','laravel'=>'Laravel','flutter'=>'Flutter','android'=>'Android','ios'=>'iOS','react-native'=>'React Native','nextjs'=>'Next.js','nodejs'=>'Node.js','php'=>'PHP','mysql'=>'MySQL','firebase'=>'Firebase','api'=>'REST API','admin-panel'=>'Admin Panel','vendor-panel'=>'Vendor Panel','customer-app'=>'Customer App','delivery-app'=>'Delivery App'];
+    $label = $types[$type] ?? 'Source Code';
+    $title = "Source Code Toko Online {$label} — MultiVendor Platform";
+    $desc = "Jual source code toko online {$label}. Multi-vendor e-commerce, payment gateway Indonesia lengkap (Midtrans, Xendit, dll), jasa kirim terintegrasi (RajaOngkir, JNE, J&T, dll), AI analytics. Full-stack: Laravel + MySQL + Flutter. Free install + setup + 1 bulan support.";
+    return view('pseo.source-code', ['label'=>"Source Code Toko Online {$label}", 'title'=>$title, 'desc'=>$desc, 'canonical'=>url("source-code-toko-online-{$type}"), 'keyword'=>$type, 'wa'=>'6281296052010', 'appName'=>config('app.name')]);
+})->name('pseo.source-code-toko');
