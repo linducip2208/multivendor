@@ -1,0 +1,5 @@
+@extends('layouts.storefront')
+@section('title', 'Product Bundles — Diskon Bundling')
+@section('content')
+<div class="container"><h4 class="fw-bold mb-4"><i class="fas fa-cubes me-2 text-primary"></i> Bundle Hemat</h4><div class="row g-4">@forelse($bundles as $b)<div class="col-md-4"><div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4"><h6 class="fw-bold">{{ $b->title }}</h6><span class="badge bg-success mb-2">Diskon {{ $b->discount_percentage }}%</span><div class="small">@foreach($b->products as $p)<div class="border-bottom py-1">{{ $p->name }} <small class="text-muted">Rp {{ number_format($p->price,0,',','.') }}</small></div>@endforeach</div><div class="mt-3"><span class="fw-bold text-primary">Total: Rp {{ number_format($b->products->sum('price') * (1 - $b->discount_percentage/100),0,',','.') }}</span></div></div></div></div>@empty<div class="col-12 empty-state"><i class="fas fa-cubes"></i><h5>Belum ada Bundle</h5><a href="{{ route('products.index') }}" class="btn btn-primary">Lihat Produk</a></div>@endforelse</div></div>
+@endsection
