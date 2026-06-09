@@ -75,9 +75,11 @@
 
             <h3><span class="step">9</span> Pengaturan</h3>
             <p>Menu <strong>Pengaturan</strong> — konfigurasi SMTP, komisi, mata uang. <strong>Bahasa</strong> — edit translasi ID/EN.</p>
+            <img src="/screenshots/admin-settings.png" class="ss" alt="Admin Settings" loading="lazy">
 
             <h3><span class="step">10</span> Export & Maintenance</h3>
             <p>Menu <strong>Export CSV</strong> — download laporan. <strong>Maintenance</strong> — toggle maintenance mode + clear cache.</p>
+            <img src="/screenshots/admin-export.png" class="ss" alt="Export CSV" loading="lazy">
         </div>
 
         {{-- Vendor --}}
@@ -152,7 +154,7 @@
 
             <h3><span class="step">5</span> Checkout</h3>
             <p>Pilih alamat, payment gateway, shipping per toko, kupon. Klik Bayar.</p>
-            <img src="/screenshots/store-cart.png" class="ss" alt="Checkout" loading="lazy">
+            <img src="/screenshots/store-checkout.png" class="ss" alt="Checkout" loading="lazy">
 
             <h3><span class="step">6</span> Pesanan</h3>
             <p>Lihat semua pesanan dengan status. Klik detail untuk lihat item + riwayat status.</p>
