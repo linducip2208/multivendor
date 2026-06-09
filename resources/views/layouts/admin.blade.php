@@ -108,9 +108,6 @@
         <a href="{{ route('admin.most-demanded.index') }}" class="nav-link {{ request()->routeIs('admin.most-demanded.*') ? 'active' : '' }}">
             <i class="fas fa-fire"></i> Most Demanded
         </a>
-        <a href="{{ route('admin.bundles.index') }}" class="nav-link {{ request()->routeIs('admin.bundles') ? 'active' : '' }}">
-            <i class="fas fa-cubes"></i> Product Bundles
-        </a>
 
         <div class="nav-section">👥 Pengguna</div>
         <a href="{{ route('admin.customers.index') }}" class="nav-link {{ request()->routeIs('admin.customers.*') ? 'active' : '' }}">
