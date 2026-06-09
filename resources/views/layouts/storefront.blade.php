@@ -12,12 +12,23 @@
         :root { --brand-primary: #4F46E5; }
         body { font-family: 'Inter', system-ui, sans-serif; background: #f8f9fc; }
         .navbar { background: white; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
-        .product-card { border: none; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.04); transition: all .3s; overflow: hidden; }
-        .product-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,.08); }
+        .product-card { border: none; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.04); transition: transform .25s ease, box-shadow .25s ease; overflow: hidden; }
+        .product-card:hover { transform: translateY(-6px); box-shadow: 0 16px 48px rgba(0,0,0,.12); }
         .product-card .card-img-top { height: 200px; object-fit: cover; background: #f1f5f9; }
+        .gallery-img:hover { transform: scale(1.05); transition: transform .2s; }
         .btn-primary { background: var(--brand-primary); border-color: var(--brand-primary); border-radius: 10px; font-weight: 500; }
         .btn-primary:hover { background: #4338CA; }
         .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .sticky-cta { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; padding: 12px 16px; box-shadow: 0 -4px 20px rgba(0,0,0,.08); z-index: 999; display: flex; gap: 8px; align-items: center; }
+        @media (min-width: 768px) { .sticky-cta { display: none; } }
+        .trust-badges { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; font-size: .75rem; color: #6b7280; }
+        .trust-badges i { color: #059669; margin-right: 4px; }
+        .empty-state { text-align: center; padding: 60px 20px; }
+        .empty-state i { font-size: 4rem; color: #e2e8f0; margin-bottom: 16px; }
+        .empty-state h5 { font-weight: 600; color: #475569; }
+        .empty-state .btn { margin-top: 12px; }
+        .variant-badge { cursor: pointer; transition: all .15s; }
+        .variant-badge:hover, .variant-badge.active { border-color: var(--brand-primary) !important; background: #eef2ff !important; color: var(--brand-primary) !important; }
         .page-link { font-size: .75rem; padding: 4px 8px; line-height: 1.2; }
         .page-link .fas, .page-link .far, .page-link svg { font-size: .65rem !important; width: 10px !important; height: 10px !important; }
         .pagination { --bs-pagination-font-size: .75rem; --bs-pagination-padding-x: .5rem; --bs-pagination-padding-y: .25rem; margin-bottom: 0; }
@@ -85,9 +96,39 @@
     @yield('content')
 </main>
 
-<footer class="bg-light py-4 mt-5 border-top">
-    <div class="container text-center text-muted small">
-        &copy; {{ date('Y') }} {{ config('app.name') }}. Platform Multivendor Indonesia.
+<footer class="bg-dark text-white py-4 mt-5 border-top">
+    <div class="container">
+        <div class="row g-3 mb-3">
+            <div class="col-md-4 text-center text-md-start">
+                <div class="trust-badges justify-content-center justify-content-md-start mb-2">
+                    <span><i class="fas fa-shield-alt"></i> Pembayaran Aman</span>
+                    <span><i class="fas fa-sync-alt"></i> Garansi 7 Hari</span>
+                    <span><i class="fas fa-headset"></i> Support 24/7</span>
+                </div>
+            </div>
+            <div class="col-md-4 text-center">
+                <small class="opacity-50">Didukung Pembayaran:</small>
+                <div class="d-flex gap-2 justify-content-center mt-1 flex-wrap">
+                    <span class="badge bg-secondary">Midtrans</span>
+                    <span class="badge bg-secondary">Xendit</span>
+                    <span class="badge bg-secondary">Tripay</span>
+                    <span class="badge bg-secondary">Duitku</span>
+                    <span class="badge bg-secondary">QRIS</span>
+                </div>
+            </div>
+            <div class="col-md-4 text-center text-md-end">
+                <small class="opacity-50">Pengiriman:</small>
+                <div class="d-flex gap-2 justify-content-center justify-content-md-end mt-1 flex-wrap">
+                    <span class="badge bg-dark">JNE</span>
+                    <span class="badge bg-dark">J&T</span>
+                    <span class="badge bg-dark">SiCepat</span>
+                    <span class="badge bg-dark">TIKI</span>
+                </div>
+            </div>
+        </div>
+        <div class="text-center small opacity-50">
+            &copy; {{ date('Y') }} {{ config('app.name') }}. Platform Multivendor Indonesia.
+        </div>
     </div>
 </footer>
 

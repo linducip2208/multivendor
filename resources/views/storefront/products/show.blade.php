@@ -73,7 +73,7 @@
             <div class="mb-3"><label class="fw-semibold small">Varian:</label>
                 <div class="d-flex flex-wrap gap-2">
                     @foreach($product->variants as $v)
-                    <span class="badge bg-light text-dark border px-3 py-2">{{ $v->variant }} @if($v->price != $product->price)<span class="text-primary">Rp {{ number_format($v->price,0,',','.') }}</span>@endif · Stok: {{ $v->stock }}</span>
+                    <span class="variant-badge badge bg-light text-dark border px-3 py-2" data-price="{{ $v->price }}" data-stock="{{ $v->stock }}" onclick="document.querySelectorAll('.variant-badge').forEach(b=>b.classList.remove('active','bg-primary-subtle','text-primary'));this.classList.add('active','bg-primary-subtle','text-primary');document.getElementById('variantId').value='{{ $v->id }}'">{{ $v->variant }} @if($v->price != $product->price)<span class="text-primary">Rp {{ number_format($v->price,0,',','.') }}</span>@endif · Stok: {{ $v->stock }}</span>
                     @endforeach
                 </div>
             </div>
@@ -131,5 +131,18 @@
     @if($relatedProducts->count() > 0)
     <div class="mt-5"><h5 class="fw-bold mb-3">Produk Terkait</h5><div class="row g-3">@foreach($relatedProducts as $rp)<div class="col-6 col-md-3">@include('storefront.products._card', ['product' => $rp])</div>@endforeach</div></div>
     @endif
+</div>
+
+{{-- Sticky Mobile CTA --}}
+@auth
+<div class="sticky-cta">
+    <div class="flex-grow-1">
+        <small class="text-muted">Harga</small>
+        <span class="fw-bold text-primary">Rp {{ number_format($product->getEffectivePrice(),0,',','.') }}</span>
+    </div>
+    <form action="{{ route('cart.add') }}" method="POST" class="d-flex gap-1">@csrf<input type="hidden" name="product_id" value="{{ $product->id }}"><input type="hidden" name="variant_id" id="variantId" value=""><input type="number" name="quantity" value="1" min="1" class="form-control form-control-sm" style="width:50px"><button class="btn btn-primary btn-sm px-3"><i class="fas fa-shopping-cart me-1"></i>Keranjang</button></form>
+</div>
+@endauth
+
 </div>
 @endsection
