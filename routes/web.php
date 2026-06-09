@@ -503,7 +503,12 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
         Route::get('orders/{order}/edit', [OrderEditController::class, 'edit'])->name('orders.edit');
         Route::put('orders/{order}/edit', [OrderEditController::class, 'update'])->name('orders.edit-update');
 
-        Route::get('restock-requests', fn()=>view('vendor.restock.requests.index'))->name('restock.index');
+        Route::get('restock-requests', function() {
+            $shop = auth('vendor')->user()->shop;
+            $requests = \App\Models\RestockRequest::whereHas('product', fn($q) => $q->where('shop_id', $shop->id))
+                ->with(['product', 'customer'])->latest()->simplePaginate(15);
+            return view('vendor.restock.requests.index', compact('requests'));
+        })->name('restock.index');
 
         Route::get('shipping', fn()=>view('vendor.shipping.index'))->name('shipping.index');
         Route::put('shipping', function(Request $request){
