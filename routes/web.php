@@ -561,6 +561,8 @@ Route::get('{prefix}-{platform}-{suffix}', function($prefix, $platform, $suffix)
 
 Route::get('beli-aplikasi-{platform}', fn($p) => view('pseo.source-code',['label'=>"Beli Aplikasi ".ucwords(str_replace('-',' ',$p)),'title'=>"Beli Aplikasi Seperti ".ucwords(str_replace('-',' ',$p))." — Source Code Multivendor",'desc'=>"Jual source code aplikasi seperti ".ucwords(str_replace('-',' ',$p)).". Multi-vendor, payment gateway Indonesia, ongkir, AI. Laravel + Flutter.",'canonical'=>url("beli-aplikasi-{$p}"),'keyword'=>$p,'wa'=>'6281296052010','appName'=>config('app.name')]))->name('pseo.beli-aplikasi');
 
+require base_path('routes/pair-routes.php');
+
 // 20K PSEO: toko online + payment gateway + ongkir combos
 Route::get('toko-online-{keyword}', function($keyword) {
     $map = [
