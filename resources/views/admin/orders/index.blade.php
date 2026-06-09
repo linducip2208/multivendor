@@ -14,7 +14,7 @@
 <div class="card border-0 rounded-4 shadow-sm">
     <div class="p-3 border-bottom"><form method="GET" class="row g-2">
         <div class="col-md-3"><input type="text" name="search" class="form-control" placeholder="Cari nomor order..." value="{{ request('search') }}"></div>
-        <div class="col-md-2"><select name="payment" class="form-select"><option value="">Payment</option><option value="unpaid" {{ request('payment')==='unpaid'?'selected'=>'' }}>Unpaid</option><option value="paid" {{ request('payment')==='paid'?'selected'=>'' }}>Paid</option></select></div>
+        <div class="col-md-2"><select name="payment" class="form-select"><option value="">Payment</option><option value="unpaid" {{ request('payment')==='unpaid'?'selected' : '' }}>Unpaid</option><option value="paid" {{ request('payment')==='paid'?'selected' : '' }}>Paid</option></select></div>
         <div class="col-md-2"><button class="btn btn-outline-primary w-100"><i class="fas fa-search me-1"></i>Filter</button></div>
     </form></div>
     <div class="table-responsive"><table class="table table-hover mb-0">
@@ -26,7 +26,7 @@
                 <td>{{ $o->customer->name ?? '-' }}</td>
                 <td><small>{{ $o->shop->name ?? '-' }}</small></td>
                 <td>Rp {{ number_format($o->total,0,',','.') }}</td>
-                <td><span class="badge bg-{{ $o->payment_status==='paid'?'success'=>'warning' }}-subtle">{{ $o->payment_status }}</span></td>
+                <td><span class="badge bg-{{ $o->payment_status==='paid'?'success' : 'warning' }}-subtle">{{ $o->payment_status }}</span></td>
                 <td><span class="badge bg-{{ $st[$o->order_status] }}-subtle text-{{ $st[$o->order_status] }}">{{ ucfirst($o->order_status) }}</span></td>
                 <td class="small">{{ $o->created_at->format('d/m/Y') }}</td>
                 <td><a href="{{ route('admin.orders.show', $o) }}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i></a></td>

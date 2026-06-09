@@ -19,7 +19,7 @@
             <div class="mb-2"><small class="text-muted">Pelanggan</small><br>{{ $order->customer->name ?? '-' }}<br><small>{{ $order->customer->email ?? '' }}</small></div>
             <div class="mb-2"><small class="text-muted">Toko</small><br>{{ $order->shop->name ?? '-' }}</div>
             <div class="mb-2"><small class="text-muted">Status</small><br><span class="badge bg-info-subtle text-info">{{ ucfirst($order->order_status) }}</span></div>
-            <div class="mb-2"><small class="text-muted">Pembayaran</small><br>{{ $order->payment_method }} — <span class="badge bg-{{ $order->payment_status==='paid'?'success'=>'warning' }}-subtle">{{ $order->payment_status }}</span></div>
+            <div class="mb-2"><small class="text-muted">Pembayaran</small><br>{{ $order->payment_method }} — <span class="badge bg-{{ $order->payment_status==='paid'?'success' : 'warning' }}-subtle">{{ $order->payment_status }}</span></div>
             @if($order->shipping_tracking_id)<div class="mb-2"><small class="text-muted">Resi</small><br><code>{{ $order->shipping_tracking_id }}</code></div>@endif
             @if($order->shipping_address)<div class="mb-2"><small class="text-muted">Alamat</small><br><small>{{ $order->shipping_address['receiver_name']??'' }} — {{ $order->shipping_address['address']??'' }}</small></div>@endif
         </div></div>

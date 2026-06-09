@@ -17,7 +17,7 @@
     @endif
 </div></div>
 <div class="card border-0 shadow-sm rounded-4"><div class="card-header bg-transparent pt-3"><h6 class="fw-bold mb-0">Riwayat Poin</h6></div>
-<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Tgl</th><th>Tipe</th><th>Poin</th><th>Deskripsi</th></tr></thead><tbody>@forelse($transactions as $t)<tr><td class="small">{{ $t->created_at->format('d/m/Y') }}</td><td><span class="badge bg-{{ $t->type==='earn'?'success'=>'danger' }}-subtle">{{ $t->type==='earn'?'+'=>'-' }}{{ $t->points }}</span></td><td>{{ $t->points }}</td><td><small>{{ $t->description }}</small></td></tr>@empty<tr><td colspan="4" class="text-center py-4 text-muted">Belum ada aktivitas poin</td></tr>@endforelse</tbody></table></div>@if($transactions->hasPages())<div class="p-3">{{ $transactions->links() }}</div>@endif</div>
+<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Tgl</th><th>Tipe</th><th>Poin</th><th>Deskripsi</th></tr></thead><tbody>@forelse($transactions as $t)<tr><td class="small">{{ $t->created_at->format('d/m/Y') }}</td><td><span class="badge bg-{{ $t->type==='earn'?'success' : 'danger' }}-subtle">{{ $t->type==='earn'?'+' : '-' }}{{ $t->points }}</span></td><td>{{ $t->points }}</td><td><small>{{ $t->description }}</small></td></tr>@empty<tr><td colspan="4" class="text-center py-4 text-muted">Belum ada aktivitas poin</td></tr>@endforelse</tbody></table></div>@if($transactions->hasPages())<div class="p-3">{{ $transactions->links() }}</div>@endif</div>
 <p class="text-muted small mt-2 text-center">Dapatkan poin dari referral + belanja. Kode referral Anda: <code>{{ auth()->user()->referral_code ?? 'N/A' }}</code></p>
 </div>
 @endsection

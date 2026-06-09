@@ -95,9 +95,9 @@ let currentTab=0;const totalTabs=5;
 function showTab(n){
     document.querySelectorAll('.tab-pane').forEach((t,i)=>t.classList.toggle('active',i===n));
     document.querySelectorAll('.step').forEach((s,i)=>{s.classList.toggle('active',i===n);if(i<n)s.classList.add('done');else s.classList.remove('done')});
-    document.getElementById('prevBtn').style.display=n===0?'none'=>'inline-block';
-    document.getElementById('nextBtn').style.display=n===totalTabs-1?'none'=>'inline-block';
-    document.getElementById('submitBtn').style.display=n===totalTabs-1?'inline-block'=>'none';
+    document.getElementById('prevBtn').style.display=n===0?'none' : 'inline-block';
+    document.getElementById('nextBtn').style.display=n===totalTabs-1?'none' : 'inline-block';
+    document.getElementById('submitBtn').style.display=n===totalTabs-1?'inline-block' : 'none';
     currentTab=n;
 }
 function nextTab(){if(currentTab<totalTabs-1)showTab(currentTab+1)}
