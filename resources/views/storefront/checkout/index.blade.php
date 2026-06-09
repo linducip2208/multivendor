@@ -25,7 +25,20 @@
                     </div>
                 </div>
                 @else
-                <div class="alert alert-warning">Anda belum punya alamat. <a href="#">Tambah alamat</a></div>
+                <div class="card border-0 shadow-sm rounded-4 mb-3">
+                    <div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><i class="fas fa-map-marker-alt me-2"></i>Alamat Baru</h6></div>
+                    <div class="card-body">
+                        <div class="row g-2">
+                            <div class="col-md-4"><input type="text" name="new_label" class="form-control form-control-sm" placeholder="Label (Rumah/Kantor)" value="Rumah"></div>
+                            <div class="col-md-4"><input type="text" name="new_receiver_name" class="form-control form-control-sm" placeholder="Nama penerima" required></div>
+                            <div class="col-md-4"><input type="text" name="new_receiver_phone" class="form-control form-control-sm" placeholder="No HP" required></div>
+                            <div class="col-12"><input type="text" name="new_address" class="form-control form-control-sm" placeholder="Alamat lengkap" required></div>
+                            <div class="col-md-4"><input type="text" name="new_city" class="form-control form-control-sm" placeholder="Kota" required></div>
+                            <div class="col-md-4"><input type="text" name="new_province" class="form-control form-control-sm" placeholder="Provinsi" required></div>
+                            <div class="col-md-4"><input type="text" name="new_postal_code" class="form-control form-control-sm" placeholder="Kode pos"></div>
+                        </div>
+                    </div>
+                </div>
                 @endif
 
                 <div class="card border-0 shadow-sm rounded-4 mb-3">

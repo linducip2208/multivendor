@@ -47,7 +47,12 @@ class CheckoutController extends Controller
     public function process(Request $request)
     {
         $request->validate([
-            'address_id' => 'required|exists:customer_addresses,id',
+            'address_id' => 'nullable|exists:customer_addresses,id',
+            'new_receiver_name' => 'nullable|required_without:address_id|string|max:255',
+            'new_receiver_phone' => 'nullable|required_without:address_id|string|max:20',
+            'new_address' => 'nullable|required_without:address_id|string|max:500',
+            'new_city' => 'nullable|required_without:address_id|string|max:100',
+            'new_province' => 'nullable|required_without:address_id|string|max:100',
             'shipping_methods' => 'required|array',
             'payment_provider_id' => 'required|exists:providers,id',
             'note' => 'nullable|string',
@@ -55,7 +60,21 @@ class CheckoutController extends Controller
         ]);
 
         $customer = auth()->user();
-        $address = $customer->addresses()->findOrFail($request->address_id);
+        if ($request->address_id) {
+            $address = $customer->addresses()->findOrFail($request->address_id);
+        } else {
+            $address = \App\Models\CustomerAddress::create([
+                'customer_id' => $customer->id,
+                'label' => $request->new_label ?? 'Rumah',
+                'receiver_name' => $request->new_receiver_name,
+                'receiver_phone' => $request->new_receiver_phone,
+                'address' => $request->new_address,
+                'city' => $request->new_city,
+                'province' => $request->new_province,
+                'postal_code' => $request->new_postal_code,
+                'is_default' => $customer->addresses()->count() === 0,
+            ]);
+        }
         $cartItems = Cart::where('customer_id', $customer->id)
             ->with(['product.shop', 'variant'])
             ->get();
