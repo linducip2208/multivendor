@@ -58,13 +58,8 @@ class MassiveDemoSeeder extends Seeder
 
         $this->command->info('Creating 30 products per vendor (3000 total)...');
         $bar3 = $this->command->getOutput()->createProgressBar(100);
-        $placeholderImages = [
-            'https://picsum.photos/seed/p1/400/400', 'https://picsum.photos/seed/p2/400/400',
-            'https://picsum.photos/seed/p3/400/400', 'https://picsum.photos/seed/p4/400/400',
-            'https://picsum.photos/seed/p5/400/400', 'https://picsum.photos/seed/p6/400/400',
-            'https://picsum.photos/seed/p7/400/400', 'https://picsum.photos/seed/p8/400/400',
-            'https://picsum.photos/seed/p9/400/400', 'https://picsum.photos/seed/p10/400/400',
-        ];
+        $placeholderImages = [];
+        for ($i = 0; $i < 10; $i++) { $placeholderImages[] = 'products/placeholder' . $i . '.svg'; }
         foreach ($shops as $shop) {
             for ($j = 1; $j <= 30; $j++) {
                 $category = $categories->random();
