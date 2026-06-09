@@ -39,6 +39,7 @@ use App\Http\Controllers\Storefront\WishlistController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\Admin\VendorController;
 use App\Http\Controllers\PseoController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Vendor\AuthController as VendorAuthController;
 use App\Http\Controllers\Vendor\BarcodeController;
 use App\Http\Controllers\Vendor\BulkImportController;
@@ -541,8 +542,8 @@ Route::prefix('best')->name('pseo.')->group(function () {
 });
 Route::get('alternatives-to-{slug}', [PseoController::class, 'alternatives'])->name('pseo.alternatives');
 Route::get('compare/{a}-vs-{b}', [PseoController::class, 'compare'])->name('pseo.compare');
-Route::get('beli-{slug}', [PseoController::class, 'beli'])->name('pseo.beli');
 Route::get('beli-aplikasi-{keyword?}', [PseoController::class, 'sourceCodePage'])->name('pseo.source-code');
+Route::get('beli-{slug}', [PseoController::class, 'beli'])->name('pseo.beli');
 Route::get('source-code-{city?}', [PseoController::class, 'sourceCodeCity'])->name('pseo.source-code-city');
 Route::get('ongkos-kirim-{city?}', [PseoController::class, 'shippingCity'])->name('pseo.shipping-city');
 Route::get('payment-gateway-{method?}', [PseoController::class, 'paymentGateway'])->name('pseo.payment-gateway');
@@ -559,7 +560,7 @@ Route::get('{prefix}-{platform}-{suffix}', function($prefix, $platform, $suffix)
     return view('pseo.source-code',['label'=>"{$pLabel} {$pName} — {$cityName}",'title'=>$title,'desc'=>$desc,'canonical'=>url("{$prefix}-{$platform}-{$suffix}"),'keyword'=>"{$prefix}-{$platform}",'wa'=>'6281296052010','appName'=>config('app.name')]);
 })->where(['prefix'=>'pengganti|alternatif|aplikasi-seperti|saingan|source-code','platform'=>'[a-z0-9-]+','suffix'=>'[a-z0-9-]+'])->name('pseo.dynamic');
 
-Route::get('beli-aplikasi-{platform}', fn($p) => view('pseo.source-code',['label'=>"Beli Aplikasi ".ucwords(str_replace('-',' ',$p)),'title'=>"Beli Aplikasi Seperti ".ucwords(str_replace('-',' ',$p))." — Source Code Multivendor",'desc'=>"Jual source code aplikasi seperti ".ucwords(str_replace('-',' ',$p)).". Multi-vendor, payment gateway Indonesia, ongkir, AI. Laravel + Flutter.",'canonical'=>url("beli-aplikasi-{$p}"),'keyword'=>$p,'wa'=>'6281296052010','appName'=>config('app.name')]))->name('pseo.beli-aplikasi');
+
 
 require base_path('routes/pair-routes.php');
 
