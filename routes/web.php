@@ -16,6 +16,8 @@ use App\Http\Controllers\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProviderController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\FileManagerController;
 use App\Http\Controllers\Admin\ProductSeoController;
 use App\Http\Controllers\Admin\SupportTicketController as AdminTicketController;
 use App\Http\Controllers\Storefront\ProfileController;
