@@ -31,6 +31,7 @@ use App\Http\Controllers\Admin\WithdrawController as AdminWithdrawController;
 use App\Http\Controllers\Storefront\ShopController as StoreShopController;
 use App\Http\Controllers\Storefront\AuthController as SocialAuthController;
 use App\Http\Controllers\Storefront\InnovativeController;
+use App\Http\Controllers\Storefront\LoyaltyController;
 use App\Http\Controllers\Storefront\TicketController;
 use App\Http\Controllers\Storefront\WishlistController;
 use App\Http\Controllers\Admin\TransactionController;
@@ -156,7 +157,13 @@ Route::middleware('customer')->group(function () {
     Route::resource('tickets', TicketController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('tickets/{ticket}/reply', [TicketController::class, 'reply'])->name('tickets.reply');
 
-    Route::get('/track-order', [TrackOrderController::class, 'show'])->name('track-order');
+    Route::get('/track-order', function(\Illuminate\Http\Request $request){
+        $order = null;
+        if ($request->has('order_number')) {
+            $order = \App\Models\Order::where('order_number', $request->order_number)->with(['items.product','statusHistory','shop'])->first();
+        }
+        return view('storefront.track-order', compact('order'));
+    })->name('track-order');
     Route::get('/loyalty', [LoyaltyController::class, 'index'])->name('loyalty.index');
     Route::post('/loyalty/redeem', [LoyaltyController::class, 'redeem'])->name('loyalty.redeem');
 
