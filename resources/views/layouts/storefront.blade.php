@@ -18,9 +18,14 @@
         .btn-primary { background: var(--brand-primary); border-color: var(--brand-primary); border-radius: 10px; font-weight: 500; }
         .btn-primary:hover { background: #4338CA; }
         .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-        .page-link { font-size: .8125rem; padding: 5px 10px; }
-        .page-link .fas, .page-link .far { font-size: inherit !important; }
-        .pagination { margin-bottom: 0; }
+        .page-link { font-size: .75rem; padding: 4px 8px; line-height: 1.2; }
+        .page-link .fas, .page-link .far, .page-link svg { font-size: .65rem !important; width: 10px !important; height: 10px !important; }
+        .pagination { --bs-pagination-font-size: .75rem; --bs-pagination-padding-x: .5rem; --bs-pagination-padding-y: .25rem; margin-bottom: 0; }
+        .pagination svg { width: 10px !important; height: 10px !important; }
+        .pagination .page-item .page-link { font-size: .75rem !important; }
+        .pagination .page-item:first-child .page-link svg,
+        .pagination .page-item:last-child .page-link svg,
+        .pagination .page-item .page-link svg { max-width: 12px !important; max-height: 12px !important; width: 12px !important; height: 12px !important; }
         footer p, footer small { font-size: .8rem !important; }
         footer { font-size: .8rem; }
         .text-muted.small, small.text-muted { font-size: .8125rem !important; }
