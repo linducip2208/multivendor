@@ -529,3 +529,34 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
         })->name('shipping.update');
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| PSEO Routes — 100K+ Programmatic SEO Pages
+|--------------------------------------------------------------------------
+*/
+Route::prefix('best')->name('pseo.')->group(function () {
+    Route::get('{slug}', [PseoController::class, 'bestCategory'])->name('best-category');
+    Route::get('{slug}-{year}', [PseoController::class, 'bestCategoryYear'])->name('best-category-year')->where('year', '[0-9]{4}');
+});
+Route::get('alternatives-to-{slug}', [PseoController::class, 'alternatives'])->name('pseo.alternatives');
+Route::get('compare/{a}-vs-{b}', [PseoController::class, 'compare'])->name('pseo.compare');
+Route::get('beli-{slug}', [PseoController::class, 'beli'])->name('pseo.beli');
+Route::get('beli-aplikasi-{keyword?}', [PseoController::class, 'sourceCodePage'])->name('pseo.source-code');
+Route::get('source-code-{city?}', [PseoController::class, 'sourceCodeCity'])->name('pseo.source-code-city');
+Route::get('ongkos-kirim-{city?}', [PseoController::class, 'shippingCity'])->name('pseo.shipping-city');
+Route::get('payment-gateway-{method?}', [PseoController::class, 'paymentGateway'])->name('pseo.payment-gateway');
+
+// 100K PSEO: pengganti shopee/tokopedia/bukalapak + kota/feature combo
+Route::get('{prefix}-{platform}-{suffix}', function($prefix, $platform, $suffix) {
+    $platforms = ['shopee'=>'Shopee','tokopedia'=>'Tokopedia','bukalapak'=>'Bukalapak','lazada'=>'Lazada','blibli'=>'Blibli','zalora'=>'Zalora'];
+    $prefixes = ['pengganti'=>'Pengganti','alternatif'=>'Alternatif','aplikasi-seperti'=>'Aplikasi Seperti','saingan'=>'Saingan','source-code'=>'Source Code'];
+    $pName = $platforms[$platform] ?? ucfirst(str_replace('-',' ',$platform));
+    $pLabel = $prefixes[$prefix] ?? ucfirst(str_replace('-',' ',$prefix));
+    $cityName = ucwords(str_replace('-',' ',$suffix));
+    $title = "{$pLabel} {$pName} di {$cityName} — MultiVendor E-Commerce";
+    $desc = "{$pLabel} {$pName} di {$cityName}? MultiVendor platform multivendor Indonesia. Payment gateway lengkap, ongkir murah, AI analytics. Source code siap pakai Laravel + Flutter.";
+    return view('pseo.source-code',['label'=>"{$pLabel} {$pName} — {$cityName}",'title'=>$title,'desc'=>$desc,'canonical'=>url("{$prefix}-{$platform}-{$suffix}"),'keyword'=>"{$prefix}-{$platform}",'wa'=>'6281234567890','appName'=>config('app.name')]);
+})->where(['prefix'=>'pengganti|alternatif|aplikasi-seperti|saingan|source-code','platform'=>'[a-z0-9-]+','suffix'=>'[a-z0-9-]+'])->name('pseo.dynamic');
+
+Route::get('beli-aplikasi-{platform}', fn($p) => view('pseo.source-code',['label'=>"Beli Aplikasi ".ucwords(str_replace('-',' ',$p)),'title'=>"Beli Aplikasi Seperti ".ucwords(str_replace('-',' ',$p))." — Source Code Multivendor",'desc'=>"Jual source code aplikasi seperti ".ucwords(str_replace('-',' ',$p)).". Multi-vendor, payment gateway Indonesia, ongkir, AI. Laravel + Flutter.",'canonical'=>url("beli-aplikasi-{$p}"),'keyword'=>$p,'wa'=>'6281234567890','appName'=>config('app.name')]))->name('pseo.beli-aplikasi');
