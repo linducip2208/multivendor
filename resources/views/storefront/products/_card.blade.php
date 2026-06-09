@@ -7,7 +7,10 @@
     <span class="position-absolute top-0 end-0 badge bg-warning m-2 z-1"><i class="fas fa-star"></i></span>
     @endif
     <div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:180px;">
-        @if($product->thumbnail)<img src="{{ asset('storage/'.$product->thumbnail) }}" class="w-100 h-100" style="object-fit:contain;" loading="lazy">@else<i class="fas fa-box fa-3x text-muted opacity-25"></i>@endif
+        @if($product->thumbnail)
+            @php $thumb = str_starts_with($product->thumbnail, 'http') ? $product->thumbnail : asset('storage/'.$product->thumbnail); @endphp
+            <img src="{{ $thumb }}" class="w-100 h-100" style="object-fit:contain;" loading="lazy">
+        @else<i class="fas fa-box fa-2x text-muted opacity-25"></i>@endif
     </div>
     <div class="card-body p-3">
         <div class="small text-muted mb-1">{{ $product->shop->name ?? '' }}</div>

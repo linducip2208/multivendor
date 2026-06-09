@@ -19,13 +19,15 @@
                 @if($product->getDiscountPercentage())
                 <span class="position-absolute top-0 start-0 badge bg-danger m-3 fs-6 px-3 py-2">-{{ $product->getDiscountPercentage() }}%</span>
                 @endif
-                <img id="mainImage" src="{{ $product->thumbnail ? asset('storage/'.$product->thumbnail) : 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><rect fill=%22%23f1f5f9%22 width=%22300%22 height=%22300%22/><text fill=%22%2394a3b8%22 x=%22150%22 y=%22160%22 text-anchor=%22middle%22 font-size=%2250%22>📦</text></svg>' }}" class="img-fluid rounded-3" style="max-height:400px;object-fit:contain;" alt="{{ $product->name }}">
+                @php $mainImg = $product->thumbnail ? (str_starts_with($product->thumbnail,'http') ? $product->thumbnail : asset('storage/'.$product->thumbnail)) : 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><rect fill=%22%23f1f5f9%22 width=%22300%22 height=%22300%22/><text fill=%22%2394a3b8%22 x=%22150%22 y=%22160%22 text-anchor=%22middle%22 font-size=%2250%22>📦</text></svg>'; @endphp
+                <img id="mainImage" src="{{ $mainImg }}" class="img-fluid rounded-3" style="max-height:400px;object-fit:contain;" alt="{{ $product->name }}">
             </div>
-            @php $allImages = array_merge($product->thumbnail ? [$product->thumbnail] : [], json_decode($product->images ?? '[]', true) ?? []); @endphp
+            @php $allImages = $product->thumbnail ? [$product->thumbnail] : []; $extras = json_decode($product->images ?? '[]', true) ?? []; $allImages = array_merge($allImages, $extras); @endphp
             @if(count($allImages) > 1)
             <div class="d-flex gap-2 mt-2 overflow-auto pb-2">
                 @foreach($allImages as $img)
-                <img src="{{ asset('storage/'.$img) }}" class="rounded-3 border cursor-pointer" style="width:64px;height:64px;object-fit:cover;" onclick="document.getElementById('mainImage').src=this.src">
+                @php $imgUrl = str_starts_with($img, 'http') ? $img : asset('storage/'.$img); @endphp
+                <img src="{{ $imgUrl }}" class="rounded-3 border cursor-pointer" style="width:64px;height:64px;object-fit:cover;" onclick="document.getElementById('mainImage').src=this.src">
                 @endforeach
             </div>
             @endif

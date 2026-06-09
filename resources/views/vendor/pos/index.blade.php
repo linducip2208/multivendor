@@ -11,6 +11,8 @@
             <div class="product-grid" id="productGrid">
                 @foreach($products as $p)
                 <div class="pos-card" data-id="{{ $p->id }}" data-name="{{ $p->name }}" data-price="{{ $p->getEffectivePrice() }}" data-stock="{{ $p->current_stock }}">
+                    @php $posImg = $p->thumbnail ? (str_starts_with($p->thumbnail,'http') ? $p->thumbnail : asset('storage/'.$p->thumbnail)) : null; @endphp
+                    @if($posImg)<img src="{{ $posImg }}" style="width:100%;height:80px;object-fit:contain;border-radius:8px;margin-bottom:4px;" loading="lazy">@endif
                     <div class="fw-semibold small text-truncate">{{ $p->name }}</div>
                     <div class="fw-bold text-success">Rp {{ number_format($p->getEffectivePrice(),0,',','.') }}</div>
                     <small class="text-muted">Stok: {{ $p->current_stock }}</small>
@@ -35,6 +37,7 @@
 @endsection
 @push('scripts')
 <script>
+document.addEventListener('DOMContentLoaded', function(){
 let cart = []; const productGrid = document.getElementById('productGrid');
 document.querySelectorAll('.pos-card').forEach(card => { card.addEventListener('click',()=>addToCart(card)); });
 document.getElementById('posSearch').addEventListener('input', e => {
@@ -64,5 +67,6 @@ document.getElementById('checkoutBtn').addEventListener('click',async()=>{
     else{alert('Gagal!');}
 });
 document.addEventListener('keydown',e=>{if(e.key==='F8'){e.preventDefault(); document.getElementById('checkoutBtn').click();}});
+}); // end DOMContentLoaded
 </script>
 @endpush

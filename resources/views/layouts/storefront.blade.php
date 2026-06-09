@@ -18,6 +18,8 @@
         .btn-primary { background: var(--brand-primary); border-color: var(--brand-primary); border-radius: 10px; font-weight: 500; }
         .btn-primary:hover { background: #4338CA; }
         .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+        .page-link { font-size: .875rem; padding: 6px 12px; }
+        .page-link .fas, .page-link .far { font-size: inherit !important; }
     </style>
     @stack('head')
 </head>
