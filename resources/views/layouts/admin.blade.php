@@ -20,6 +20,7 @@
             --topbar-height: 60px;
         }
         body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f8f9fc; }
+        i.fas,i.far,i.fab { font-size: inherit !important; }
         .sidebar {
             position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-width);
             background: linear-gradient(180deg, var(--brand-primary) 0%, var(--brand-dark) 100%);
