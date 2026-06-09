@@ -70,6 +70,10 @@
         <div class="logo">
             <i class="fas fa-store-alt me-2"></i> {{ config('app.name') }}
         </div>
+        <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
+            <i class="fas fa-tachometer-alt"></i> Dashboard
+        </a>
+
         <div class="nav-section">🏪 Master Data</div>
         <a href="{{ route('admin.vendors.index') }}" class="nav-link {{ request()->routeIs('admin.vendors.*') ? 'active' : '' }}">
             <i class="fas fa-store"></i> Vendor
@@ -209,9 +213,6 @@
         </a>
         <a href="{{ route('admin.maintenance.index') }}" class="nav-link {{ request()->routeIs('admin.maintenance.*') ? 'active' : '' }}">
             <i class="fas fa-tools"></i> Maintenance
-        </a>
-        <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
-            <i class="fas fa-tachometer-alt"></i> Dashboard
         </a>
         <a href="{{ route('admin.logout') }}" class="nav-link" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();">
             <i class="fas fa-sign-out-alt"></i> Keluar
