@@ -20,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
             'language' => \App\Http\Middleware\LanguageMiddleware::class,
         ]);
         $middleware->web(append: [\App\Http\Middleware\LanguageMiddleware::class]);
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+            'webhook/*',
+            'checkout/shipping-cost',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
