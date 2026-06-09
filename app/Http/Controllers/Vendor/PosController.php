@@ -15,7 +15,7 @@ class PosController extends Controller
     public function index(Request $request)
     {
         $shop = auth('vendor')->user()->shop;
-        $query = Product::where('shop_id', $shop->id)->where('status', 'approved');
+        $query = Product::where('status', 'approved')->with('shop');
         if ($request->filled('search')) {
             $query->where('name', 'like', "%{$request->search}%");
         }
