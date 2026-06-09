@@ -18,9 +18,9 @@
             <div class="col-md-2">
                 <select name="status" class="form-select">
                     <option value="">Semua</option>
-                    <option value="pending" {{ request('status')==='pending'?'selected'=>'' }}>Pending</option>
-                    <option value="approved" {{ request('status')==='approved'?'selected'=>'' }}>Approved</option>
-                    <option value="suspended" {{ request('status')==='suspended'?'selected'=>'' }}>Suspended</option>
+                    <option value="pending" {{ request('status')==='pending'? '' : '' }}>Pending</option>
+                    <option value="approved" {{ request('status')==='approved'? '' : '' }}>Approved</option>
+                    <option value="suspended" {{ request('status')==='suspended'? '' : '' }}>Suspended</option>
                 </select>
             </div>
             <div class="col-md-2"><button class="btn btn-outline-success w-100"><i class="fas fa-search me-1"></i>Filter</button></div>

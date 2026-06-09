@@ -33,7 +33,7 @@
         <div class="tab-content">
             <div class="tab-pane fade show active" id="history"><div class="card border-0 rounded-4 shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Tgl</th><th>Deskripsi</th><th>Tipe</th><th>Jumlah</th><th>Saldo</th></tr></thead><tbody>
                 @forelse($transactions as $t)
-                <tr><td class="small">{{ $t->created_at->format('d/m/Y H:i') }}</td><td>{{ $t->description ?? '-' }}</td><td><span class="badge bg-{{ $t->type==='credit'?'success'=>'danger' }}-subtle">{{ $t->type }}</span></td><td class="fw-medium">Rp {{ number_format($t->amount,0,',','.') }}</td><td>Rp {{ number_format($t->balance_after,0,',','.') }}</td></tr>
+                <tr><td class="small">{{ $t->created_at->format('d/m/Y H:i') }}</td><td>{{ $t->description ?? '-' }}</td><td><span class="badge bg-{{ $t->type==='credit' ? 'success' : 'danger' }}-subtle">{{ $t->type }}</span></td><td class="fw-medium">Rp {{ number_format($t->amount,0,',','.') }}</td><td>Rp {{ number_format($t->balance_after,0,',','.') }}</td></tr>
                 @empty
                 <tr><td colspan="5" class="text-center py-4 text-muted">Belum ada transaksi</td></tr>
                 @endforelse
