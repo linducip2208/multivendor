@@ -1,0 +1,7 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice {{ $order->order_number }}</title><style>body{font-family:sans-serif;padding:30px}.header{display:flex;justify-content:space-between;margin-bottom:20px}h2{margin:0}table{width:100%;border-collapse:collapse;margin:15px 0}td,th{border:1px solid #ddd;padding:8px;text-align:left}.total{text-align:right;font-size:18px;font-weight:bold}.footer{text-align:center;margin-top:30px;color:#666;font-size:12px}</style></head><body>
+<div class="header"><div><h2>INVOICE</h2><p>#{{ $order->order_number }}</p></div><div style="text-align:right"><strong>{{ $order->shop->name ?? '' }}</strong><br>{{ $order->shop->address ?? '' }}</div></div>
+<div style="margin-bottom:10px"><strong>Kepada:</strong> {{ $order->customer->name ?? 'Walk-in' }}<br><strong>Tanggal:</strong> {{ $order->created_at->format('d F Y H:i') }}</div>
+<table><thead><tr><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead><tbody>@foreach($order->items as $item)<tr><td>{{ $item->product->name ?? '-' }}</td><td>{{ $item->quantity }}</td><td>Rp {{ number_format($item->price,0,',','.') }}</td><td>Rp {{ number_format($item->sub_total,0,',','.') }}</td></tr>@endforeach</tbody></table>
+<div class="total">TOTAL: Rp {{ number_format($order->total,0,',','.') }}</div>
+<div class="footer">Terima kasih telah berbelanja! · {{ config('app.name') }}</div>
+</body></html>
