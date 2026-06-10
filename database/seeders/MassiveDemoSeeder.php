@@ -88,5 +88,16 @@ class MassiveDemoSeeder extends Seeder
         }
         $bar3->finish();
         $this->command->info("\n3000 products created!");
+
+        // Generate placeholder SVG images
+        $this->command->info('Generating product images...');
+        $colors = ['#4F46E5','#7C3AED','#059669','#DC2626','#D97706','#2563EB','#0891B2','#9333EA','#DB2777','#65A30D'];
+        $imgDir = storage_path('app/public/products');
+        if (!is_dir($imgDir)) mkdir($imgDir, 0755, true);
+        for ($i = 0; $i < 10; $i++) {
+            $svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect fill="'.$colors[$i].'" width="400" height="400" rx="20"/><text fill="white" font-size="80" font-family="sans-serif" text-anchor="middle" x="200" y="210">P'.($i+1).'</text><text fill="rgba(255,255,255,0.6)" font-size="16" font-family="sans-serif" text-anchor="middle" x="200" y="255">Product</text></svg>';
+            file_put_contents($imgDir.'/placeholder'.$i.'.svg', $svg);
+        }
+        $this->command->info('10 placeholder images generated.');
     }
 }
