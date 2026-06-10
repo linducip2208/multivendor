@@ -46,15 +46,15 @@
     </style>
     <script type="application/ld+json">
     {
-        "@context": "https://schema.org",
-        "@type": "WebApplication",
+        "@@context": "https://schema.org",
+        "@@type": "WebApplication",
         "name": "{{ $title }}",
         "description": "{{ $description }}",
         "url": "{{ $canonical }}",
         "applicationCategory": "E-Commerce",
         "operatingSystem": "Web, Android, iOS",
         "offers": {
-            "@type": "Offer",
+            "@@type": "Offer",
             "category": "Source Code",
             "price": "0",
             "priceCurrency": "IDR"
