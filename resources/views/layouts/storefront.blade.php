@@ -133,11 +133,23 @@
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+(function(){
+  if(!sessionStorage.getItem('popupShown')){
+    setTimeout(function(){
+      var el = document.getElementById('sourceCodePopup');
+      if(el && typeof bootstrap !== 'undefined'){
+        new bootstrap.Modal(el).show();
+        sessionStorage.setItem('popupShown','1');
+      }
+    },5000);
+  }
+})();
+</script>
 @stack('scripts')
 
 {{-- Source Code Sales Popup --}}
 @if(!request()->is('admin*') && !request()->is('vendor*'))
-<div class="modal fade" id="sourceCodePopup" tabindex="-1" data-bs-backdrop="static">
 <div class="modal fade" id="sourceCodePopup" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content border-0 rounded-4 overflow-hidden">
@@ -165,17 +177,6 @@
     </div>
   </div>
 </div>
-<script>
-document.addEventListener('DOMContentLoaded',function(){
-  if(!sessionStorage.getItem('popupShown')){
-    setTimeout(function(){
-      var popup = new bootstrap.Modal(document.getElementById('sourceCodePopup'));
-      popup.show();
-      sessionStorage.setItem('popupShown','1');
-    },5000);
-  }
-});
-</script>
 @endif
 <a href="https://wa.me/6281296052010?text=Halo%20saya%20mau%20tanya" target="_blank" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:56px;height:56px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,.4);text-decoration:none;" title="Chat WhatsApp">
     <i class="fab fa-whatsapp fa-2x text-white"></i>
