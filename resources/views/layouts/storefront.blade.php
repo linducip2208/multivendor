@@ -135,14 +135,16 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 (function(){
-  if(!sessionStorage.getItem('popupShown')){
+  var lastShown = localStorage.getItem('popupLastShown');
+  var now = Date.now();
+  if(!lastShown || (now - parseInt(lastShown)) > 600000){
     setTimeout(function(){
       var el = document.getElementById('sourceCodePopup');
       if(el && typeof bootstrap !== 'undefined'){
         new bootstrap.Modal(el).show();
-        sessionStorage.setItem('popupShown','1');
+        localStorage.setItem('popupLastShown', now.toString());
       }
-    },5000);
+    },30000);
   }
 })();
 </script>
