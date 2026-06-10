@@ -12,21 +12,27 @@
 ```bash
 # 1. Clone & install
 cd /var/www
-git clone [repo-url] multivendor
+git clone https://github.com/linducip2208/multivendor.git multivendor
 cd multivendor
 
 # 2. Install dependencies
 composer install --no-dev --optimize-autoloader
-npm install && npm run build
 
 # 3. Environment
 cp .env.example .env
 php artisan key:generate
 
 # Edit .env:
-# - DB_DATABASE, DB_USERNAME, DB_PASSWORD
-# - APP_URL=https://domainanda.com
-# - MAIL_* settings
+nano .env
+# APP_NAME="MultiVendor — Jual Source Code Marketplace"
+# APP_ENV=production
+# APP_DEBUG=false
+# APP_URL=https://multivendor.whitelabel.co.id
+# DB_DATABASE=multivendor
+# DB_USERNAME=root
+# DB_PASSWORD=yourpassword
+# LICENSE_DEV_BYPASS=false
+# LICENSE_SERVER_URL=https://whitelabel.co.id
 
 # 4. Database
 mysql -u root -p -e "CREATE DATABASE multivendor CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
@@ -37,10 +43,7 @@ php artisan db:seed --force
 chmod -R 775 storage bootstrap/cache
 chown -R www-data:www-data storage bootstrap/cache
 
-# 6. Storage symlink
-php artisan storage:link
-
-# 7. Cache
+# 6. Cache (jangan pakai storage:link — gambar via route /img/)
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache

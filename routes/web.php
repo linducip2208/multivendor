@@ -54,6 +54,7 @@ use App\Http\Controllers\Vendor\ProductController as VendorProductController;
 use App\Http\Controllers\Vendor\RefundController;
 use App\Http\Controllers\Vendor\ReportController as VendorReportController;
 use App\Http\Controllers\Vendor\LimitedStockController;
+use App\Http\Controllers\Vendor\ReviewController as VendorReviewController;
 use App\Http\Controllers\Vendor\ShopController as VendorShopController;
 use App\Http\Controllers\Vendor\WalletController as VendorWalletController;
 use App\Http\Controllers\Storefront\CartController;
@@ -301,7 +302,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
 
         Route::resource('withdraws', AdminWithdrawController::class)->only(['index', 'update']);
-        Route::put('withdraws/{withdraw}', [AdminWithdrawController::class, 'update'])->name('withdraws.update');
 
         Route::resource('deals', DealOfTheDayController::class)->only(['index', 'store', 'destroy']);
         Route::resource('featured-deals', FeaturedDealController::class)->only(['index', 'store']);
@@ -508,8 +508,8 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
         Route::get('chat/{customer}', [ChatController::class, 'messages'])->name('chat.messages');
         Route::post('chat/send', [ChatController::class, 'send'])->name('chat.send');
 
-        Route::get('reviews', [ReviewController::class, 'index'])->name('reviews.index');
-        Route::put('reviews/{review}', [ReviewController::class, 'update'])->name('reviews.update');
+        Route::get('reviews', [VendorReviewController::class, 'index'])->name('reviews.index');
+        Route::put('reviews/{review}', [VendorReviewController::class, 'update'])->name('reviews.update');
 
         Route::get('limited-stock', [LimitedStockController::class, 'index'])->name('limited-stock.index');
 
