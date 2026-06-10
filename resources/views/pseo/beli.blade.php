@@ -1,5 +1,5 @@
 @extends('pseo._layout')
-@section('meta')<link rel="canonical" href="{{ $canonical }}"/><meta name="description" content="{{ $desc }}"><meta property="og:title" content="{{ $title }}"><meta property="og:description" content="{{ $desc }}"><meta property="og:type" content="product"><meta property="og:url" content="{{ $canonical }}">@if($product->thumbnail)<meta property="og:image" content="{{ asset('storage/'.$product->thumbnail) }}">@endif
+@section('meta')<link rel="canonical" href="{{ $canonical }}"/><meta name="description" content="{{ $desc }}"><meta property="og:title" content="{{ $title }}"><meta property="og:description" content="{{ $desc }}"><meta property="og:type" content="product"><meta property="og:url" content="{{ $canonical }}">@if($product->thumbnail)<meta property="og:image" content="{{ url('img/'.$product->thumbnail) }}">@endif
 @endsection
 @section('jsonld'){!! $jsonld !!}@endsection
 @section('title'){{ $title }}@endsection
@@ -7,7 +7,7 @@
 <nav class="breadcrumb"><a href="/">Home</a> &raquo; <a href="{{ route('products.show', $product->slug) }}">{{ $product->name }}</a> &raquo; <strong>Beli</strong></nav>
 <div class="content-section">
     <h1>{{ $title }}</h1>
-    <div class="row"><div class="col-md-4 text-center">@if($product->thumbnail)<img src="{{ asset('storage/'.$product->thumbnail) }}" class="img-fluid rounded-4 mb-3" style="max-height:300px">@endif</div>
+    <div class="row"><div class="col-md-4 text-center">@if($product->thumbnail)<img src="{{ url('img/'.$product->thumbnail) }}" class="img-fluid rounded-4 mb-3" style="max-height:300px">@endif</div>
     <div class="col-md-8">
         <p class="lead">{{ $desc }}</p>
         <h3 class="fw-bold text-primary">Rp {{ number_format($product->getEffectivePrice(),0,',','.') }}</h3>

@@ -10,6 +10,6 @@
     </div></div>
     <h5 class="fw-bold mb-3">Produk dari {{ $shop->name }}</h5>
     <div class="row g-3">@foreach($shop->products as $p)
-    <div class="col-6 col-md-3"><a href="{{ route('products.show', $p->slug) }}" class="text-decoration-none"><div class="card product-card h-100"><div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:180px;">@if($p->thumbnail)<img src="{{ asset('storage/'.$p->thumbnail) }}" class="w-100 h-100" style="object-fit:contain;">@else<i class="fas fa-box fa-3x text-muted opacity-25"></i>@endif</div><div class="card-body p-3"><h6 class="fw-semibold small line-clamp-2 text-dark">{{ $p->name }}</h6><span class="fw-bold text-primary">Rp {{ number_format($p->getEffectivePrice(),0,',','.') }}</span></div></div></a></div>@endforeach</div>
+    <div class="col-6 col-md-3"><a href="{{ route('products.show', $p->slug) }}" class="text-decoration-none"><div class="card product-card h-100"><div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:180px;">@if($p->thumbnail)<img src="{{ url('img/'.$p->thumbnail) }}" class="w-100 h-100" style="object-fit:contain;">@else<i class="fas fa-box fa-3x text-muted opacity-25"></i>@endif</div><div class="card-body p-3"><h6 class="fw-semibold small line-clamp-2 text-dark">{{ $p->name }}</h6><span class="fw-bold text-primary">Rp {{ number_format($p->getEffectivePrice(),0,',','.') }}</span></div></div></a></div>@endforeach</div>
 </div>
 @endsection

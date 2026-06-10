@@ -4,7 +4,7 @@
 @push('head')
 <meta property="og:title" content="{{ $product->meta_title ?: $product->name }}">
 <meta property="og:description" content="{{ $product->meta_description ?: strip_tags($product->short_description ?? $product->description) }}">
-@if($product->thumbnail)<meta property="og:image" content="{{ asset('storage/'.$product->thumbnail) }}">@endif
+@if($product->thumbnail)<meta property="og:image" content="{{ url('img/'.$product->thumbnail) }}">@endif
 @if($product->meta_description)<meta name="description" content="{{ $product->meta_description }}">@endif
 @endpush
 
@@ -19,14 +19,14 @@
                 @if($product->getDiscountPercentage())
                 <span class="position-absolute top-0 start-0 badge bg-danger m-3 fs-6 px-3 py-2">-{{ $product->getDiscountPercentage() }}%</span>
                 @endif
-                @php $mainImg = $product->thumbnail ? (str_starts_with($product->thumbnail,'http') ? $product->thumbnail : asset('storage/'.$product->thumbnail)) : 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><rect fill=%22%23f1f5f9%22 width=%22300%22 height=%22300%22/><text fill=%22%2394a3b8%22 x=%22150%22 y=%22160%22 text-anchor=%22middle%22 font-size=%2250%22>📦</text></svg>'; @endphp
+                @php $mainImg = $product->thumbnail ? (str_starts_with($product->thumbnail,'http') ? $product->thumbnail : url('img/'.$product->thumbnail)) : 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22300%22 height=%22300%22><rect fill=%22%23f1f5f9%22 width=%22300%22 height=%22300%22/><text fill=%22%2394a3b8%22 x=%22150%22 y=%22160%22 text-anchor=%22middle%22 font-size=%2250%22>📦</text></svg>'; @endphp
                 <img id="mainImage" src="{{ $mainImg }}" class="img-fluid rounded-3" style="max-height:400px;object-fit:contain;" alt="{{ $product->name }}">
             </div>
             @php $allImages = $product->thumbnail ? [$product->thumbnail] : []; $extras = json_decode($product->images ?? '[]', true) ?? []; $allImages = array_merge($allImages, $extras); @endphp
             @if(count($allImages) > 1)
             <div class="d-flex gap-2 mt-2 overflow-auto pb-2">
                 @foreach($allImages as $img)
-                @php $imgUrl = str_starts_with($img, 'http') ? $img : asset('storage/'.$img); @endphp
+                @php $imgUrl = str_starts_with($img, 'http') ? $img : url('img/'.$img); @endphp
                 <img src="{{ $imgUrl }}" class="rounded-3 border cursor-pointer" style="width:64px;height:64px;object-fit:cover;" onclick="document.getElementById('mainImage').src=this.src">
                 @endforeach
             </div>
@@ -37,7 +37,7 @@
                 <div class="ratio ratio-16x9 rounded-4 overflow-hidden">
                     @php preg_match('/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^\&\?\/]+)/', $product->video_url, $m); $ytId = $m[1] ?? ''; @endphp
                     @if($ytId)<iframe src="https://www.youtube.com/embed/{{ $ytId }}" allowfullscreen></iframe>
-                    @elseif(str_ends_with($product->video_url, '.mp4') || str_contains($product->video_url, 'storage/videos'))<video controls class="w-100"><source src="{{ str_starts_with($product->video_url, 'videos/') ? asset('storage/'.$product->video_url) : $product->video_url }}" type="video/mp4"></video>
+                    @elseif(str_ends_with($product->video_url, '.mp4') || str_contains($product->video_url, 'storage/videos'))<video controls class="w-100"><source src="{{ str_starts_with($product->video_url, 'videos/') ? url('img/'.$product->video_url) : $product->video_url }}" type="video/mp4"></video>
                     @else<video controls class="w-100"><source src="{{ $product->video_url }}" type="video/mp4"></video>@endif
                 </div>
             </div>

@@ -26,7 +26,7 @@
                     <div class="d-flex gap-2 align-items-center">
                         <input type="file" name="thumbnail" class="form-control" accept="image/*" style="max-width:400px;">
                         @if($product->thumbnail)
-                            <img src="{{ asset('storage/'.$product->thumbnail) }}" class="rounded-3" style="width:64px;height:64px;object-fit:cover;">
+                            <img src="{{ url('img/'.$product->thumbnail) }}" class="rounded-3" style="width:64px;height:64px;object-fit:cover;">
                             <small class="text-muted">Upload untuk ganti</small>
                         @endif
                     </div>

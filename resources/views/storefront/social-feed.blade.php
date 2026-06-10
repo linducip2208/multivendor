@@ -5,7 +5,7 @@
 <h4 class="fw-bold mb-4 text-center"><i class="fas fa-fire me-2 text-danger"></i>Feed</h4>
 @foreach($feeds as $f)
 <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
-    @if($f->video_url)<video src="{{ $f->video_url }}" class="w-100" controls style="max-height:400px;object-fit:cover;"></video>@elseif($f->product->thumbnail)<img src="{{ asset('storage/'.$f->product->thumbnail) }}" class="w-100" style="max-height:400px;object-fit:cover;">@endif
+    @if($f->video_url)<video src="{{ $f->video_url }}" class="w-100" controls style="max-height:400px;object-fit:cover;"></video>@elseif($f->product->thumbnail)<img src="{{ url('img/'.$f->product->thumbnail) }}" class="w-100" style="max-height:400px;object-fit:cover;">@endif
     <div class="card-body p-3">
         <div class="d-flex align-items-center gap-2 mb-2"><i class="fas fa-store text-muted"></i><span class="fw-semibold small">{{ $f->shop->name }}</span></div>
         <p class="small mb-2">{{ $f->caption }}</p>

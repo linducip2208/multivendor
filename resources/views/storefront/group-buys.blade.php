@@ -11,7 +11,7 @@
                     <div class="d-flex gap-3 align-items-start">
                         <div class="bg-light rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:80px;height:80px;">
                             @if($g->product->thumbnail)
-                                @php $img = str_starts_with($g->product->thumbnail,'http') ? $g->product->thumbnail : asset('storage/'.$g->product->thumbnail); @endphp
+                                @php $img = str_starts_with($g->product->thumbnail,'http') ? $g->product->thumbnail : url('img/'.$g->product->thumbnail); @endphp
                                 <img src="{{ $img }}" style="width:80px;height:80px;object-fit:contain;" class="rounded-3">
                             @else
                                 <i class="fas fa-box fa-2x text-muted opacity-25"></i>

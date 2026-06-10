@@ -11,7 +11,7 @@
             <div class="product-grid" id="productGrid">
                 @foreach($products as $p)
                 <div class="pos-card" data-id="{{ $p->id }}" data-name="{{ $p->name }}" data-price="{{ $p->getEffectivePrice() }}" data-stock="{{ $p->current_stock }}" onclick="addToCart(this)">
-                    @php $posImg = $p->thumbnail ? (str_starts_with($p->thumbnail,'http') ? $p->thumbnail : asset('storage/'.$p->thumbnail)) : null; @endphp
+                    @php $posImg = $p->thumbnail ? (str_starts_with($p->thumbnail,'http') ? $p->thumbnail : url('img/'.$p->thumbnail)) : null; @endphp
                     @if($posImg)<img src="{{ $posImg }}" style="width:100%;height:80px;object-fit:contain;border-radius:8px;margin-bottom:4px;" loading="lazy">@endif
                     <div class="fw-semibold small text-truncate">{{ $p->name }}</div>
                     <div class="fw-bold text-success">Rp {{ number_format($p->getEffectivePrice(),0,',','.') }}</div>

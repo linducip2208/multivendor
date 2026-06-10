@@ -138,7 +138,7 @@
     <div class="container"><div class="text-center mb-4"><span class="badge bg-danger fs-5 mb-2">⚡ DEAL OF THE DAY</span><h2 class="fw-bold">{{ $dealOfTheDay->product->name }}</h2></div>
         <div class="row align-items-center justify-content-center"><div class="col-md-4 text-center">
             <div class="bg-white rounded-4 p-4 shadow-sm">
-                @if($dealOfTheDay->product->thumbnail)<img src="{{ asset('storage/'.$dealOfTheDay->product->thumbnail) }}" class="img-fluid rounded-3" style="max-height:250px;object-fit:contain;">@else<i class="fas fa-box fa-5x text-muted opacity-25"></i>@endif
+                @if($dealOfTheDay->product->thumbnail)<img src="{{ url('img/'.$dealOfTheDay->product->thumbnail) }}" class="img-fluid rounded-3" style="max-height:250px;object-fit:contain;">@else<i class="fas fa-box fa-5x text-muted opacity-25"></i>@endif
             </div></div>
             <div class="col-md-4"><div class="text-center"><p class="text-muted">{{ Str::limit(strip_tags($dealOfTheDay->product->short_description ?? ''), 100) }}</p>
                 <div class="mb-3"><span class="fs-2 fw-bold text-danger">Rp {{ number_format($dealOfTheDay->product->getEffectivePrice(), 0, ',', '.') }}</span><br><span class="text-muted text-decoration-line-through">Rp {{ number_format($dealOfTheDay->product->price, 0, ',', '.') }}</span> <span class="badge bg-danger">-{{ $dealOfTheDay->discount_type === 'percentage' ? $dealOfTheDay->discount_value.'%' : 'Rp'.number_format($dealOfTheDay->discount_value,0,',','.') }}</span></div>
@@ -153,7 +153,7 @@
 @if($featuredDeals->count() > 0)
 <section class="py-5"><div class="container"><div class="text-center mb-4"><h2 class="fw-bold">⭐ Produk Unggulan</h2></div>
     <div class="row g-3">@foreach($featuredDeals as $fp)
-    <div class="col-6 col-md-3"><a href="{{ route('products.show', $fp->slug) }}" class="text-decoration-none"><div class="card product-card h-100"><div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:180px;">@if($fp->thumbnail)<img src="{{ asset('storage/'.$fp->thumbnail) }}" class="w-100 h-100" style="object-fit:contain;">@else<i class="fas fa-box fa-3x text-muted opacity-25"></i>@endif</div><div class="card-body p-3"><div class="small text-muted mb-1">{{ $fp->shop->name ?? '' }}</div><h6 class="fw-semibold small line-clamp-2 text-dark">{{ $fp->name }}</h6><span class="fw-bold text-primary">Rp {{ number_format($fp->getEffectivePrice(),0,',','.') }}</span></div></div></a></div>@endforeach</div>
+    <div class="col-6 col-md-3"><a href="{{ route('products.show', $fp->slug) }}" class="text-decoration-none"><div class="card product-card h-100"><div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:180px;">@if($fp->thumbnail)<img src="{{ url('img/'.$fp->thumbnail) }}" class="w-100 h-100" style="object-fit:contain;">@else<i class="fas fa-box fa-3x text-muted opacity-25"></i>@endif</div><div class="card-body p-3"><div class="small text-muted mb-1">{{ $fp->shop->name ?? '' }}</div><h6 class="fw-semibold small line-clamp-2 text-dark">{{ $fp->name }}</h6><span class="fw-bold text-primary">Rp {{ number_format($fp->getEffectivePrice(),0,',','.') }}</span></div></div></a></div>@endforeach</div>
 </div></section>
 @endif
 
@@ -161,7 +161,7 @@
 @if($flashDeals->count() > 0)
 <section class="py-5 bg-light"><div class="container"><div class="text-center mb-4"><h2 class="fw-bold">⚡ Flash Deals</h2></div>
 @foreach($flashDeals as $fd)
-<div class="mb-4"><h5 class="fw-bold mb-3">{{ $fd->title }} <small class="text-muted">s/d {{ $fd->end_date->format('d M H:i') }}</small></h5><div class="row g-3">@foreach($fd->products->take(4) as $fp)<div class="col-6 col-md-3"><a href="{{ route('products.show', $fp->slug) }}" class="text-decoration-none"><div class="card product-card h-100"><div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:150px;">@if($fp->thumbnail)<img src="{{ asset('storage/'.$fp->thumbnail) }}" class="w-100 h-100" style="object-fit:contain;">@else<i class="fas fa-box fa-3x text-muted opacity-25"></i>@endif</div><div class="card-body p-2"><h6 class="fw-semibold small line-clamp-2 text-dark">{{ $fp->name }}</h6><span class="fw-bold text-danger">Rp {{ number_format($fp->getEffectivePrice(),0,',','.') }}</span></div></div></a></div>@endforeach</div></div>
+<div class="mb-4"><h5 class="fw-bold mb-3">{{ $fd->title }} <small class="text-muted">s/d {{ $fd->end_date->format('d M H:i') }}</small></h5><div class="row g-3">@foreach($fd->products->take(4) as $fp)<div class="col-6 col-md-3"><a href="{{ route('products.show', $fp->slug) }}" class="text-decoration-none"><div class="card product-card h-100"><div class="card-img-top d-flex align-items-center justify-content-center bg-light" style="height:150px;">@if($fp->thumbnail)<img src="{{ url('img/'.$fp->thumbnail) }}" class="w-100 h-100" style="object-fit:contain;">@else<i class="fas fa-box fa-3x text-muted opacity-25"></i>@endif</div><div class="card-body p-2"><h6 class="fw-semibold small line-clamp-2 text-dark">{{ $fp->name }}</h6><span class="fw-bold text-danger">Rp {{ number_format($fp->getEffectivePrice(),0,',','.') }}</span></div></div></a></div>@endforeach</div></div>
 @endforeach
 </div></section>
 @endif

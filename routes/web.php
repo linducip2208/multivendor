@@ -564,6 +564,13 @@ Route::get('{prefix}-{platform}-{suffix}', function($prefix, $platform, $suffix)
 
 require base_path('routes/pair-routes.php');
 
+// Serve product images from storage (no symlink needed)
+Route::get('img/{path}', function($path) {
+    $fullPath = storage_path('app/public/' . $path);
+    if (!file_exists($fullPath)) abort(404);
+    return response()->file($fullPath);
+})->where('path', '.*')->name('img.serve');
+
 // 20K PSEO: toko online + payment gateway + ongkir combos
 Route::get('toko-online-{keyword}', function($keyword) {
     $map = [

@@ -50,7 +50,7 @@
                             <div class="d-flex align-items-center gap-2">
                                 <div class="rounded bg-light d-flex align-items-center justify-content-center" style="width:40px;height:40px;">
                                     @if($product->thumbnail)
-                                        <img src="{{ asset('storage/'.$product->thumbnail) }}" class="rounded" style="width:40px;height:40px;object-fit:contain;">
+                                        <img src="{{ url('img/'.$product->thumbnail) }}" class="rounded" style="width:40px;height:40px;object-fit:contain;">
                                     @else
                                         <i class="fas fa-box text-muted"></i>
                                     @endif

@@ -20,7 +20,7 @@
                     @foreach($shopData['items'] as $item)
                     <div class="d-flex align-items-center gap-3 p-3 border-bottom">
                         <div class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="width:64px;height:64px;">
-                            @if($item->product->thumbnail)<img src="{{ asset('storage/'.$item->product->thumbnail) }}" class="rounded-3" style="width:64px;height:64px;object-fit:contain;">@else<i class="fas fa-box text-muted"></i>@endif
+                            @if($item->product->thumbnail)<img src="{{ url('img/'.$item->product->thumbnail) }}" class="rounded-3" style="width:64px;height:64px;object-fit:contain;">@else<i class="fas fa-box text-muted"></i>@endif
                         </div>
                         <div class="flex-grow-1">
                             <div class="fw-semibold small">{{ $item->product->name }}</div>
