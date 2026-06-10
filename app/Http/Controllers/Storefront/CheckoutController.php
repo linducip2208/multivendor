@@ -177,7 +177,17 @@ class CheckoutController extends Controller
 
             if (!$paymentResult['success']) {
                 DB::rollBack();
-                return back()->with('error', 'Gagal membuat pembayaran: ' . ($paymentResult['message'] ?? 'Unknown error'));
+                $errMsg = $paymentResult['message'] ?? 'Unknown error';
+                if (str_contains($errMsg, 'Invalid signature') || str_contains($errMsg, 'signature')) {
+                    $errMsg = 'Payment gateway error: API Key/Private Key tidak cocok. Cek ulang di Admin → Integrasi.';
+                } elseif (str_contains($errMsg, '401') || str_contains($errMsg, 'Unauthorized')) {
+                    $errMsg = 'Payment gateway error: API Key tidak valid. Cek di Admin → Integrasi.';
+                } elseif (str_contains($errMsg, '404') || str_contains($errMsg, 'Not Found')) {
+                    $errMsg = 'Payment gateway error: Base URL salah atau endpoint tidak ditemukan.';
+                } elseif (str_contains($errMsg, 'timeout') || str_contains($errMsg, 'cURL')) {
+                    $errMsg = 'Payment gateway error: Server gateway tidak merespons. Coba lagi nanti.';
+                }
+                return back()->with('error', 'Gagal membuat pembayaran: ' . $errMsg);
             }
 
             foreach ($orders as $order) {
