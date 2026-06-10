@@ -6,7 +6,174 @@ use Illuminate\Http\Response;
 
 class PseoSitemapController extends Controller
 {
-    protected function xml(array $urls): Response
+    const CHUNK_SIZE = 10000; // ~1.3MB XML per chunk
+
+    protected array $platforms = [
+        'shopee','tokopedia','lazada','bukalapak','blibli','alibaba','aliexpress','etsy','ebay','amazon',
+        'themeforest','codecanyon','appsumo','gumroad','sellfy','creativemarket','envatomarket','sourceforge',
+        'codecanyon-clone','multi-vendor-marketplace','digital-product-marketplace','b2b-marketplace',
+        'saas-marketplace','white-label-marketplace','marketplace-source-code','marketplace-script',
+        'e-commerce-platform','online-store-builder','digital-store-platform','multi-seller-marketplace',
+        'vendor-management-system','standalone-marketplace-solution','cms-marketplace','erp-marketplace',
+    ];
+
+    protected array $features = [
+        'multivendor','toko-online','marketplace','ecommerce','payment-gateway','ongkos-kirim',
+        'ai-analytics','pos-system','source-code','aplikasi','platform','sistem','script','cms','erp',
+        'white-label','b2b','saas','digital-product','multi-seller','vendor-management',
+        'reseller','dropship','gratis-ongkir','cod','terbaik','murah','lengkap','terpercaya',
+        'profesional','laravel','flutter','fullstack','android','ios',
+    ];
+
+    protected array $prefixes = ['pengganti','alternatif','source-code','toko-online','jual-source-code','beli-aplikasi'];
+
+    protected array $cities = [
+        'jakarta','bandung','surabaya','medan','makassar','semarang','yogyakarta','palembang','denpasar',
+        'balikpapan','pekanbaru','malang','solo','bogor','batam','padang','pontianak','banjarmasin',
+        'manado','samarinda','depok','tangerang','bekasi','cilegon','serang','cirebon','tasikmalaya',
+        'sukabumi','garut','purwakarta','karawang','cikarang','cikampek','subang','indramayu',
+        'majalengka','kuningan','ciamis','banjar','pangandaran','cilacap','purwokerto','tegal',
+        'pekalongan','magelang','klaten','boyolali','sragen','wonogiri','karanganyar','sukoharjo',
+        'kudus','pati','rembang','blora','grobogan','demak','kendal','batang','pemalang','brebes',
+        'banyuwangi','jember','probolinggo','pasuruan','mojokerto','jombang','nganjuk','madiun',
+        'magetan','ponorogo','pacitan','trenggalek','tulungagung','blitar','kediri','lamongan',
+        'gresik','sidoarjo','bangkalan','sampang','pamekasan','sumenep','buleleng','gianyar',
+        'tabanan','badung','bima','dompu','sumbawa','mataram','ende','maumere','kupang','atambua',
+        'ambon','ternate','jayapura','sorong','manokwari','merauke','timika','nabire','biak',
+        'singaraja','negara','bangli','ampana','kolaka','bau-bau','kendari','palu','poso',
+        'gorontalo','maros','watampone','palopo','parepare','pinrang','mamuju','majene',
+        'tarakan','nunukan','berau','tenggarong','bontang','sangatta','tanjungselor',
+        'mentawai','solok','bukittinggi','payakumbuh','pariaman','sawahlunto','dumai','bengkalis',
+        'jambi','muaro-jambi','bungho','tebo','sarolangun','lahat','pagaralam','lubuklinggau',
+        'baturaja','martapura','tanjung','barabai','amlapura','rantau','kandangan','barito',
+    ];
+
+    protected function combos(): array
+    {
+        $p = count($this->platforms);
+        $pr = count($this->prefixes);
+        $c = count($this->cities);
+        $f = count($this->features);
+
+        return [
+            ['dims' => [$pr, $p, $c, $f],        'fn' => 4, 'priority' => '0.5', 'changefreq' => 'monthly'],
+            ['dims' => [$pr, $p, $c],            'fn' => 1, 'priority' => '0.6', 'changefreq' => 'weekly'],
+            ['dims' => [$f, $p, $c],             'fn' => 2, 'priority' => '0.6', 'changefreq' => 'weekly'],
+            ['dims' => [$pr, $p],                'fn' => 3, 'priority' => '0.7', 'changefreq' => 'weekly'],
+            ['dims' => [$p, $c],                 'fn' => 5, 'priority' => '0.6', 'changefreq' => 'weekly'],
+            ['dims' => [$f, $c],                 'fn' => 6, 'priority' => '0.5', 'changefreq' => 'monthly'],
+            ['dims' => [$pr, $c],                'fn' => 7, 'priority' => '0.5', 'changefreq' => 'monthly'],
+            ['dims' => [$f, $p],                 'fn' => 11,'priority' => '0.6', 'changefreq' => 'monthly'],
+            ['dims' => [$p],                     'fn' => 8, 'priority' => '0.8', 'changefreq' => 'monthly'],
+            ['dims' => [$p],                     'fn' => 9, 'priority' => '0.8', 'changefreq' => 'monthly'],
+            ['dims' => [$p],                     'fn' => 10,'priority' => '0.7', 'changefreq' => 'monthly'],
+            ['dims' => [$f],                     'fn' => 12,'priority' => '0.7', 'changefreq' => 'monthly'],
+            ['dims' => [$f],                     'fn' => 13,'priority' => '0.7', 'changefreq' => 'monthly'],
+            ['dims' => [$pr],                    'fn' => 14,'priority' => '0.7', 'changefreq' => 'monthly'],
+            ['dims' => [$f, $pr],                'fn' => 15,'priority' => '0.5', 'changefreq' => 'monthly'],
+        ];
+    }
+
+    protected function totalPatterns(): int
+    {
+        $total = 0;
+        foreach ($this->combos() as $combo) {
+            $total += array_product($combo['dims']);
+        }
+        return $total;
+    }
+
+    public function getChunkCount(): int
+    {
+        return (int) ceil($this->totalPatterns() / self::CHUNK_SIZE);
+    }
+
+    public function index(): Response
+    {
+        $chunks = $this->getChunkCount();
+        $xml = '<?xml version="1.0" encoding="UTF-8"?>';
+        $xml .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+        $xml .= '<sitemap><loc>' . url('sitemap-main.xml') . '</loc></sitemap>';
+        $xml .= '<sitemap><loc>' . url('sitemap-products.xml') . '</loc></sitemap>';
+        $xml .= '<sitemap><loc>' . url('sitemap-categories.xml') . '</loc></sitemap>';
+        $xml .= '<sitemap><loc>' . url('sitemap-blog.xml') . '</loc></sitemap>';
+        for ($i = 1; $i <= $chunks; $i++) {
+            $xml .= '<sitemap><loc>' . url("sitemap-pseo-{$i}.xml") . '</loc></sitemap>';
+        }
+        $xml .= '</sitemapindex>';
+        return response($xml, 200, ['Content-Type' => 'application/xml']);
+    }
+
+    public function chunk(int $num): Response
+    {
+        $urls = $this->generateChunk($num);
+        return $this->renderXml($urls);
+    }
+
+    protected function generateChunk(int $num): array
+    {
+        $offset = ($num - 1) * self::CHUNK_SIZE;
+        $urls = [];
+
+        for ($i = $offset; $i < $offset + self::CHUNK_SIZE; $i++) {
+            $url = $this->getUrl($i);
+            if ($url === null) break;
+            $urls[] = $url;
+        }
+
+        return $urls;
+    }
+
+    protected function getUrl(int $index): ?array
+    {
+        $remaining = $index;
+        foreach ($this->combos() as $combo) {
+            $total = array_product($combo['dims']);
+            if ($remaining < $total) {
+                $indices = [];
+                $r = $remaining;
+                $dims = $combo['dims'];
+                for ($d = count($dims) - 1; $d >= 0; $d--) {
+                    $indices[$d] = $r % $dims[$d];
+                    $r = intdiv($r, $dims[$d]);
+                }
+                $fn = $combo['fn'];
+                $loc = $this->buildUrl($fn, $indices);
+                return ['loc' => $loc, 'priority' => $combo['priority'], 'changefreq' => $combo['changefreq']];
+            }
+            $remaining -= $total;
+        }
+        return null;
+    }
+
+    protected function buildUrl(int $pattern, array $idx): string
+    {
+        $i = $idx[0] ?? 0;
+        $j = $idx[1] ?? 0;
+        $k = $idx[2] ?? 0;
+        $l = $idx[3] ?? 0;
+
+        return match ($pattern) {
+            1  => url("{$this->prefixes[$i]}-{$this->platforms[$j]}-{$this->cities[$k]}"),
+            2  => url("{$this->features[$i]}-{$this->platforms[$j]}-{$this->cities[$k]}"),
+            3  => url("{$this->prefixes[$i]}-{$this->platforms[$j]}"),
+            4  => url("{$this->prefixes[$i]}-{$this->platforms[$j]}-{$this->cities[$k]}-{$this->features[$l]}"),
+            5  => url("toko-online-{$this->platforms[$i]}-{$this->cities[$j]}"),
+            6  => url("{$this->features[$i]}-{$this->cities[$j]}"),
+            7  => url("{$this->prefixes[$i]}-{$this->cities[$j]}"),
+            8  => url("beli-{$this->platforms[$i]}"),
+            9  => url("jual-{$this->platforms[$i]}"),
+            10 => url("marketplace-{$this->platforms[$i]}"),
+            11 => url("{$this->features[$i]}-{$this->platforms[$j]}"),
+            12 => url("toko-online-{$this->features[$i]}"),
+            13 => url("beli-{$this->features[$i]}"),
+            14 => url("toko-online-{$this->prefixes[$i]}"),
+            15 => url("{$this->features[$i]}-{$this->prefixes[$j]}"),
+            default => url('/'),
+        };
+    }
+
+    protected function renderXml(array $urls): Response
     {
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';
         $xml .= '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
@@ -18,131 +185,5 @@ class PseoSitemapController extends Controller
         }
         $xml .= '</urlset>';
         return response($xml, 200, ['Content-Type' => 'application/xml']);
-    }
-
-    public function index()
-    {
-        $chunks = $this->getChunkCount();
-        $files = [];
-        for ($i = 1; $i <= $chunks; $i++) {
-            $files[] = "sitemap-pseo-{$i}.xml";
-        }
-        // Also include main sitemaps
-        array_unshift($files, 'sitemap-main.xml', 'sitemap-products.xml', 'sitemap-categories.xml', 'sitemap-blog.xml');
-
-        $xml = '<?xml version="1.0" encoding="UTF-8"?>';
-        $xml .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
-        foreach ($files as $f) {
-            $xml .= '<sitemap><loc>' . url($f) . '</loc></sitemap>';
-        }
-        $xml .= '</sitemapindex>';
-        return response($xml, 200, ['Content-Type' => 'application/xml']);
-    }
-
-    public function chunk($num)
-    {
-        $chunkSize = 45000; // ~1.4MB XML
-        $allUrls = $this->generateAllUrls();
-        $offset = ((int)$num - 1) * $chunkSize;
-        $slice = array_slice($allUrls, $offset, $chunkSize);
-        return $this->xml($slice);
-    }
-
-    protected function getChunkCount(): int
-    {
-        return (int) ceil(count($this->generateAllUrls()) / 45000);
-    }
-
-    protected function generateAllUrls(): array
-    {
-        // Build from cache to avoid regenerating 1M URLs each request
-        return \Illuminate\Support\Facades\Cache::remember('pseo_all_urls', 86400, function () {
-            $urls = [];
-
-            // Core platforms
-            $platforms = ['shopee','tokopedia','lazada','bukalapak','blibli','alibaba','aliexpress','etsy','ebay','amazon','themeforest','codecanyon','appsumo','gumroad','sellfy','creativemarket','envatomarket','sourceforge'];
-            
-            // Prefixes
-            $prefixes = ['pengganti','alternatif','aplikasi-seperti','saingan','mirip','source-code','beli-aplikasi','jual-source-code'];
-            
-            // Cities (100+ major Indonesian cities)
-            $cities = ['jakarta','bandung','surabaya','medan','makassar','semarang','yogyakarta','palembang','denpasar','balikpapan','pekanbaru','malang','solo','bogor','batam','padang','pontianak','banjarmasin','manado','samarinda','depok','tangerang','bekasi','bogor','cilegon','serang','cirebon','tasikmalaya','sukabumi','garut','purwakarta','karawang','cikarang','cikampek','subang','indramayu','majalengka','kuningan','ciamis','banjar','pangandaran','cilacap','purwokerto','tegal','pekalongan','magelang','klaten','boyolali','sragen','wonogiri','karanganyar','sukoharjo','kudus','pati','rembang','blora','grobogan','demak','kendal','batang','pemalang','brebes','banyuwangi','jember','probolinggo','pasuruan','mojokerto','jombang','nganjuk','madiun','magetan','ponorogo','pacitan','trenggalek','tulungagung','blitar','kediri','lamongan','gresik','sidoarjo','bangkalan','sampang','pamekasan','sumenep','buleleng','gianyar','tabanan','badung','bima','dompu','sumbawa','mataram','ende','maumere','kupang','atambua','ambon','ternate','jayapura','sorong','manokwari','merauke','timika','nabire','biak'];
-
-            // Features
-            $features = ['multivendor','marketplace','toko-online','ecommerce','payment-gateway','ongkos-kirim','ai-analytics','pos-system','source-code','aplikasi','platform','sistem','script','cms','erp','white-label','b2b','saas','digital-product','multi-seller','vendor-management'];
-            
-            $sourceCodeTerms = ['source-code-toko-online','source-code-marketplace','jual-source-code','beli-source-code','aplikasi-toko-online','aplikasi-marketplace','aplikasi-multivendor','script-toko-online','script-marketplace','source-code-ecommerce','source-code-multivendor','white-label-marketplace','multi-vendor-script','marketplace-cms','toko-online-laravel','toko-online-flutter','toko-online-fullstack','toko-online-android','toko-online-ios'];
-
-            // Pattern 1: {prefix}-{platform}-{city} 
-            foreach ($prefixes as $pref) {
-                foreach ($platforms as $plat) {
-                    foreach (array_slice($cities, 0, 50) as $city) { // 50 cities to control volume
-                        $urls[] = ['loc' => url("{$pref}-{$plat}-{$city}"), 'priority' => '0.6', 'changefreq' => 'weekly'];
-                    }
-                }
-            }
-
-            // Pattern 2: {feature}-{platform}-{city}
-            $topFeatures = array_slice($features, 0, 7);
-            foreach ($topFeatures as $feat) {
-                foreach (array_slice($platforms, 0, 10) as $plat) {
-                    foreach (array_slice($cities, 0, 20) as $city) {
-                        $urls[] = ['loc' => url("{$feat}-{$plat}-{$city}"), 'priority' => '0.6', 'changefreq' => 'weekly'];
-                    }
-                }
-            }
-
-            // Pattern 3: Source code keywords
-            foreach ($sourceCodeTerms as $term) {
-                $urls[] = ['loc' => url($term), 'priority' => '0.8', 'changefreq' => 'weekly'];
-                foreach (array_slice($cities, 0, 30) as $city) {
-                    $urls[] = ['loc' => url("{$term}-{$city}"), 'priority' => '0.7', 'changefreq' => 'weekly'];
-                }
-            }
-
-            // Pattern 4: beli-aplikasi-{platform} and variations
-            foreach ($platforms as $p) {
-                $urls[] = ['loc' => url("beli-aplikasi-{$p}"), 'priority' => '0.8', 'changefreq' => 'monthly'];
-                $urls[] = ['loc' => url("pengganti-{$p}"), 'priority' => '0.8', 'changefreq' => 'monthly'];
-                $urls[] = ['loc' => url("aplikasi-seperti-{$p}"), 'priority' => '0.8', 'changefreq' => 'monthly'];
-                $urls[] = ['loc' => url("jual-source-code-{$p}"), 'priority' => '0.8', 'changefreq' => 'monthly'];
-            }
-
-            // Pattern 5: Feature pages
-            foreach ($features as $f) {
-                $urls[] = ['loc' => url("{$f}-indonesia"), 'priority' => '0.7', 'changefreq' => 'monthly'];
-                $urls[] = ['loc' => url("{$f}-terbaik"), 'priority' => '0.7', 'changefreq' => 'monthly'];
-            }
-
-            // Pattern 6: City-based source code + ongkir
-            foreach (array_slice($cities, 0, 80) as $city) {
-                $urls[] = ['loc' => url("source-code-{$city}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
-                $urls[] = ['loc' => url("ongkos-kirim-{$city}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
-                $urls[] = ['loc' => url("jual-source-code-{$city}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
-                $urls[] = ['loc' => url("aplikasi-marketplace-{$city}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
-            }
-
-            // Pattern 7: Payment gateway pages
-            $gateways = ['midtrans','xendit','tripay','duitku','oyindonesia','ipaymu','faspay','doku','esiapay'];
-            foreach ($gateways as $gw) {
-                $urls[] = ['loc' => url("payment-gateway-{$gw}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
-            }
-
-            // Pattern 8: toko-online-{keyword}
-            $tokoKW = ['source-code','payment-gateway','ongkos-kirim','multivendor','marketplace','murah','terbaik','lengkap','terpercaya','profesional','laravel','flutter','fullstack','android','ios','gratis','premium','siap-pakai','reseller','dropship','grosir','cod','gratis-ongkir','terlaris','terbaru','2024','2025','2026'];
-            foreach ($tokoKW as $kw) {
-                $urls[] = ['loc' => url("toko-online-{$kw}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
-            }
-
-            // Pattern 9: Product comparisons (sample pairs)
-            $products = \App\Models\Product::where('status', 'approved')->inRandomOrder()->take(100)->pluck('slug')->toArray();
-            for ($i = 0; $i < count($products) - 1; $i += 2) {
-                if (isset($products[$i]) && isset($products[$i+1])) {
-                    $urls[] = ['loc' => url("compare/{$products[$i]}-vs-{$products[$i+1]}"), 'priority' => '0.5', 'changefreq' => 'monthly'];
-                }
-            }
-
-            return array_unique($urls, SORT_REGULAR);
-        });
     }
 }

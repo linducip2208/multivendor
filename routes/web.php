@@ -38,9 +38,9 @@ use App\Http\Controllers\Storefront\TicketController;
 use App\Http\Controllers\Storefront\WishlistController;
 use App\Http\Controllers\Admin\TransactionController;
 use App\Http\Controllers\Admin\VendorController;
+use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\PseoController;
 use App\Http\Controllers\PseoSitemapController;
-use App\Http\Controllers\SitemapController;
 use App\Http\Controllers\Vendor\AuthController as VendorAuthController;
 use App\Http\Controllers\Vendor\BarcodeController;
 use App\Http\Controllers\Vendor\BulkImportController;
@@ -224,19 +224,12 @@ Route::get('/docs', function () {
     return view('storefront.docs.index');
 })->name('docs');
 
-Route::get('/sitemap.xml', [SitemapController::class, 'index']);
+Route::get('/sitemap.xml', [PseoSitemapController::class, 'index']);
 Route::get('/sitemap-main.xml', [SitemapController::class, 'main']);
 Route::get('/sitemap-products.xml', [SitemapController::class, 'products']);
 Route::get('/sitemap-categories.xml', [SitemapController::class, 'categories']);
-// PSEO Sitemap (1M URLs, split into 1.5MB chunks)
-Route::get('sitemap.xml', [PseoSitemapController::class, 'index']);
-Route::get('sitemap-pseo-{num}.xml', [PseoSitemapController::class, 'chunk'])->where('num','[0-9]+');
-
-// Keep existing sitemaps
-Route::get('sitemap-main.xml', [SitemapController::class, 'main']);
-Route::get('sitemap-products.xml', [SitemapController::class, 'products']);
-Route::get('sitemap-categories.xml', [SitemapController::class, 'categories']);
-Route::get('sitemap-blog.xml', [SitemapController::class, 'blog']);
+Route::get('/sitemap-blog.xml', [SitemapController::class, 'blog']);
+Route::get('sitemap-pseo-{num}.xml', [PseoSitemapController::class, 'chunk'])->where('num', '[0-9]+');
 
 Route::get('/robots.txt', function () {
     return response("User-agent: *\nAllow: /\$\nAllow: /docs\nAllow: /marketing/\nAllow: /blog\nAllow: /products\nDisallow: /admin\nDisallow: /vendor\nDisallow: /api\nDisallow: /webhooks\nSitemap: /sitemap.xml", 200)->header('Content-Type', 'text/plain');
@@ -540,94 +533,20 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
     });
 });
 
-/*
-|--------------------------------------------------------------------------
-| PSEO Routes — 100K+ Programmatic SEO Pages
-|--------------------------------------------------------------------------
-*/
-Route::prefix('best')->name('pseo.')->group(function () {
-    Route::get('{slug}', [PseoController::class, 'bestCategory'])->name('best-category');
-    Route::get('{slug}-{year}', [PseoController::class, 'bestCategoryYear'])->name('best-category-year')->where('year', '[0-9]{4}');
-});
-Route::get('alternatives-to-{slug}', [PseoController::class, 'alternatives'])->name('pseo.alternatives');
-Route::get('compare/{a}-vs-{b}', [PseoController::class, 'compare'])->name('pseo.compare');
-Route::get('beli-aplikasi-{keyword?}', [PseoController::class, 'sourceCodePage'])->name('pseo.source-code');
-Route::get('beli-{slug}', [PseoController::class, 'beli'])->name('pseo.beli');
-Route::get('source-code-{city?}', [PseoController::class, 'sourceCodeCity'])->name('pseo.source-code-city');
-Route::get('ongkos-kirim-{city?}', [PseoController::class, 'shippingCity'])->name('pseo.shipping-city');
-Route::get('payment-gateway-{method?}', [PseoController::class, 'paymentGateway'])->name('pseo.payment-gateway');
-
-// 100K PSEO: pengganti shopee/tokopedia/bukalapak + kota/feature combo
-Route::get('{prefix}-{platform}-{suffix}', function($prefix, $platform, $suffix) {
-    $platforms = ['shopee'=>'Shopee','tokopedia'=>'Tokopedia','bukalapak'=>'Bukalapak','lazada'=>'Lazada','blibli'=>'Blibli','zalora'=>'Zalora'];
-    $prefixes = ['pengganti'=>'Pengganti','alternatif'=>'Alternatif','aplikasi-seperti'=>'Aplikasi Seperti','saingan'=>'Saingan','source-code'=>'Source Code'];
-    $pName = $platforms[$platform] ?? ucfirst(str_replace('-',' ',$platform));
-    $pLabel = $prefixes[$prefix] ?? ucfirst(str_replace('-',' ',$prefix));
-    $cityName = ucwords(str_replace('-',' ',$suffix));
-    $title = "{$pLabel} {$pName} di {$cityName} — MultiVendor E-Commerce";
-    $desc = "{$pLabel} {$pName} di {$cityName}? MultiVendor platform multivendor Indonesia. Payment gateway lengkap, ongkir murah, AI analytics. Source code siap pakai Laravel + Flutter.";
-    return view('pseo.source-code',['label'=>"{$pLabel} {$pName} — {$cityName}",'title'=>$title,'desc'=>$desc,'canonical'=>url("{$prefix}-{$platform}-{$suffix}"),'keyword'=>"{$prefix}-{$platform}",'wa'=>'6281296052010','appName'=>config('app.name')]);
-})->where(['prefix'=>'pengganti|alternatif|aplikasi-seperti|saingan|source-code','platform'=>'[a-z0-9-]+','suffix'=>'[a-z0-9-]+'])->name('pseo.dynamic');
-
-
-
 require base_path('routes/pair-routes.php');
 
+// PSEO Routes — 1M Programmatic SEO Pages
+Route::get('alternatif-{slug}', [PseoController::class, 'alternatif'])->name('pseo.alternatif');
+Route::get('pengganti-{slug}', [PseoController::class, 'pengganti'])->name('pseo.pengganti');
+Route::get('source-code-{slug?}', [PseoController::class, 'sourceCode'])->name('pseo.source-code');
+Route::get('beli-{slug}', [PseoController::class, 'beli'])->name('pseo.beli');
+Route::get('jual-{slug}', [PseoController::class, 'jual'])->name('pseo.jual');
+Route::get('marketplace-{slug?}', [PseoController::class, 'marketplace'])->name('pseo.marketplace');
+Route::get('compare/{a}-vs-{b}', [PseoController::class, 'compare'])->name('pseo.compare');
+Route::get('best/{slug}', [PseoController::class, 'best'])->name('pseo.best');
 
-// Unified PSEO catch-all � handles all keyword patterns dynamically
-Route::get('{slug}', function($slug) {
-    if (str_starts_with($slug, 'admin') || str_starts_with($slug, 'vendor') || str_starts_with($slug, '__pair')) return abort(404);
-    $title = ucwords(str_replace(['-','vs'],[' ',' vs '], $slug));
-    $keywordList = implode(', ', array_slice(explode('-', $slug), 0, 5));
-    $title = "{$title} � Source Code Multivendor E-Commerce Indonesia";
-    $desc = "Butuh {$keywordList}? MultiVendor adalah platform multivendor Indonesia. Source code siap pakai: 10 payment gateway (Midtrans, Xendit, Tripay), 16 kurir (JNE, J&T, SiCepat), AI analytics, POS, Flutter app. Pengganti Shopee, Tokopedia, Lazada.";
-    return view('pseo.source-code', ['label'=>ucwords(str_replace('-',' ', $slug)), 'title'=>$title, 'desc'=>$desc, 'canonical'=>url($slug), 'keyword'=>$slug, 'wa'=>'6281296052010', 'appName'=>config('app.name')]);
-})->where('slug', '^(?!api|login|register|logout|products|blog|docs|sitemap|robots|best|compare|cart|checkout|orders|wishlist|profile|tickets|loyalty|track-order|feed|group-buys|leaderboard|bundles).*$')->name('pseo.catchall');
-
-// Serve product images from storage (no symlink needed)
-Route::get('img/{path}', function($path) {
-    $fullPath = storage_path('app/public/' . $path);
-    if (!file_exists($fullPath)) abort(404);
-    return response()->file($fullPath);
-})->where('path', '.*')->name('img.serve');
-
-// 20K PSEO: toko online + payment gateway + ongkir combos
-Route::get('toko-online-{keyword}', function($keyword) {
-    $map = [
-        'source-code'=>'Source Code Toko Online',
-        'payment-gateway'=>'Toko Online dengan Payment Gateway Indonesia',
-        'ongkos-kirim'=>'Toko Online dengan Jasa Kirim Terintegrasi',
-        'multivendor'=>'Toko Online Multivendor',
-        'marketplace'=>'Toko Online Marketplace',
-        'murah'=>'Toko Online Murah Indonesia',
-        'terbaik'=>'Toko Online Terbaik',
-        'lengkap'=>'Toko Online Terlengkap',
-        'terpercaya'=>'Toko Online Terpercaya',
-        'profesional'=>'Toko Online Profesional',
-        'android'=>'Toko Online Android',
-        'ios'=>'Toko Online iOS',
-        'flutter'=>'Toko Online Flutter App',
-        'laravel'=>'Toko Online Laravel',
-        'fullstack'=>'Toko Online Full-Stack',
-        'gratis-ongkir'=>'Toko Online Gratis Ongkir',
-        'cod'=>'Toko Online Bayar di Tempat (COD)',
-        'reseller'=>'Toko Online Reseller',
-        'dropship'=>'Toko Online Dropship',
-        'grosir'=>'Toko Online Grosir',
-    ];
-    $label = $map[$keyword] ?? 'Toko Online ' . ucwords(str_replace('-', ' ', $keyword));
-    $title = "{$label} — MultiVendor Platform Indonesia";
-    $desc = "Butuh {$label}? MultiVendor menyediakan solusi toko online lengkap: multivendor, 10 payment gateway Indonesia (Midtrans, Xendit, Tripay, dll), 16 jasa kirim (JNE, J&T, SiCepat, dll), AI analytics. Source code siap pakai Laravel + Flutter.";
-    return view('pseo.source-code', ['label'=>$label, 'title'=>$title, 'desc'=>$desc, 'canonical'=>url("toko-online-{$keyword}"), 'keyword'=>$keyword, 'wa'=>'6281296052010', 'appName'=>config('app.name')]);
-})->name('pseo.toko-online');
-
-Route::get('source-code-toko-online-{type}', function($type) {
-    $types = ['gratis'=>'Gratis','murah'=>'Murah','premium'=>'Premium','terbaik'=>'Terbaik','siap-pakai'=>'Siap Pakai','full-source'=>'Full Source Code','laravel'=>'Laravel','flutter'=>'Flutter','android'=>'Android','ios'=>'iOS','react-native'=>'React Native','nextjs'=>'Next.js','nodejs'=>'Node.js','php'=>'PHP','mysql'=>'MySQL','firebase'=>'Firebase','api'=>'REST API','admin-panel'=>'Admin Panel','vendor-panel'=>'Vendor Panel','customer-app'=>'Customer App','delivery-app'=>'Delivery App'];
-    $label = $types[$type] ?? 'Source Code';
-    $title = "Source Code Toko Online {$label} — MultiVendor Platform";
-    $desc = "Jual source code toko online {$label}. Multi-vendor e-commerce, payment gateway Indonesia lengkap (Midtrans, Xendit, dll), jasa kirim terintegrasi (RajaOngkir, JNE, J&T, dll), AI analytics. Full-stack: Laravel + MySQL + Flutter. Free install + setup + 1 bulan support.";
-    return view('pseo.source-code', ['label'=>"Source Code Toko Online {$label}", 'title'=>$title, 'desc'=>$desc, 'canonical'=>url("source-code-toko-online-{$type}"), 'keyword'=>$type, 'wa'=>'6281296052010', 'appName'=>config('app.name')]);
-})->name('pseo.source-code-toko');
+// Catch-all PSEO (must be LAST route, before img)
+Route::get('{slug}', [PseoController::class, 'catchAll'])->where('slug', '^(?!sitemap|admin|vendor|api|login|register|logout|products|product|blog|docs|robots|cart|checkout|orders|order|wishlist|profile|tickets|loyalty|track-order|feed|group-buys|leaderboard|bundles|img|__pair).*$')->name('pseo.catchall');
 
 // Serve product images from storage (no symlink needed)
 Route::get('img/{path}', function($path) {
@@ -635,41 +554,3 @@ Route::get('img/{path}', function($path) {
     if (!file_exists($fullPath)) abort(404);
     return response()->file($fullPath);
 })->where('path', '.*')->name('img.serve');
-
-// 20K PSEO: toko online + payment gateway + ongkir combos
-Route::get('toko-online-{keyword}', function($keyword) {
-    $map = [
-        'source-code'=>'Source Code Toko Online',
-        'payment-gateway'=>'Toko Online dengan Payment Gateway Indonesia',
-        'ongkos-kirim'=>'Toko Online dengan Jasa Kirim Terintegrasi',
-        'multivendor'=>'Toko Online Multivendor',
-        'marketplace'=>'Toko Online Marketplace',
-        'murah'=>'Toko Online Murah Indonesia',
-        'terbaik'=>'Toko Online Terbaik',
-        'lengkap'=>'Toko Online Terlengkap',
-        'terpercaya'=>'Toko Online Terpercaya',
-        'profesional'=>'Toko Online Profesional',
-        'android'=>'Toko Online Android',
-        'ios'=>'Toko Online iOS',
-        'flutter'=>'Toko Online Flutter App',
-        'laravel'=>'Toko Online Laravel',
-        'fullstack'=>'Toko Online Full-Stack',
-        'gratis-ongkir'=>'Toko Online Gratis Ongkir',
-        'cod'=>'Toko Online Bayar di Tempat (COD)',
-        'reseller'=>'Toko Online Reseller',
-        'dropship'=>'Toko Online Dropship',
-        'grosir'=>'Toko Online Grosir',
-    ];
-    $label = $map[$keyword] ?? 'Toko Online ' . ucwords(str_replace('-', ' ', $keyword));
-    $title = "{$label} — MultiVendor Platform Indonesia";
-    $desc = "Butuh {$label}? MultiVendor menyediakan solusi toko online lengkap: multivendor, 10 payment gateway Indonesia (Midtrans, Xendit, Tripay, dll), 16 jasa kirim (JNE, J&T, SiCepat, dll), AI analytics. Source code siap pakai Laravel + Flutter.";
-    return view('pseo.source-code', ['label'=>$label, 'title'=>$title, 'desc'=>$desc, 'canonical'=>url("toko-online-{$keyword}"), 'keyword'=>$keyword, 'wa'=>'6281296052010', 'appName'=>config('app.name')]);
-})->name('pseo.toko-online');
-
-Route::get('source-code-toko-online-{type}', function($type) {
-    $types = ['gratis'=>'Gratis','murah'=>'Murah','premium'=>'Premium','terbaik'=>'Terbaik','siap-pakai'=>'Siap Pakai','full-source'=>'Full Source Code','laravel'=>'Laravel','flutter'=>'Flutter','android'=>'Android','ios'=>'iOS','react-native'=>'React Native','nextjs'=>'Next.js','nodejs'=>'Node.js','php'=>'PHP','mysql'=>'MySQL','firebase'=>'Firebase','api'=>'REST API','admin-panel'=>'Admin Panel','vendor-panel'=>'Vendor Panel','customer-app'=>'Customer App','delivery-app'=>'Delivery App'];
-    $label = $types[$type] ?? 'Source Code';
-    $title = "Source Code Toko Online {$label} — MultiVendor Platform";
-    $desc = "Jual source code toko online {$label}. Multi-vendor e-commerce, payment gateway Indonesia lengkap (Midtrans, Xendit, dll), jasa kirim terintegrasi (RajaOngkir, JNE, J&T, dll), AI analytics. Full-stack: Laravel + MySQL + Flutter. Free install + setup + 1 bulan support.";
-    return view('pseo.source-code', ['label'=>"Source Code Toko Online {$label}", 'title'=>$title, 'desc'=>$desc, 'canonical'=>url("source-code-toko-online-{$type}"), 'keyword'=>$type, 'wa'=>'6281296052010', 'appName'=>config('app.name')]);
-})->name('pseo.source-code-toko');
