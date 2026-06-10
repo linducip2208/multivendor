@@ -94,8 +94,22 @@
                         @if($paymentGateways->count() > 0)
                             @foreach($paymentGateways as $pg)
                             <div class="form-check mb-2">
-                                <input class="form-check-input" type="radio" name="payment_provider_id" value="{{ $pg->id }}" id="pay{{ $pg->id }}" required>
+                                <input class="form-check-input" type="radio" name="payment_provider_id" value="{{ $pg->id }}" id="pay{{ $pg->id }}" onclick="document.getElementById('channel{{ $pg->id }}').style.display='block'" required>
                                 <label class="form-check-label" for="pay{{ $pg->id }}">{{ $pg->name }} <small class="text-muted">({{ $pg->api_format }})</small></label>
+                            </div>
+                            <div class="ps-4 mb-2" id="channel{{ $pg->id }}" style="display:none">
+                                <select name="payment_channel[{{ $pg->id }}]" class="form-select form-select-sm">
+                                    @php $channels = match($pg->api_format) {
+                                        'tripay-closed' => ['BRIVA'=>'BRI Virtual Account','BCAVA'=>'BCA Virtual Account','BNIVA'=>'BNI Virtual Account','MANDIRIVA'=>'Mandiri Virtual Account','QRIS'=>'QRIS','GOPAY'=>'GoPay','OVO'=>'OVO','DANA'=>'DANA','SHOPEEPAY'=>'ShopeePay'],
+                                        'midtrans-snap' => ['bank_transfer'=>'Transfer Bank','gopay'=>'GoPay','shopeepay'=>'ShopeePay','qris'=>'QRIS','credit_card'=>'Kartu Kredit'],
+                                        'midtrans-core' => ['bank_transfer'=>'Transfer Bank (VA)','gopay'=>'GoPay','qris'=>'QRIS'],
+                                        'xendit-invoice' => ['BCA'=>'BCA','BNI'=>'BNI','BRI'=>'BRI','MANDIRI'=>'Mandiri','QRIS'=>'QRIS','OVO'=>'OVO','DANA'=>'DANA','LINKAJA'=>'LinkAja'],
+                                        default => ['default'=>'Pembayaran Online']
+                                    }; @endphp
+                                    @foreach($channels as $code => $label)
+                                    <option value="{{ $code }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             @endforeach
                         @else

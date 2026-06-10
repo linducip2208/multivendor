@@ -160,6 +160,7 @@ class CheckoutController extends Controller
             $paymentResult = $paymentService->createPayment($paymentProvider, [
                 'order_id' => $orders[0]->order_number,
                 'amount' => $grandTotal,
+                'channel' => $request->payment_channel[$paymentProvider->id] ?? 'default',
                 'customer' => [
                     'name' => $customer->name,
                     'email' => $customer->email,
