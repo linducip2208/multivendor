@@ -136,7 +136,8 @@
 @stack('scripts')
 
 {{-- Source Code Sales Popup --}}
-@if(!request()->is('admin*') && !request()->is('vendor*') && !request()->is('login') && !request()->is('register'))
+@if(!request()->is('admin*') && !request()->is('vendor*'))
+<div class="modal fade" id="sourceCodePopup" tabindex="-1" data-bs-backdrop="static">
 <div class="modal fade" id="sourceCodePopup" tabindex="-1" data-bs-backdrop="static">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content border-0 rounded-4 overflow-hidden">
@@ -176,7 +177,7 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 </script>
 @endif
-<a href="https://wa.me/6281234567890?text=Halo%20saya%20mau%20tanya" target="_blank" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:56px;height:56px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,.4);text-decoration:none;" title="Chat WhatsApp">
+<a href="https://wa.me/6281296052010?text=Halo%20saya%20mau%20tanya" target="_blank" style="position:fixed;bottom:24px;right:24px;z-index:9999;width:56px;height:56px;background:#25D366;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 16px rgba(37,211,102,.4);text-decoration:none;" title="Chat WhatsApp">
     <i class="fab fa-whatsapp fa-2x text-white"></i>
 </a>
 </body>
