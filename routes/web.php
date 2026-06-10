@@ -307,7 +307,6 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::post('push-notifications/{notification}/send', [PushNotificationController::class, 'send'])->name('push-notifications.send');
 
         Route::resource('product-seo', ProductSeoController::class)->only(['index', 'update']);
-        Route::put('product-seo/{product}', [ProductSeoController::class, 'update'])->name('product-seo.update');
 
         Route::get('file-manager', [FileManagerController::class, 'index'])->name('file-manager.index');
         Route::post('file-manager/upload', [FileManagerController::class, 'upload'])->name('file-manager.upload');
