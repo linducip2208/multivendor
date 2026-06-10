@@ -67,10 +67,10 @@ class MassiveDemoSeeder extends Seeder
                 $price = rand(10000, 5000000);
                 $product = Product::create([
                     'shop_id' => $shop->id, 'category_id' => $category->id, 'brand_id' => $brand->id,
-                    'name' => fake()->words(rand(2, 4), true),
-                    'slug' => Str::slug(fake()->words(3, true) . '-' . Str::random(4)),
-                    'description' => '<p>' . fake()->paragraph(3) . '</p><ul><li>' . implode('</li><li>', fake()->sentences(4)) . '</li></ul>',
-                    'short_description' => '<p>' . fake()->sentence() . '</p>',
+                    'name' => $brand->name . ' - ' . ['Pro','Max','Lite','Ultra','Plus','Neo','Elite','Basic','Premium','Standard'][rand(0,9)] . ' ' . ['Series','Edition','Version','Model','Type','Variant','Koleksi','Paket','Bundle','Set'][rand(0,9)],
+                    'slug' => Str::slug($brand->name . '-' . Str::random(4)),
+                    'description' => '<p>Produk berkualitas dengan garansi resmi. Tersedia dalam berbagai varian dan ukuran. Pengiriman cepat ke seluruh Indonesia dengan jasa kirim terpercaya.</p><ul><li>Kualitas terjamin</li><li>Harga bersaing</li><li>Garansi resmi</li><li>Pengiriman cepat</li></ul>',
+                    'short_description' => '<p>Produk berkualitas terbaik dengan harga terjangkau. Tersedia di platform multivendor kami.</p>',
                     'thumbnail' => $placeholderImages[array_rand($placeholderImages)],
                     'images' => json_encode(array_slice($placeholderImages, 0, rand(3, 5))),
                     'price' => $price, 'current_stock' => rand(0, 500),

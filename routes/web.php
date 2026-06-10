@@ -227,6 +227,7 @@ Route::get('/sitemap-main.xml', [SitemapController::class, 'main']);
 Route::get('/sitemap-products.xml', [SitemapController::class, 'products']);
 Route::get('/sitemap-categories.xml', [SitemapController::class, 'categories']);
 Route::get('/sitemap-blog.xml', [SitemapController::class, 'blog']);
+Route::get('/sitemap-pseo.xml', [SitemapController::class, 'pseo']);
 
 Route::get('/robots.txt', function () {
     return response("User-agent: *\nAllow: /\$\nAllow: /docs\nAllow: /marketing/\nAllow: /blog\nAllow: /products\nDisallow: /admin\nDisallow: /vendor\nDisallow: /api\nDisallow: /webhooks\nSitemap: /sitemap.xml", 200)->header('Content-Type', 'text/plain');

@@ -147,11 +147,31 @@ class CompleteDemoSeeder extends Seeder
         $blogCat = BlogCategory::firstOrCreate(['name' => 'Umum'], ['slug' => 'umum']);
         $blogCat2 = BlogCategory::firstOrCreate(['name' => 'Tips Bisnis'], ['slug' => 'tips-bisnis']);
         for ($i = 1; $i <= 100; $i++) {
+            $title = match($i % 10) {
+                1 => 'Cara Memulai Bisnis Online Tanpa Modal di Tahun ' . date('Y'),
+                2 => '10 Strategi Marketing Digital untuk Meningkatkan Penjualan',
+                3 => 'Panduan Lengkap Memilih Payment Gateway untuk Toko Online',
+                4 => 'Kenapa Marketplace Multivendor Lebih Menguntungkan',
+                5 => 'Tips Mengelola Stok Produk agar Tidak Kehabisan',
+                6 => 'Cara Meningkatkan Traffic Toko Online dengan SEO',
+                7 => 'Perbandingan Jasa Pengiriman: JNE vs J&T vs SiCepat',
+                8 => 'Bagaimana AI Membantu Analisis Penjualan Bisnis Anda',
+                9 => 'Tren E-Commerce Indonesia yang Harus Anda Tahu',
+                default => 'Rahasia Sukses Vendor di Platform Multivendor',
+            };
+            $slug = Str::slug($title) . '-' . $i;
+            $content = match($i % 5) {
+                0 => '<h2>Memulai Bisnis Online</h2><p>Bisnis online di Indonesia terus berkembang pesat. Dengan platform multivendor, Anda bisa memulai toko online tanpa perlu membuat website dari nol. Cukup daftar sebagai vendor, upload produk, dan mulai jualan.</p><p>Keuntungan menggunakan platform multivendor: tidak perlu pusing mikirin payment gateway, ongkos kirim sudah terintegrasi, dan Anda bisa fokus ke produk.</p>',
+                1 => '<h2>Payment Gateway Indonesia</h2><p>Memilih payment gateway yang tepat sangat penting untuk kelancaran transaksi. Platform kami mendukung 10 payment gateway Indonesia: Midtrans, Xendit, Tripay, Duitku, OY Indonesia, iPaymu, Faspay, DOKU, dan ESIA Pay.</p><p>Semua gateway bisa diaktifkan dengan API key Anda sendiri. Sistem pembayaran aman dengan enkripsi AES-256.</p>',
+                2 => '<h2>Ongkos Kirim & Logistik</h2><p>Pengiriman adalah salah satu faktor penentu kepuasan pelanggan. Platform kami terintegrasi dengan 16 jasa pengiriman: JNE, J&T Express, SiCepat, TIKI, POS Indonesia, AnterAja, Lion Parcel, dan lainnya.</p><p>Customer bisa membandingkan ongkir dari berbagai kurir sebelum checkout, sehingga mendapatkan harga terbaik.</p>',
+                3 => '<h2>AI untuk Bisnis</h2><p>Kecerdasan buatan (AI) kini bisa membantu analisis bisnis Anda. Platform kami mendukung 10 AI provider termasuk DeepSeek, OpenAI, Groq, Mistral, dan Ollama (gratis, self-hosted).</p><p>AI bisa menganalisis produk paling laris, memberikan rekomendasi strategi penjualan, dan memprediksi tren pasar.</p>',
+                default => '<h2>Tips Sukses Berjualan Online</h2><p>Kunci sukses berjualan online: foto produk yang menarik, deskripsi yang jelas, harga yang kompetitif, dan pelayanan yang responsif. Gunakan fitur kupon dan flash deal untuk menarik pembeli.</p><p>Jangan lupa untuk selalu update stok dan merespon pesanan dengan cepat. Customer yang puas akan kembali berbelanja.</p>',
+            };
             $post = BlogPost::create([
                 'author_id' => User::where('role', 'admin')->first()->id ?? 1,
-                'title' => fake()->sentence(rand(4, 8)),
-                'slug' => 'blog-post-' . $i . '-' . Str::random(4),
-                'content' => '<h2>' . fake()->sentence() . '</h2><p>' . fake()->paragraphs(3, true) . '</p><blockquote>' . fake()->sentence() . '</blockquote><p>' . fake()->paragraphs(2, true) . '</p>',
+                'title' => $title,
+                'slug' => $slug,
+                'content' => $content,
                 'excerpt' => fake()->sentence(15),
                 'is_published' => true,
                 'published_at' => now()->subDays(rand(0, 365)),

@@ -14,7 +14,7 @@ class SitemapController extends Controller
     public function index()
     {
         return Cache::remember('sitemap_index', 3600, function () {
-            $files = ['sitemap-main.xml', 'sitemap-products.xml', 'sitemap-categories.xml', 'sitemap-blog.xml'];
+            $files = ['sitemap-main.xml', 'sitemap-products.xml', 'sitemap-categories.xml', 'sitemap-blog.xml', 'sitemap-pseo.xml'];
 
             $xml = '<?xml version="1.0" encoding="UTF-8"?>';
             $xml .= '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
@@ -81,6 +81,39 @@ class SitemapController extends Controller
                     'priority' => '0.7',
                     'lastmod' => $p->updated_at->toAtomString(),
                 ])->all();
+
+            return $this->renderUrlsXml($urls);
+        });
+    }
+
+    public function pseo()
+    {
+        return Cache::remember('sitemap_pseo', 3600, function () {
+            $platforms = ['shopee','tokopedia','bukalapak','lazada','blibli','zalora'];
+            $prefixes = ['pengganti','alternatif','aplikasi-seperti','saingan'];
+            $cities = ['jakarta','bandung','surabaya','medan','makassar','semarang','yogyakarta','palembang','denpasar','balikpapan','pekanbaru','malang','solo','bogor','batam','padang','pontianak','banjarmasin','manado','samarinda'];
+            $keywords = ['multivendor','toko-online','marketplace','ecommerce'];
+            $gateways = ['midtrans','xendit','tripay','duitku'];
+            $kotaOngkir = ['jakarta','bandung','surabaya','medan','makassar','semarang','yogyakarta'];
+            $tokoOnline = ['source-code','payment-gateway','ongkos-kirim','multivendor','marketplace','murah','terbaik','lengkap','terpercaya','profesional','laravel','flutter','fullstack'];
+            $sourceCode = ['gratis','murah','premium','siap-pakai','laravel','flutter'];
+
+            $urls = [];
+            // PSEO patterns
+            foreach ($prefixes as $pref) {
+                foreach ($platforms as $plat) {
+                    foreach ($cities as $city) {
+                        $urls[] = ['loc' => url("{$pref}-{$plat}-{$city}"), 'priority' => '0.6', 'changefreq' => 'weekly'];
+                    }
+                }
+            }
+            foreach ($keywords as $kw) $urls[] = ['loc' => url("beli-aplikasi-{$kw}"), 'priority' => '0.8', 'changefreq' => 'monthly'];
+            foreach ($platforms as $p) $urls[] = ['loc' => url("beli-aplikasi-{$p}"), 'priority' => '0.8', 'changefreq' => 'monthly'];
+            foreach ($cities as $c) $urls[] = ['loc' => url("source-code-{$c}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
+            foreach ($kotaOngkir as $k) $urls[] = ['loc' => url("ongkos-kirim-{$k}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
+            foreach ($gateways as $gw) $urls[] = ['loc' => url("payment-gateway-{$gw}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
+            foreach ($tokoOnline as $t) $urls[] = ['loc' => url("toko-online-{$t}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
+            foreach ($sourceCode as $s) $urls[] = ['loc' => url("source-code-toko-online-{$s}"), 'priority' => '0.7', 'changefreq' => 'monthly'];
 
             return $this->renderUrlsXml($urls);
         });
