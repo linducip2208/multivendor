@@ -100,6 +100,6 @@ class SitemapController extends Controller
         }
         $xml .= '</urlset>';
 
-        return Response::create($xml, 200, ['Content-Type' => 'application/xml']);
+        return response($xml, 200, ['Content-Type' => 'application/xml']);
     }
 }
