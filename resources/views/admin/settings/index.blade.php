@@ -4,12 +4,29 @@
 <h4 class="fw-bold mb-1"><i class="fas fa-cog me-2 text-secondary"></i> Pengaturan Sistem</h4>
 <p class="text-muted small mb-4">Konfigurasi platform marketplace</p>
 
-<form method="POST" action="{{ route('admin.settings.update') }}">
+<form method="POST" action="{{ route('admin.settings.update') }}" enctype="multipart/form-data">
 @csrf @method('PUT')
 <div class="row g-4">
+    {{-- Whitelabel / Branding --}}
+    <div class="col-lg-6">
+        <div class="card border-0 rounded-4 shadow-sm"><div class="card-header bg-transparent border-0 pt-3 px-4"><h6 class="fw-bold mb-0"><i class="fas fa-palette me-2 text-primary"></i> Branding / Whitelabel</h6></div><div class="card-body p-4">
+            <div class="mb-3"><label class="form-label fw-medium">Nama Aplikasi</label><input type="text" name="app_name" class="form-control" value="{{ old('app_name', $settings['app_name'] ?? config('app.name')) }}"></div>
+            <div class="mb-3"><label class="form-label fw-medium">Warna Brand (Primary)</label><div class="input-group"><input type="color" name="brand_color" class="form-control form-control-color" value="{{ old('brand_color', $settings['brand_color'] ?? '#4F46E5') }}" style="width:60px;"><input type="text" class="form-control" value="{{ old('brand_color', $settings['brand_color'] ?? '#4F46E5') }}" readonly></div><small class="text-muted">Digunakan di sidebar, tombol, link, dan aksen seluruh panel.</small></div>
+            <div class="mb-3">
+                <label class="form-label fw-medium">Logo (URL atau Upload)</label>
+                <input type="text" name="logo_url" class="form-control mb-2" value="{{ old('logo_url', $settings['logo_url'] ?? '') }}" placeholder="https://domain.com/logo.png — atau upload di bawah">
+                <input type="file" name="logo_file" class="form-control" accept="image/*">
+                @if(!empty($settings['logo_url']))
+                    <img src="{{ $settings['logo_url'] }}" class="mt-2 rounded" style="max-height:60px;" alt="Logo">
+                @endif
+                <small class="text-muted">Upload gambar atau isi URL. Kosongkan untuk menggunakan icon default.</small>
+            </div>
+            <div class="mb-3"><label class="form-label fw-medium">Favicon (URL atau Upload)</label><input type="text" name="favicon_url" class="form-control mb-2" value="{{ old('favicon_url', $settings['favicon_url'] ?? '') }}" placeholder="https://domain.com/favicon.ico"><input type="file" name="favicon_file" class="form-control" accept="image/*,.ico"></div>
+        </div></div>
+    </div>
+
     <div class="col-lg-6">
         <div class="card border-0 rounded-4 shadow-sm"><div class="card-header bg-transparent border-0 pt-3 px-4"><h6 class="fw-bold mb-0"><i class="fas fa-globe me-2 text-primary"></i> Umum</h6></div><div class="card-body p-4">
-            <div class="mb-3"><label class="form-label fw-medium">Nama Aplikasi</label><input type="text" name="app_name" class="form-control" value="{{ old('app_name', config('app.name')) }}"></div>
             <div class="mb-3"><label class="form-label fw-medium">URL Aplikasi</label><input type="url" name="app_url" class="form-control" value="{{ old('app_url', config('app.url')) }}"></div>
             <div class="row g-2"><div class="col-6"><label class="form-label fw-medium">Mata Uang</label><input type="text" name="currency" class="form-control" value="{{ old('currency', $settings['currency'] ?? 'IDR') }}" placeholder="IDR"></div><div class="col-6"><label class="form-label fw-medium">Simbol</label><input type="text" name="currency_symbol" class="form-control" value="{{ old('currency_symbol', $settings['currency_symbol'] ?? 'Rp') }}" placeholder="Rp"></div></div>
         </div></div>

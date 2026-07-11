@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-    <title>@yield('title', 'Admin Panel') — {{ config('app.name') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ $whitelabel['favicon'] ?? asset('favicon.svg') }}">
+    <title>@yield('title', 'Admin Panel') — {{ $whitelabel['appName'] }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
@@ -14,8 +14,8 @@
     @stack('head')
     <style>
         :root {
-            --brand-primary: #4F46E5;
-            --brand-dark: #3730A3;
+            --brand-primary: {{ $whitelabel['brandColor'] }};
+            --brand-dark: {{ $whitelabel['brandColorDark'] }};
             --sidebar-width: 250px;
             --topbar-height: 60px;
         }
@@ -68,7 +68,11 @@
     {{-- Sidebar — Alur Bisnis --}}
     <nav class="sidebar" id="sidebar">
         <div class="logo">
-            <i class="fas fa-store-alt me-2"></i> {{ config('app.name') }}
+            @if($whitelabel['logo'])
+                <img src="{{ $whitelabel['logo'] }}" alt="{{ $whitelabel['appName'] }}" style="max-height:32px;max-width:140px;">
+            @else
+                <i class="fas fa-store-alt me-2"></i> {{ $whitelabel['appName'] }}
+            @endif
         </div>
         <a href="{{ route('admin.dashboard') }}" class="nav-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}">
             <i class="fas fa-tachometer-alt"></i> Dashboard

@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-    <title>@yield('title', 'Vendor Panel') — {{ config('app.name') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ $whitelabel['favicon'] ?? asset('favicon.svg') }}">
+    <title>@yield('title', 'Vendor Panel') — {{ $whitelabel['appName'] }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
     <style>
-        :root { --brand-primary: #059669; --brand-dark: #065f46; --sidebar-width: 250px; --topbar-height: 60px; }
+        :root { --brand-primary: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; --sidebar-width: 250px; --topbar-height: 60px; }
         body { font-family: 'Inter', system-ui, sans-serif; background: #f8f9fc; }
         .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-width); background: linear-gradient(180deg, var(--brand-primary) 0%, var(--brand-dark) 100%); color: #fff; z-index: 1040; overflow-y: auto; transition: transform .3s; }
         .sidebar .logo { padding: 20px; font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,.1); }
@@ -32,7 +32,13 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1035;"></div>
 
 <nav class="sidebar" id="sidebar">
-    <div class="logo"><i class="fas fa-store-alt me-2"></i> Panel Vendor</div>
+    <div class="logo">
+        @if($whitelabel['logo'])
+            <img src="{{ $whitelabel['logo'] }}" alt="{{ $whitelabel['appName'] }}" style="max-height:28px;max-width:120px;">
+        @else
+            <i class="fas fa-store-alt me-2"></i> Panel Vendor
+        @endif
+    </div>
     <div class="nav-section">Dashboard</div>
     <a href="{{ route('vendor.dashboard') }}" class="nav-link {{ request()->routeIs('vendor.dashboard') ? 'active' : '' }}">
         <i class="fas fa-tachometer-alt"></i> Dashboard

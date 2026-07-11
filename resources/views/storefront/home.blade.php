@@ -9,7 +9,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { --brand-primary: #4F46E5; --brand-dark: #3730A3; }
+        :root { --brand-primary: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; }
         body { font-family: 'Inter', system-ui, sans-serif; }
         .navbar { backdrop-filter: blur(12px); background: rgba(255,255,255,.9) !important; }
         .hero {
@@ -31,7 +31,11 @@
 <nav class="navbar navbar-expand-lg sticky-top border-bottom">
     <div class="container">
         <a class="navbar-brand fw-bold fs-4" href="/">
-            <i class="fas fa-store-alt text-primary me-2"></i> {{ config('app.name') }}
+            @if($whitelabel['logo'])
+                <img src="{{ $whitelabel['logo'] }}" alt="{{ $whitelabel['appName'] }}" style="max-height:36px;">
+            @else
+                <i class="fas fa-store-alt text-primary me-2"></i>{{ $whitelabel['appName'] }}
+            @endif
         </a>
         <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>

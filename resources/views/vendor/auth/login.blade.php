@@ -9,7 +9,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { --brand-primary: #059669; --brand-dark: #065f46; }
+        :root { --brand-primary: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; }
         body { font-family: 'Inter', system-ui, sans-serif; background: #f1f5f9; }
         .login-left { background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-dark) 100%); position: relative; overflow: hidden; }
         .login-left::before { content: ''; position: absolute; width: 400px; height: 400px; background: radial-gradient(circle, rgba(255,255,255,.08) 0%, transparent 70%); top: -100px; right: -100px; border-radius: 50%; }

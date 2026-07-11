@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ $title }}</title>
+    <title>{{ $title }} — {{ $whitelabel['appName'] }}</title>
     <meta name="description" content="{{ $description }}">
     <meta name="keywords" content="{{ $keyword }}, source code marketplace, multivendor, toko online, ecommerce indonesia">
     <link rel="canonical" href="{{ $canonical }}">
@@ -14,31 +14,31 @@
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="{{ $title }}">
     <meta name="twitter:description" content="{{ $description }}">
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ $whitelabel['favicon'] ?? asset('favicon.svg') }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        :root { --brand: #4F46E5; --brand-dark: #3730A3; }
+        :root { --brand: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; }
         body { font-family: 'Inter', system-ui, sans-serif; background: #f8f9fc; color: #1e293b; }
-        .hero { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); color: white; padding: 60px 0 40px; }
+        .hero { background: linear-gradient(135deg, {{ $whitelabel['brandColorDark'] }} 0%, {{ $whitelabel['brandColor'] }} 50%, {{ $whitelabel['brandColor'] }}cc 100%); color: white; padding: 60px 0 40px; }
         .hero h1 { font-weight: 800; font-size: 2.25rem; line-height: 1.2; }
         .hero p { opacity: .85; font-size: 1.1rem; max-width: 640px; }
         .cta-card { border-radius: 16px; background: white; box-shadow: 0 4px 24px rgba(0,0,0,.08); padding: 32px; margin-top: -40px; position: relative; z-index: 2; }
         .feature-card { border: none; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.04); transition: transform .2s; }
         .feature-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,.08); }
         .feature-card i { font-size: 1.5rem; color: var(--brand); }
-        .btn-brand { background: linear-gradient(135deg, #4F46E5, #6366F1); border: none; border-radius: 12px; padding: 12px 28px; font-weight: 600; color: white; }
-        .btn-brand:hover { background: linear-gradient(135deg, #4338CA, #4F46E5); color: white; }
+        .btn-brand { background: linear-gradient(135deg, {{ $whitelabel['brandColor'] }}, {{ $whitelabel['brandColor'] }}cc); border: none; border-radius: 12px; padding: 12px 28px; font-weight: 600; color: white; }
+        .btn-brand:hover { background: linear-gradient(135deg, {{ $whitelabel['brandColorDark'] }}, {{ $whitelabel['brandColor'] }}); color: white; }
         .btn-wa { background: linear-gradient(135deg, #059669, #10B981); border: none; border-radius: 12px; padding: 12px 28px; font-weight: 600; color: white; }
         .btn-wa:hover { background: linear-gradient(135deg, #047857, #059669); color: white; }
-        .platform-badge { display: inline-block; background: #EEF2FF; color: #4338CA; padding: 6px 14px; border-radius: 20px; font-size: .85rem; font-weight: 500; margin: 4px; }
+        .platform-badge { display: inline-block; background: #EEF2FF; color: {{ $whitelabel['brandColor'] }}; padding: 6px 14px; border-radius: 20px; font-size: .85rem; font-weight: 500; margin: 4px; }
         .stats-bar { background: white; border-radius: 14px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
         .stats-bar .stat-value { font-size: 1.5rem; font-weight: 700; color: var(--brand); }
         .faq-item { border: none; border-radius: 12px; margin-bottom: 8px; overflow: hidden; }
         .faq-item .accordion-button { font-weight: 600; border-radius: 12px!important; }
         .faq-item .accordion-button:not(.collapsed) { background: #EEF2FF; color: var(--brand); }
-        footer { background: #1e1b4b; color: #cbd5e1; padding: 40px 0 20px; }
+        footer { background: {{ $whitelabel['brandColorDark'] }}; color: #cbd5e1; padding: 40px 0 20px; }
         @media (max-width: 768px) {
             .hero h1 { font-size: 1.6rem; }
             .hero { padding: 40px 0 30px; }
@@ -187,7 +187,7 @@
 
 {{-- CTA Bottom --}}
 <section class="container my-5">
-    <div class="text-center p-5 rounded-4 text-white" style="background: linear-gradient(135deg, #1e1b4b, #4338ca);">
+    <div class="text-center p-5 rounded-4 text-white" style="background: linear-gradient(135deg, {{ $whitelabel['brandColorDark'] }}, {{ $whitelabel['brandColor'] }});">
         <h2 class="fw-bold mb-3">Siap Miliki Marketplace Sendiri?</h2>
         <p class="mb-4 opacity-75" style="max-width:540px;margin:0 auto 24px;">Source code marketplace multi vendor siap pakai. Mulai bisnis marketplace Anda hari ini.</p>
         <a href="https://wa.me/{{ $wa }}" target="_blank" class="btn btn-wa btn-lg">
@@ -198,7 +198,7 @@
 
 <footer>
     <div class="container text-center">
-        <p class="small mb-0">&copy; {{ date('Y') }} {{ $appName }}. Source Code Marketplace Multi Vendor Indonesia.</p>
+        <p class="small mb-0">&copy; {{ date('Y') }} {{ $whitelabel['appName'] }}. Source Code Marketplace Multi Vendor Indonesia.</p>
     </div>
 </footer>
 

@@ -20,6 +20,7 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'app_name' => 'required|string|max:255',
             'app_url' => 'required|url',
+            'brand_color' => 'nullable|string|max:7',
             'mail_mailer' => 'required|string',
             'mail_host' => 'nullable|string',
             'mail_port' => 'nullable|string',
@@ -39,6 +40,36 @@ class SettingsController extends Controller
                 ['value' => $value]
             );
         }
+
+        // Handle logo upload
+        if ($request->hasFile('logo_file')) {
+            $path = $request->file('logo_file')->store('logo', 'public');
+            \App\Models\SystemSetting::updateOrCreate(
+                ['key' => 'logo_url'],
+                ['value' => asset('storage/' . $path)]
+            );
+        } elseif ($request->filled('logo_url')) {
+            \App\Models\SystemSetting::updateOrCreate(
+                ['key' => 'logo_url'],
+                ['value' => $request->logo_url]
+            );
+        }
+
+        // Handle favicon upload
+        if ($request->hasFile('favicon_file')) {
+            $path = $request->file('favicon_file')->store('logo', 'public');
+            \App\Models\SystemSetting::updateOrCreate(
+                ['key' => 'favicon_url'],
+                ['value' => asset('storage/' . $path)]
+            );
+        } elseif ($request->filled('favicon_url')) {
+            \App\Models\SystemSetting::updateOrCreate(
+                ['key' => 'favicon_url'],
+                ['value' => $request->favicon_url]
+            );
+        }
+
+        \Illuminate\Support\Facades\Cache::forget('whitelabel_branding');
 
         return back()->with('success', 'Pengaturan berhasil disimpan.');
     }
