@@ -16,10 +16,10 @@
         :root {
             --brand-primary: {{ $whitelabel['brandColor'] }};
             --brand-dark: {{ $whitelabel['brandColorDark'] }};
-            --sidebar-width: 250px;
-            --topbar-height: 60px;
+            --sidebar-width: {{ $whitelabel['sidebarWidth'] ?? 250 }}px;
+            --topbar-height: {{ $whitelabel['topbarHeight'] ?? 60 }}px;
         }
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background: #f8f9fc; }
+        body { font-family: '{{ $whitelabel['fontFamily'] ?? 'Inter' }}', system-ui, -apple-system, sans-serif; background: #f8f9fc; }
         .sidebar {
             position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-width);
             background: linear-gradient(180deg, var(--brand-primary) 0%, var(--brand-dark) 100%);
@@ -135,6 +135,9 @@
         <a href="{{ route('admin.reports.index') }}" class="nav-link {{ request()->routeIs('admin.reports.*') ? 'active' : '' }}">
             <i class="fas fa-file-invoice"></i> Laporan (AI)
         </a>
+        <a href="{{ route('admin.tax-report.index') }}" class="nav-link {{ request()->routeIs('admin.tax-report.*') ? 'active' : '' }}">
+            <i class="fas fa-file-invoice-dollar"></i> Laporan Pajak
+        </a>
         <a href="{{ route('admin.stock-report.index') }}" class="nav-link {{ request()->routeIs('admin.stock-report.*') ? 'active' : '' }}">
             <i class="fas fa-boxes"></i> Stok Produk
         </a>
@@ -182,20 +185,48 @@
             <i class="fas fa-folder"></i> File Manager
         </a>
 
+        <div class="nav-section">🚚 Pengiriman</div>
+        <a href="{{ route('admin.shipping-category.index') }}" class="nav-link {{ request()->routeIs('admin.shipping-category.*') ? 'active' : '' }}">
+            <i class="fas fa-truck-loading"></i> Biaya Kategori
+        </a>
+        <a href="{{ route('admin.delivery.ratings') }}" class="nav-link {{ request()->routeIs('admin.delivery.ratings*') ? 'active' : '' }}">
+            <i class="fas fa-star"></i> Rating Kurir
+        </a>
+
         <div class="nav-section">💳 Keuangan</div>
         <a href="{{ route('admin.withdraws.index') }}" class="nav-link {{ request()->routeIs('admin.withdraws.*') ? 'active' : '' }}">
             <i class="fas fa-hand-holding-usd"></i> Withdraw
         </a>
+        <a href="{{ route('admin.customers.wallets') }}" class="nav-link {{ request()->routeIs('admin.customers.wallet*') ? 'active' : '' }}">
+            <i class="fas fa-wallet"></i> Wallet Pelanggan
+        </a>
         <a href="{{ route('admin.offline-payment.index') }}" class="nav-link {{ request()->routeIs('admin.offline-payment.*') ? 'active' : '' }}">
             <i class="fas fa-money-check"></i> Pembayaran Offline
+        </a>
+        <a href="{{ route('admin.order-settings.index') }}" class="nav-link {{ request()->routeIs('admin.order-settings.*') ? 'active' : '' }}">
+            <i class="fas fa-receipt"></i> Order & Invoice
+        </a>
+        <a href="{{ route('admin.discount-settings.index') }}" class="nav-link {{ request()->routeIs('admin.discount-settings.*') ? 'active' : '' }}">
+            <i class="fas fa-tags"></i> Pengaturan Diskon
         </a>
         <a href="{{ route('admin.email-templates.index') }}" class="nav-link {{ request()->routeIs('admin.email-templates.*') ? 'active' : '' }}">
             <i class="fas fa-envelope"></i> Email Templates
         </a>
 
+        <div class="nav-section">📋 Langganan</div>
+        <a href="{{ route('admin.subscriptions.plans') }}" class="nav-link {{ request()->routeIs('admin.subscriptions.plans*') ? 'active' : '' }}">
+            <i class="fas fa-crown"></i> Paket
+        </a>
+        <a href="{{ route('admin.subscriptions.index') }}" class="nav-link {{ request()->routeIs('admin.subscriptions.index') ? 'active' : '' }}">
+            <i class="fas fa-list"></i> Langganan Vendor
+        </a>
+
         <div class="nav-section">⚙️ Sistem</div>
         <a href="{{ route('admin.settings') }}" class="nav-link {{ request()->routeIs('admin.settings') ? 'active' : '' }}">
             <i class="fas fa-cog"></i> Pengaturan
+        </a>
+        <a href="{{ route('admin.theme.index') }}" class="nav-link {{ request()->routeIs('admin.theme.*') ? 'active' : '' }}">
+            <i class="fas fa-palette"></i> Theme
         </a>
         <a href="{{ route('admin.language.index') }}" class="nav-link {{ request()->routeIs('admin.language.*') ? 'active' : '' }}">
             <i class="fas fa-language"></i> Bahasa
@@ -215,8 +246,14 @@
         <a href="{{ route('admin.vendor-settings.index') }}" class="nav-link {{ request()->routeIs('admin.vendor-settings.*') ? 'active' : '' }}">
             <i class="fas fa-cog"></i> Vendor Settings
         </a>
+        <a href="{{ route('admin.modules.index') }}" class="nav-link {{ request()->routeIs('admin.modules.*') ? 'active' : '' }}">
+            <i class="fas fa-puzzle-piece"></i> Modules
+        </a>
         <a href="{{ route('admin.maintenance.index') }}" class="nav-link {{ request()->routeIs('admin.maintenance.*') ? 'active' : '' }}">
             <i class="fas fa-tools"></i> Maintenance
+        </a>
+        <a href="{{ route('admin.system.error-logs') }}" class="nav-link {{ request()->routeIs('admin.system.*') ? 'active' : '' }}">
+            <i class="fas fa-bug"></i> System Tools
         </a>
         <a href="{{ route('admin.logout') }}" class="nav-link" onclick="event.preventDefault(); document.getElementById('logoutForm').submit();">
             <i class="fas fa-sign-out-alt"></i> Keluar

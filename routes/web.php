@@ -7,23 +7,36 @@ use App\Http\Controllers\Admin\BrandController;
 use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CouponController;
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\CustomerWalletController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\DealOfTheDayController;
 use App\Http\Controllers\Admin\DeliveryManController;
+use App\Http\Controllers\Admin\DeliveryRatingAdminController;
+use App\Http\Controllers\Admin\DiscountSettingsController;
 use App\Http\Controllers\Admin\EmployeeController;
 use App\Http\Controllers\Admin\FlashDealController;
+use App\Http\Controllers\Admin\ModuleController;
 use App\Http\Controllers\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Admin\OrderSettingsController;
 use App\Http\Controllers\Admin\ProductController;
 use App\Http\Controllers\Admin\ProviderController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\ShippingCategoryController;
+use App\Http\Controllers\Admin\SubscriptionController;
+use App\Http\Controllers\Admin\SystemToolsController;
+use App\Http\Controllers\Admin\TaxReportController;
+use App\Http\Controllers\Admin\ThemeController;
 use App\Http\Controllers\Admin\FileManagerController;
 use App\Http\Controllers\Admin\ProductSeoController;
 use App\Http\Controllers\Admin\SupportTicketController as AdminTicketController;
 use App\Http\Controllers\Storefront\ProfileController;
 use App\Http\Controllers\Storefront\ReviewController as StoreReviewController;
+use App\Http\Controllers\Storefront\DeliveryRatingController;
+use App\Http\Controllers\Storefront\DigitalDownloadController;
 use App\Http\Controllers\Vendor\DigitalProductController;
 use App\Http\Controllers\Vendor\GalleryController;
+use App\Http\Controllers\Vendor\OnboardingController;
 use App\Http\Controllers\Vendor\OrderEditController;
 use App\Http\Controllers\Admin\PushNotificationController;
 use App\Http\Controllers\Admin\DeliveryManController as AdminDeliveryManController;
@@ -44,6 +57,7 @@ use App\Http\Controllers\PseoSitemapController;
 use App\Http\Controllers\Vendor\AuthController as VendorAuthController;
 use App\Http\Controllers\Vendor\BarcodeController;
 use App\Http\Controllers\Vendor\BulkImportController;
+use App\Http\Controllers\Vendor\CashCollectController;
 use App\Http\Controllers\Vendor\ChatController;
 use App\Http\Controllers\Vendor\ClearanceSaleController;
 use App\Http\Controllers\Vendor\CouponController as VendorCouponController;
@@ -204,6 +218,14 @@ Route::middleware('customer')->group(function () {
 
     Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])->name('social.redirect');
     Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])->name('social.callback');
+
+    // Digital downloads
+    Route::post('/orders/{orderItem}/download/otp', [DigitalDownloadController::class, 'requestOtp'])->name('download.otp');
+    Route::post('/orders/{orderItem}/download', [DigitalDownloadController::class, 'verify'])->name('download.verify');
+
+    // Delivery man rating
+    Route::get('/orders/{order}/rate-delivery', [DeliveryRatingController::class, 'create'])->name('delivery.rate');
+    Route::post('/orders/{order}/rate-delivery', [DeliveryRatingController::class, 'store'])->name('delivery.rate.store');
 });
 
 Route::post('/webhook/payment/{provider}', function ($providerId) {
@@ -430,6 +452,60 @@ Route::prefix('admin')->name('admin.')->group(function () {
         Route::put('vendor-settings', function(Request $request){ foreach(['registration_open','default_commission','min_withdraw','auto_approve'] as $k) \App\Models\SystemSetting::set('vendor_'.$k,$request->$k); return back()->with('success','Vendor settings disimpan.'); })->name('vendor-settings.update');
         Route::get('inhouse-shop', fn()=>view('admin.inhouse-shop.index'))->name('inhouse-shop.index');
         Route::put('inhouse-shop', function(Request $request){ \App\Models\SystemSetting::set('inhouse_shop_active',$request->inhouse_active?'1':null); \App\Models\SystemSetting::set('inhouse_shop_name',$request->inhouse_name); return back()->with('success','Inhouse shop disimpan.'); })->name('inhouse-shop.update');
+
+        // Customer wallets
+        Route::get('customers/wallets', [CustomerWalletController::class, 'index'])->name('customers.wallets');
+        Route::get('customers/{user}/wallet', [CustomerWalletController::class, 'show'])->name('customers.wallet-detail');
+        Route::post('customers/{user}/wallet/adjust', [CustomerWalletController::class, 'adjust'])->name('customers.wallet-adjust');
+
+        // Tax report
+        Route::get('tax-report', [TaxReportController::class, 'index'])->name('tax-report.index');
+        Route::get('tax-report/settings', [TaxReportController::class, 'settings'])->name('tax-report.settings');
+        Route::put('tax-report/settings', [TaxReportController::class, 'updateSettings'])->name('tax-report.settings.update');
+
+        // Order & invoice settings
+        Route::get('order-settings', [OrderSettingsController::class, 'index'])->name('order-settings.index');
+        Route::put('order-settings', [OrderSettingsController::class, 'update'])->name('order-settings.update');
+
+        // Discount settings
+        Route::get('discount-settings', [DiscountSettingsController::class, 'index'])->name('discount-settings.index');
+        Route::put('discount-settings', [DiscountSettingsController::class, 'update'])->name('discount-settings.update');
+
+        // Shipping category cost
+        Route::get('shipping-category', [ShippingCategoryController::class, 'index'])->name('shipping-category.index');
+        Route::post('shipping-category', [ShippingCategoryController::class, 'store'])->name('shipping-category.store');
+        Route::delete('shipping-category', [ShippingCategoryController::class, 'destroy'])->name('shipping-category.destroy');
+
+        // Delivery ratings
+        Route::get('delivery/ratings', [DeliveryRatingAdminController::class, 'index'])->name('delivery.ratings');
+        Route::get('delivery/{user}/rating-report', [DeliveryRatingAdminController::class, 'deliveryManReport'])->name('delivery.rating-report');
+
+        // Subscription plans & subscriptions
+        Route::get('subscriptions/plans', [SubscriptionController::class, 'plans'])->name('subscriptions.plans');
+        Route::post('subscriptions/plans', [SubscriptionController::class, 'storePlan'])->name('subscriptions.plans.store');
+        Route::put('subscriptions/plans/{plan}', [SubscriptionController::class, 'updatePlan'])->name('subscriptions.plans.update');
+        Route::delete('subscriptions/plans/{plan}', [SubscriptionController::class, 'destroyPlan'])->name('subscriptions.plans.destroy');
+        Route::get('subscriptions', [SubscriptionController::class, 'subscriptions'])->name('subscriptions.index');
+        Route::get('subscriptions/{subscription}', [SubscriptionController::class, 'showSubscription'])->name('subscriptions.show');
+        Route::put('subscriptions/{subscription}/status', [SubscriptionController::class, 'updateSubscriptionStatus'])->name('subscriptions.update-status');
+
+        // Theme
+        Route::get('theme', [ThemeController::class, 'index'])->name('theme.index');
+        Route::put('theme', [ThemeController::class, 'update'])->name('theme.update');
+
+        // Modules
+        Route::get('modules', [ModuleController::class, 'index'])->name('modules.index');
+        Route::post('modules/toggle', [ModuleController::class, 'toggle'])->name('modules.toggle');
+
+        // System tools
+        Route::get('system/error-logs', [SystemToolsController::class, 'errorLogs'])->name('system.error-logs');
+        Route::post('system/error-logs/clear', [SystemToolsController::class, 'clearErrorLogs'])->name('system.error-logs-clear');
+        Route::get('system/env-settings', [SystemToolsController::class, 'envSettings'])->name('system.env-settings');
+        Route::put('system/env-settings', [SystemToolsController::class, 'updateEnvSettings'])->name('system.env-settings-update');
+        Route::get('system/db-settings', [SystemToolsController::class, 'dbSettings'])->name('system.db-settings');
+        Route::post('system/db-optimize', [SystemToolsController::class, 'optimizeDb'])->name('system.db-optimize');
+        Route::get('system/software-update', [SystemToolsController::class, 'softwareUpdate'])->name('system.software-update');
+        Route::post('system/check-update', [SystemToolsController::class, 'checkUpdate'])->name('system.check-update');
     });
 });
 
@@ -448,6 +524,11 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
         Route::get('/dashboard', function () {
             $shop = auth('vendor')->user()->shop;
             if (!$shop) return redirect()->route('vendor.login');
+
+            if (!$shop->onboarding_completed) {
+                return redirect()->route('vendor.onboarding.step1');
+            }
+
             $stats = [
                 'total_products' => \App\Models\Product::where('shop_id', $shop->id)->count(),
                 'active_products' => \App\Models\Product::where('shop_id', $shop->id)->where('status', 'approved')->count(),
@@ -479,6 +560,10 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
 
         Route::get('pos', [PosController::class, 'index'])->name('pos.index');
         Route::post('pos/order', [PosController::class, 'storeOrder'])->name('pos.store');
+        Route::get('pos/held', [PosController::class, 'heldOrders'])->name('pos.held');
+        Route::post('pos/{order}/resume', [PosController::class, 'resumeHeldOrder'])->name('pos.resume');
+        Route::get('pos/{order}/print', [PosController::class, 'printInvoice'])->name('pos.print');
+        Route::get('pos/{order}/print-pdf', [PosController::class, 'printInvoicePdf'])->name('pos.print-pdf');
 
         Route::get('bulk-import', [BulkImportController::class, 'index'])->name('bulk-import.index');
         Route::post('bulk-import', [BulkImportController::class, 'store'])->name('bulk-import.store');
@@ -529,6 +614,21 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
                 \App\Models\SystemSetting::set('shop_shipping_'.$shopId.'_'.$code.'_cost', $cost);
             return back()->with('success','Metode pengiriman disimpan.');
         })->name('shipping.update');
+
+        // Onboarding wizard
+        Route::get('onboarding/step1', [OnboardingController::class, 'step1'])->name('onboarding.step1');
+        Route::post('onboarding/step1', [OnboardingController::class, 'storeStep1'])->name('onboarding.step1.store');
+        Route::get('onboarding/step2', [OnboardingController::class, 'step2'])->name('onboarding.step2');
+        Route::post('onboarding/step2', [OnboardingController::class, 'storeStep2'])->name('onboarding.step2.store');
+        Route::get('onboarding/step3', [OnboardingController::class, 'step3'])->name('onboarding.step3');
+        Route::post('onboarding/step3', [OnboardingController::class, 'storeStep3'])->name('onboarding.step3.store');
+        Route::get('onboarding/step4', [OnboardingController::class, 'step4'])->name('onboarding.step4');
+        Route::post('onboarding/step4', [OnboardingController::class, 'storeStep4'])->name('onboarding.step4.store');
+        Route::get('onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
+
+        // Cash collect (delivery)
+        Route::get('cash-collect', [CashCollectController::class, 'index'])->name('cash-collect.index');
+        Route::post('cash-collect/{collect}/mark', [CashCollectController::class, 'markCollected'])->name('cash-collect.mark');
     });
 });
 

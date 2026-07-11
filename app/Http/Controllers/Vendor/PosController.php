@@ -6,8 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
-use App\Models\User;
-use App\Models\Wallet;
 use Illuminate\Http\Request;
 
 class PosController extends Controller
@@ -15,7 +13,7 @@ class PosController extends Controller
     public function index(Request $request)
     {
         $shop = auth('vendor')->user()->shop;
-        $query = Product::where('status', 'approved')->with('shop');
+        $query = $shop->products()->where('status', 'approved');
         if ($request->filled('search')) {
             $query->where('name', 'like', "%{$request->search}%");
         }
@@ -35,6 +33,7 @@ class PosController extends Controller
             'customer_phone' => 'nullable|string|max:20',
             'discount' => 'nullable|numeric|min:0',
             'payment_method' => 'required|in:cash,transfer,qris',
+            'hold' => 'nullable|boolean',
         ]);
 
         $subTotal = 0;
@@ -44,8 +43,12 @@ class PosController extends Controller
         $discount = (float) ($request->discount ?? 0);
         $total = max(0, $subTotal - $discount);
 
+        $orderStatus = $request->boolean('hold') ? 'pending' : 'delivered';
+
         $order = Order::create([
-            'order_number' => 'POS-' . now()->format('YmdHis') . '-' . rand(100, 999),
+            'order_number' => $request->boolean('hold')
+                ? 'HOLD-' . now()->format('YmdHis') . '-' . rand(100, 999)
+                : 'POS-' . now()->format('YmdHis') . '-' . rand(100, 999),
             'customer_id' => auth('vendor')->id(),
             'shop_id' => $shop->id,
             'sub_total' => $subTotal,
@@ -54,9 +57,9 @@ class PosController extends Controller
             'tax' => 0,
             'shipping_cost' => 0,
             'payment_method' => $request->payment_method,
-            'payment_status' => 'paid',
-            'order_status' => 'delivered',
-            'delivered_at' => now(),
+            'payment_status' => $request->boolean('hold') ? 'unpaid' : 'paid',
+            'order_status' => $orderStatus,
+            'delivered_at' => $request->boolean('hold') ? null : now(),
             'note' => 'POS: ' . ($request->customer_name ?? 'Walk-in Customer'),
         ]);
 
@@ -71,14 +74,74 @@ class PosController extends Controller
                 'sub_total' => $item['price'] * $item['quantity'],
             ]);
 
-            $product = Product::find($item['product_id']);
-            if ($product) {
-                $product->decrement('current_stock', $item['quantity']);
+            if (!$request->boolean('hold')) {
+                $product = Product::find($item['product_id']);
+                if ($product) {
+                    $product->decrement('current_stock', $item['quantity']);
+                }
             }
         }
 
-        $order->statusHistory()->create(['status' => 'delivered', 'changed_by' => auth('vendor')->id(), 'note' => 'POS sale']);
+        $order->statusHistory()->create([
+            'status' => $orderStatus,
+            'changed_by' => auth('vendor')->id(),
+            'note' => $request->boolean('hold') ? 'POS hold order' : 'POS sale',
+        ]);
 
-        return response()->json(['success' => true, 'order_number' => $order->order_number, 'total' => $total]);
+        return response()->json([
+            'success' => true,
+            'order_number' => $order->order_number,
+            'total' => $total,
+            'hold' => $request->boolean('hold'),
+        ]);
+    }
+
+    public function heldOrders()
+    {
+        $shop = auth('vendor')->user()->shop;
+        $orders = Order::where('shop_id', $shop->id)
+            ->where('order_status', 'pending')
+            ->where('order_number', 'like', 'HOLD-%')
+            ->with('items.product')
+            ->latest()
+            ->paginate(10);
+
+        return view('vendor.pos.held', compact('orders'));
+    }
+
+    public function resumeHeldOrder(Order $order)
+    {
+        $shop = auth('vendor')->user()->shop;
+        if ($order->shop_id !== $shop->id) abort(403);
+        if (!str_starts_with($order->order_number, 'HOLD-')) abort(400);
+
+        foreach ($order->items as $item) {
+            $product = $item->product;
+            if ($product) {
+                $product->decrement('current_stock', $item->quantity);
+            }
+        }
+
+        $order->update(['payment_status' => 'paid', 'order_status' => 'delivered', 'delivered_at' => now()]);
+        $order->statusHistory()->create(['status' => 'delivered', 'changed_by' => auth('vendor')->id(), 'note' => 'POS hold resumed']);
+
+        return back()->with('success', 'Hold order #' . $order->order_number . ' resumed.');
+    }
+
+    public function printInvoice(Order $order)
+    {
+        $shop = auth('vendor')->user()->shop;
+        if ($order->shop_id !== $shop->id) abort(403);
+        $order->load(['items.product', 'customer', 'shop']);
+        return view('vendor.pos.invoice-print', compact('order'));
+    }
+
+    public function printInvoicePdf(Order $order)
+    {
+        $shop = auth('vendor')->user()->shop;
+        if ($order->shop_id !== $shop->id) abort(403);
+        $order->load(['items.product', 'customer', 'shop']);
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('vendor.pos.invoice-pdf', compact('order'));
+        return $pdf->download("pos-invoice-{$order->order_number}.pdf");
     }
 }

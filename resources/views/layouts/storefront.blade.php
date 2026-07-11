@@ -7,10 +7,14 @@
     <title>@yield('title', $whitelabel['appName'])</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family={{ $whitelabel['fontFamily'] ?? 'Inter' }}:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --brand-primary: #4F46E5; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: #f8f9fc; }
+        :root {
+            --brand-primary: {{ $whitelabel['brandColor'] }};
+            --brand-dark: {{ $whitelabel['brandColorDark'] }};
+            --border-radius: {{ $whitelabel['borderRadius'] ?? 14 }}px;
+        }
+        body { font-family: '{{ $whitelabel['fontFamily'] ?? 'Inter' }}', system-ui, sans-serif; background: #f8f9fc; }
         .navbar { background: white; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
         .product-card { border: none; border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,.04); transition: transform .25s ease, box-shadow .25s ease; overflow: hidden; }
         .product-card:hover { transform: translateY(-6px); box-shadow: 0 16px 48px rgba(0,0,0,.12); }

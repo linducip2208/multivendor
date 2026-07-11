@@ -6,28 +6,43 @@ use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         $this->app->singleton(\App\Services\LicenseClient::class);
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         \Illuminate\Support\Facades\View::composer('*', function ($view) {
             $settings = \Illuminate\Support\Facades\Cache::remember('whitelabel_branding', 3600, function () {
-                $brandColor = \App\Models\SystemSetting::get('brand_color', '#4F46E5');
+                $themePrimary = \App\Models\SystemSetting::get('theme_primary_color')
+                    ?: \App\Models\SystemSetting::get('brand_color')
+                    ?: '#4F46E5';
+
+                $themeDark = \App\Models\SystemSetting::get('theme_primary_dark')
+                    ?: \App\Models\SystemSetting::get('brand_color_dark')
+                    ?: self::darkenHex($themePrimary, 0.75);
+
+                $borderRadius = \App\Models\SystemSetting::get('theme_border_radius', '14');
+                $fontFamily = \App\Models\SystemSetting::get('theme_font_family', 'Inter');
+                $sidebarWidth = \App\Models\SystemSetting::get('theme_sidebar_width', '250');
+                $topbarHeight = \App\Models\SystemSetting::get('theme_topbar_height', '60');
+                $darkMode = \App\Models\SystemSetting::get('theme_dark_mode_default', false);
+                $showLang = \App\Models\SystemSetting::get('theme_show_language_switcher', '1');
+                $logoText = \App\Models\SystemSetting::get('theme_logo_text');
+
                 return [
                     'logo' => \App\Models\SystemSetting::get('logo_url'),
                     'favicon' => \App\Models\SystemSetting::get('favicon_url'),
-                    'brandColor' => $brandColor,
-                    'brandColorDark' => self::darkenHex($brandColor, 0.75),
-                    'appName' => \App\Models\SystemSetting::get('app_name', config('app.name')),
+                    'brandColor' => $themePrimary,
+                    'brandColorDark' => $themeDark,
+                    'appName' => $logoText ?: \App\Models\SystemSetting::get('app_name', config('app.name')),
+                    'borderRadius' => $borderRadius,
+                    'fontFamily' => $fontFamily,
+                    'sidebarWidth' => $sidebarWidth,
+                    'topbarHeight' => $topbarHeight,
+                    'darkMode' => $darkMode,
+                    'showLang' => $showLang,
                 ];
             });
             $view->with('whitelabel', $settings);

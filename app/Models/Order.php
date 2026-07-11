@@ -69,7 +69,7 @@ class Order extends Model
 
     public static function generateOrderNumber(): string
     {
-        $prefix = 'ORD';
+        $prefix = \App\Models\SystemSetting::get('order_prefix', 'ORD');
         $timestamp = now()->format('YmdHis');
         $random = strtoupper(substr(uniqid(), -4));
         return "{$prefix}-{$timestamp}-{$random}";

@@ -10,8 +10,8 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
     <style>
-        :root { --brand-primary: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; --sidebar-width: 250px; --topbar-height: 60px; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: #f8f9fc; }
+        :root { --brand-primary: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; --sidebar-width: {{ $whitelabel['sidebarWidth'] ?? 250 }}px; --topbar-height: {{ $whitelabel['topbarHeight'] ?? 60 }}px; }
+        body { font-family: '{{ $whitelabel['fontFamily'] ?? 'Inter' }}', system-ui, sans-serif; background: #f8f9fc; }
         .sidebar { position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-width); background: linear-gradient(180deg, var(--brand-primary) 0%, var(--brand-dark) 100%); color: #fff; z-index: 1040; overflow-y: auto; transition: transform .3s; }
         .sidebar .logo { padding: 20px; font-size: 1.2rem; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,.1); }
         .sidebar .nav-link { color: rgba(255,255,255,.75); padding: 12px 20px; font-size: .875rem; border-left: 3px solid transparent; }
@@ -44,8 +44,11 @@
         <i class="fas fa-tachometer-alt"></i> Dashboard
     </a>
     <div class="nav-section">POS</div>
-    <a href="{{ route('vendor.pos.index') }}" class="nav-link {{ request()->routeIs('vendor.pos.*') ? 'active' : '' }}">
+    <a href="{{ route('vendor.pos.index') }}" class="nav-link {{ request()->routeIs('vendor.pos.index') ? 'active' : '' }}">
         <i class="fas fa-cash-register"></i> Point of Sale
+    </a>
+    <a href="{{ route('vendor.pos.held') }}" class="nav-link {{ request()->routeIs('vendor.pos.held') ? 'active' : '' }}">
+        <i class="fas fa-pause-circle"></i> Hold Orders
     </a>
     <div class="nav-section">Produk</div>
     <a href="{{ route('vendor.products.index') }}" class="nav-link {{ request()->routeIs('vendor.products.*') ? 'active' : '' }}">
@@ -97,6 +100,9 @@
     <div class="nav-section">Keuangan</div>
     <a href="{{ route('vendor.wallet.index') }}" class="nav-link {{ request()->routeIs('vendor.wallet.*') ? 'active' : '' }}">
         <i class="fas fa-wallet"></i> Wallet & Payout
+    </a>
+    <a href="{{ route('vendor.cash-collect.index') }}" class="nav-link {{ request()->routeIs('vendor.cash-collect.*') ? 'active' : '' }}">
+        <i class="fas fa-hand-holding-usd"></i> Cash Collect
     </a>
     <div class="nav-section">Pengaturan</div>
     <a href="{{ route('vendor.shipping.index') }}" class="nav-link {{ request()->routeIs('vendor.shipping.*') ? 'active' : '' }}">

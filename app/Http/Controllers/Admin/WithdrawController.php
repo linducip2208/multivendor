@@ -4,10 +4,18 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\VendorWithdrawRequest;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
 
 class WithdrawController extends Controller
 {
+    protected NotificationService $notifications;
+
+    public function __construct()
+    {
+        $this->notifications = new NotificationService;
+    }
+
     public function index(Request $request)
     {
         $query = VendorWithdrawRequest::with(['vendor', 'shop'])->latest();
@@ -32,6 +40,15 @@ class WithdrawController extends Controller
             if ($wallet) {
                 $wallet->debit($withdraw->amount, 'Withdraw completed #' . $withdraw->id);
             }
+            $this->notifications->sendWithdrawCompleted($withdraw);
+        }
+
+        if ($request->status === 'approved') {
+            $this->notifications->sendWithdrawApproved($withdraw);
+        }
+
+        if ($request->status === 'rejected') {
+            $this->notifications->sendWithdrawRejected($withdraw);
         }
 
         $labels = ['approved' => 'disetujui', 'rejected' => 'ditolak', 'completed' => 'selesai'];

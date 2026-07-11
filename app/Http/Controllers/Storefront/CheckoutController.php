@@ -8,6 +8,7 @@ use App\Models\Coupon;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Provider;
+use App\Models\SystemSetting;
 use App\Models\Transaction;
 use App\Services\Payment\PaymentGatewayService;
 use App\Services\Shipping\ShippingService;
@@ -91,16 +92,41 @@ class CheckoutController extends Controller
             $groupedByShop = $cartItems->groupBy(fn ($i) => $i->product->shop_id);
             $orders = [];
             $grandTotal = 0;
+            $orderPrefix = SystemSetting::get('order_prefix', 'ORD');
 
             foreach ($groupedByShop as $shopId => $items) {
                 $shop = $items->first()->product->shop;
                 $subTotal = $items->sum(fn ($i) => $i->price * $i->quantity);
                 $tax = 0;
                 $shippingCost = 0;
+                $categoryShippingCost = 0;
 
                 if (isset($shippingMethods[$shopId])) {
                     $shippingCost = (float) ($shippingMethods[$shopId]['cost'] ?? 0);
                 }
+
+                foreach ($items as $cartItem) {
+                    $product = $cartItem->product;
+                    $catId = $product->category_id;
+                    if ($catId && isset($shippingMethods[$shopId])) {
+                        $methodKey = $shippingMethods[$shopId]['method'] ?? $shippingMethods[$shopId]['code'] ?? null;
+                        if ($methodKey) {
+                            $catShipping = SystemSetting::get("cat_shipping_{$catId}_{$methodKey}");
+                            if ($catShipping) {
+                                $categoryShippingCost += (float) $catShipping * $cartItem->quantity;
+                            }
+                        }
+                    }
+
+                    if ($product->vat_tax_id) {
+                        $vatTax = \App\Models\VatTax::find($product->vat_tax_id);
+                        if ($vatTax && $vatTax->is_active) {
+                            $tax += $cartItem->price * $cartItem->quantity * ($vatTax->rate / 100);
+                        }
+                    }
+                }
+
+                $shippingCost += $categoryShippingCost;
 
                 $couponDiscount = 0;
                 if ($request->coupon_code) {
@@ -114,7 +140,7 @@ class CheckoutController extends Controller
                 $total = $subTotal + $tax + $shippingCost - $couponDiscount;
 
                 $order = Order::create([
-                    'order_number' => Order::generateOrderNumber(),
+                    'order_number' => $orderPrefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(uniqid(), -4)),
                     'customer_id' => $customer->id,
                     'shop_id' => $shop->id,
                     'coupon_code' => $request->coupon_code,
