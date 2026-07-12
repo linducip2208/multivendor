@@ -8,7 +8,7 @@
     <div class="col-md-6"><label class="fw-medium">Judul</label><input type="text" name="title" class="form-control" value="{{ old('title', $flashdeal->title) }}" required></div>
     <div class="col-md-3"><label class="fw-medium">Mulai</label><input type="datetime-local" name="start_date" class="form-control" value="{{ old('start_date', $flashdeal->start_date->format('Y-m-d\TH:i')) }}" required></div>
     <div class="col-md-3"><label class="fw-medium">Berakhir</label><input type="datetime-local" name="end_date" class="form-control" value="{{ old('end_date', $flashdeal->end_date->format('Y-m-d\TH:i')) }}" required></div>
-    <div class="col-md-6"><div class="form-check mt-2"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" {{ $flashdeal->status?'checked' : '' }}><label for="st" class="fw-medium">Aktif</label></div><div class="form-check"><input type="checkbox" name="featured" class="form-check-input" id="feat" value="1" {{ $flashdeal->featured?'checked' : '' }}><label for="feat">Featured</label></div></div>
+    <div class="col-md-6"><input type="hidden" name="status" value="0"><input type="hidden" name="featured" value="0"><div class="form-check mt-2"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" {{ $flashdeal->status?'checked' : '' }}><label for="st" class="fw-medium">Aktif</label></div><div class="form-check"><input type="checkbox" name="featured" class="form-check-input" id="feat" value="1" {{ $flashdeal->featured?'checked' : '' }}><label for="feat">Featured</label></div></div>
     <div class="col-12"><h6 class="fw-bold mt-3">Produk ({{ $flashdeal->dealProducts->count() }})</h6>
         <div class="row g-2">
             @foreach($flashdeal->dealProducts as $dp)

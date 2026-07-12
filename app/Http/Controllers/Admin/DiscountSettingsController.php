@@ -26,8 +26,12 @@ class DiscountSettingsController extends Controller
             'discount_require_approval',
         ];
 
+        $checkboxes = ['discount_require_approval'];
+
         foreach ($settings as $key) {
-            if ($request->has($key)) {
+            if (in_array($key, $checkboxes)) {
+                SystemSetting::set($key, $request->boolean($key) ? '1' : null);
+            } elseif ($request->has($key)) {
                 SystemSetting::set($key, $request->$key);
             }
         }

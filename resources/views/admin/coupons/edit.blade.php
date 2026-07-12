@@ -14,7 +14,7 @@
     <div class="col-md-2"><label class="fw-medium">Limit</label><input type="number" name="usage_limit" class="form-control" value="{{ old('usage_limit', $coupon->usage_limit) }}"></div>
     <div class="col-md-3"><label class="fw-medium">Mulai</label><input type="datetime-local" name="start_date" class="form-control" value="{{ old('start_date', $coupon->start_date?->format('Y-m-d\TH:i')) }}"></div>
     <div class="col-md-3"><label class="fw-medium">Berakhir</label><input type="datetime-local" name="end_date" class="form-control" value="{{ old('end_date', $coupon->end_date?->format('Y-m-d\TH:i')) }}"></div>
-    <div class="col-md-2"><div class="form-check mt-4"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" {{ $coupon->status?'checked' : '' }}><label for="st" class="fw-medium">Aktif</label></div></div>
+    <div class="col-md-2"><input type="hidden" name="status" value="0"><div class="form-check mt-4"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" {{ $coupon->status?'checked' : '' }}><label for="st" class="fw-medium">Aktif</label></div></div>
     <div class="col-12"><button class="btn btn-primary"><i class="fas fa-save me-2"></i>Perbarui</button></div>
 </div>
 </form>

@@ -35,15 +35,18 @@ class ShopController extends Controller
 
         $shop->update([
             'name' => $validated['shop_name'],
-            'description' => $validated['description'],
-            'address' => $validated['address'],
-            'phone' => $validated['phone'],
-            'email' => $validated['email'],
-            'logo' => $validated['logo'],
-            'banner' => $validated['banner'],
+            'description' => $validated['description'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'email' => $validated['email'] ?? null,
+            'logo' => $validated['logo'] ?? null,
+            'banner' => $validated['banner'] ?? null,
+            'bank_name' => $validated['bank_name'] ?? null,
+            'bank_account_number' => $validated['bank_account_number'] ?? null,
+            'bank_account_name' => $validated['bank_account_name'] ?? null,
         ]);
 
-        if ($validated['phone']) $vendor->update(['phone' => $validated['phone']]);
+        if (!empty($validated['phone'])) $vendor->update(['phone' => $validated['phone']]);
 
         return back()->with('success', 'Pengaturan toko diperbarui.');
     }

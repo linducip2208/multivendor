@@ -11,7 +11,7 @@
     <div class="col-12"><label>Konten</label><div id="quillEditor" style="height:300px;"></div><input type="hidden" name="content" id="contentInput" value="{{ old('content', $blog->content) }}"></div>
     <div class="col-md-6"><label>Meta Title</label><input type="text" name="meta_title" class="form-control" value="{{ old('meta_title', $blog->meta_title) }}"></div>
     <div class="col-md-6"><label>Meta Description</label><input type="text" name="meta_description" class="form-control" value="{{ old('meta_description', $blog->meta_description) }}"></div>
-    <div class="col-12"><div class="form-check"><input type="checkbox" name="is_published" class="form-check-input" id="pub" value="1" {{ $blog->is_published?'checked' : '' }}><label for="pub" class="fw-medium">Publish</label></div></div>
+    <div class="col-12"><input type="hidden" name="is_published" value="0"><div class="form-check"><input type="checkbox" name="is_published" class="form-check-input" id="pub" value="1" {{ $blog->is_published?'checked' : '' }}><label for="pub" class="fw-medium">Publish</label></div></div>
     <div class="col-12"><button class="btn btn-primary"><i class="fas fa-save me-2"></i>Perbarui</button></div>
 </div>
 </form></div></div>

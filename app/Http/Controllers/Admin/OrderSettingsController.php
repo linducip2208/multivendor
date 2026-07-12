@@ -30,8 +30,12 @@ class OrderSettingsController extends Controller
             'delivery_otp_length',
         ];
 
+        $checkboxes = ['order_auto_confirm', 'order_guest_checkout', 'delivery_verification'];
+
         foreach ($settings as $key) {
-            if ($request->has($key)) {
+            if (in_array($key, $checkboxes)) {
+                SystemSetting::set($key, $request->boolean($key) ? '1' : null);
+            } elseif ($request->has($key)) {
                 SystemSetting::set($key, $request->$key);
             }
         }

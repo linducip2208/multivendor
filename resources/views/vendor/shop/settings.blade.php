@@ -14,9 +14,9 @@
     <div class="col-md-6"><label class="fw-medium">URL Logo</label><input type="text" name="logo" class="form-control" value="{{ old('logo', $shop->logo) }}" placeholder="https://..."></div>
     <div class="col-md-6"><label class="fw-medium">URL Banner</label><input type="text" name="banner" class="form-control" value="{{ old('banner', $shop->banner) }}" placeholder="https://..."></div>
     <div class="col-12 mt-3"><h6 class="fw-bold"><i class="fas fa-university me-2"></i> Info Bank (Pencairan)</h6></div>
-    <div class="col-md-4"><label class="fw-medium">Nama Bank</label><input type="text" name="bank_name" class="form-control" value="{{ old('bank_name') }}" placeholder="BCA"></div>
-    <div class="col-md-4"><label class="fw-medium">No. Rekening</label><input type="text" name="bank_account_number" class="form-control" value="{{ old('bank_account_number') }}"></div>
-    <div class="col-md-4"><label class="fw-medium">Atas Nama</label><input type="text" name="bank_account_name" class="form-control" value="{{ old('bank_account_name') }}"></div>
+    <div class="col-md-4"><label class="fw-medium">Nama Bank</label><input type="text" name="bank_name" class="form-control" value="{{ old('bank_name', $shop->bank_name) }}" placeholder="BCA"></div>
+    <div class="col-md-4"><label class="fw-medium">No. Rekening</label><input type="text" name="bank_account_number" class="form-control" value="{{ old('bank_account_number', $shop->bank_account_number) }}"></div>
+    <div class="col-md-4"><label class="fw-medium">Atas Nama</label><input type="text" name="bank_account_name" class="form-control" value="{{ old('bank_account_name', $shop->bank_account_name) }}"></div>
     <div class="col-12"><button class="btn btn-primary px-4"><i class="fas fa-save me-2"></i>Simpan Pengaturan</button></div>
 </div>
 </form></div></div>

@@ -35,6 +35,7 @@ class ThemeController extends Controller
             }
         }
 
+        \Illuminate\Support\Facades\Cache::forget('whitelabel_branding');
         \Illuminate\Support\Facades\Cache::forget('theme_settings');
 
         return back()->with('success', 'Theme settings saved.');
