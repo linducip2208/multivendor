@@ -37,9 +37,9 @@ return new class extends Migration
             $table->foreignId('subscription_plan_id')->constrained('subscription_plans')->restrictOnDelete();
             $table->string('status')->default('active');
             $table->decimal('amount_paid', 12, 2);
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at')->nullable();
-            $table->timestamp('canceled_at')->nullable();
+            $table->dateTime('starts_at');
+            $table->dateTime('ends_at')->nullable();
+            $table->dateTime('canceled_at')->nullable();
             $table->string('payment_method')->nullable();
             $table->string('transaction_reference')->nullable();
             $table->timestamps();
