@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" type="image/svg+xml" href="{{ $whitelabel['favicon'] ?? asset('favicon.svg') }}">
     <title>@yield('title', 'Vendor Panel') — {{ $whitelabel['appName'] }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    @vite(['resources/css/tabler.css', 'resources/js/tabler.js'])
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
     <style>
@@ -28,7 +28,7 @@
     </style>
     @stack('head')
 </head>
-<body>
+<body class="tabler-panel">
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:1035;"></div>
 
 <nav class="sidebar" id="sidebar">
@@ -131,7 +131,6 @@
     @yield('content')
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.min.js"></script>
 <script>
     function toggleSidebar() {
