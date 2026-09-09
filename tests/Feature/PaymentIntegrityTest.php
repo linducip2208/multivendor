@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Cart;
 use App\Models\Category;
 use App\Models\Coupon;
+use App\Models\CustomerAddress;
 use App\Models\Order;
 use App\Models\PaymentGroup;
 use App\Models\Product;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Services\CheckoutCalculator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class PaymentIntegrityTest extends TestCase
@@ -70,6 +72,31 @@ class PaymentIntegrityTest extends TestCase
         $this->assertSame(200000.0, (float) $wallet->fresh()->balance);
         $this->expectException(\DomainException::class);
         $wallet->reserve(800000, 'Hold two', 'withdraw', 2, 'withdraw:hold:2');
+    }
+
+    public function test_multi_vendor_checkout_creates_one_payment_group_and_reserves_stock(): void
+    {
+        [$customer, $vendorA, $shopA, $category] = $this->commerceActors();
+        $vendorB = User::factory()->create(['role' => 'vendor', 'status' => 'active']);
+        Wallet::create(['user_id' => $vendorB->id, 'balance' => 0]);
+        $shopB = Shop::create(['vendor_id' => $vendorB->id, 'name' => 'Second shop', 'slug' => 'second-shop', 'status' => 'active']);
+        $first = Product::create(['shop_id' => $shopA->id, 'category_id' => $category->id, 'name' => 'First digital', 'slug' => 'first-digital', 'price' => 125000, 'current_stock' => 1, 'product_type' => 'digital', 'status' => 'approved', 'published' => true]);
+        $second = Product::create(['shop_id' => $shopB->id, 'category_id' => $category->id, 'name' => 'Second digital', 'slug' => 'second-digital', 'price' => 75000, 'current_stock' => 1, 'product_type' => 'digital', 'status' => 'approved', 'published' => true]);
+        Cart::create(['customer_id' => $customer->id, 'product_id' => $first->id, 'quantity' => 1, 'price' => 1]);
+        Cart::create(['customer_id' => $customer->id, 'product_id' => $second->id, 'quantity' => 1, 'price' => 1]);
+        $provider = Provider::create(['name' => 'Invoice', 'type' => 'payment', 'api_format' => 'xendit-invoice', 'base_url' => 'https://invoice.test', 'api_key_encrypted' => 'key', 'api_secret_encrypted' => 'token', 'is_active' => true]);
+        $address = CustomerAddress::create(['customer_id' => $customer->id, 'label' => 'Rumah', 'receiver_name' => 'Customer', 'receiver_phone' => '0812345678', 'address' => 'Jalan Test', 'city' => 'Jakarta', 'province' => 'DKI', 'shipping_destination_id' => '501', 'is_default' => true]);
+        Http::fake(['https://invoice.test/v2/invoices' => Http::response(['id' => 'invoice-1', 'invoice_url' => 'https://pay.test/invoice-1'], 200)]);
+
+        $this->actingAs($customer)->post('/checkout', ['address_id' => $address->id, 'shipping_methods' => [$shopA->id => [], $shopB->id => []], 'payment_provider_id' => $provider->id, 'payment_channel' => [$provider->id => 'BCA']])->assertRedirect('https://pay.test/invoice-1');
+
+        $this->assertDatabaseCount('payment_groups', 1);
+        $group = PaymentGroup::firstOrFail();
+        $this->assertSame(200000.0, (float) $group->grand_total);
+        $this->assertDatabaseCount('payment_group_orders', 2);
+        $this->assertDatabaseHas('products', ['id' => $first->id, 'current_stock' => 0]);
+        $this->assertDatabaseHas('products', ['id' => $second->id, 'current_stock' => 0]);
+        $this->assertDatabaseMissing('carts', ['customer_id' => $customer->id]);
     }
 
     private function commerceActors(): array
