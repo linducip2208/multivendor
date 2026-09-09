@@ -65,6 +65,7 @@
                 @else
                     <a class="btn btn-outline-primary btn-sm" href="{{ route('login') }}">Masuk</a>
                     <a class="btn btn-primary btn-sm ms-1" href="{{ route('register') }}">Daftar</a>
+                    <a class="btn btn-outline-secondary btn-sm ms-1" href="{{ route('admin.login') }}"><i class="fas fa-shield-halved me-1"></i>Admin</a>
                 @endauth
             </ul>
         </div>

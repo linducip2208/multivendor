@@ -90,6 +90,7 @@
                 @else
                     <a href="{{ route('login') }}" class="btn btn-outline-primary btn-sm">Masuk</a>
                     <a href="{{ route('register') }}" class="btn btn-primary btn-sm">Daftar</a>
+                    <a href="{{ route('admin.login') }}" class="btn btn-outline-secondary btn-sm" title="Masuk Admin"><i class="fas fa-shield-halved"></i><span class="d-none d-xl-inline ms-1">Admin</span></a>
                 @endauth
             </div>
             <div class="d-flex align-items-center gap-1 ms-2">
