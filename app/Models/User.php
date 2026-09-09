@@ -31,6 +31,11 @@ class User extends Authenticatable
         return $this->role === 'admin';
     }
 
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'admin';
+    }
+
     public function isVendor(): bool
     {
         return $this->role === 'vendor';
@@ -84,5 +89,10 @@ class User extends Authenticatable
     public function blogPosts(): HasMany
     {
         return $this->hasMany(BlogPost::class, 'author_id');
+    }
+
+    public function auditLogs(): HasMany
+    {
+        return $this->hasMany(AuditLog::class, 'actor_id');
     }
 }

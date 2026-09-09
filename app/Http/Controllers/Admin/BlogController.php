@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BlogCategory;
 use App\Models\BlogPost;
+use App\Services\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -17,12 +18,14 @@ class BlogController extends Controller
             $query->where('title', 'like', "%{$request->search}%");
         }
         $posts = $query->paginate(15);
+
         return view('admin.blog.index', compact('posts'));
     }
 
     public function create()
     {
         $categories = BlogCategory::all();
+
         return view('admin.blog.create', compact('categories'));
     }
 
@@ -39,11 +42,12 @@ class BlogController extends Controller
         ]);
 
         $validated['author_id'] = auth('admin')->id();
+        $validated['content'] = app(HtmlSanitizer::class)->sanitize($validated['content']);
         $validated['slug'] = Str::slug($validated['title']);
         $originalSlug = $validated['slug'];
         $counter = 1;
         while (BlogPost::where('slug', $validated['slug'])->exists()) {
-            $validated['slug'] = $originalSlug . '-' . $counter++;
+            $validated['slug'] = $originalSlug.'-'.$counter++;
         }
         $validated['published_at'] = $request->boolean('is_published') ? now() : null;
 
@@ -59,6 +63,7 @@ class BlogController extends Controller
     public function edit(BlogPost $blog)
     {
         $categories = BlogCategory::all();
+
         return view('admin.blog.edit', compact('blog', 'categories'));
     }
 
@@ -79,11 +84,12 @@ class BlogController extends Controller
             $counter = 1;
             $original = $validated['slug'];
             while (BlogPost::where('slug', $validated['slug'])->where('id', '!=', $blog->id)->exists()) {
-                $validated['slug'] = $original . '-' . $counter++;
+                $validated['slug'] = $original.'-'.$counter++;
             }
         }
+        $validated['content'] = app(HtmlSanitizer::class)->sanitize($validated['content']);
 
-        if ($request->boolean('is_published') && !$blog->is_published) {
+        if ($request->boolean('is_published') && ! $blog->is_published) {
             $validated['published_at'] = now();
         }
 
@@ -99,6 +105,7 @@ class BlogController extends Controller
     public function destroy(BlogPost $blog)
     {
         $blog->delete();
+
         return back()->with('success', 'Artikel dihapus.');
     }
 }

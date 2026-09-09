@@ -3,7 +3,12 @@
 namespace App\Http\Controllers\Vendor;
 
 use App\Http\Controllers\Controller;
+use App\Models\Brand;
+use App\Models\Category;
 use App\Models\Product;
+use App\Models\ProductTag;
+use App\Models\ProductVariant;
+use App\Services\HtmlSanitizer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -12,20 +17,30 @@ class ProductController extends Controller
     public function index(Request $request)
     {
         $shop = auth('vendor')->user()->shop;
-        if (!$shop) return redirect()->route('vendor.dashboard')->with('error', 'Toko belum disetujui.');
+        if (! $shop) {
+            return redirect()->route('vendor.dashboard')->with('error', 'Toko belum disetujui.');
+        }
         $query = Product::where('shop_id', $shop->id)->with('category')->latest();
-        if ($request->filled('search')) $query->where('name', 'like', "%{$request->search}%");
-        if ($request->filled('status')) $query->where('status', $request->status);
+        if ($request->filled('search')) {
+            $query->where('name', 'like', "%{$request->search}%");
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
         $products = $query->paginate(15)->withQueryString();
+
         return view('vendor.products.index', compact('products', 'shop'));
     }
 
     public function create()
     {
         $shop = auth('vendor')->user()->shop;
-        if (!$shop || $shop->status !== 'active') return redirect()->route('vendor.dashboard')->with('error', 'Toko belum aktif.');
-        $categories = \App\Models\Category::where('status', true)->get();
-        $brands = \App\Models\Brand::where('status', true)->get();
+        if (! $shop || $shop->status !== 'active') {
+            return redirect()->route('vendor.dashboard')->with('error', 'Toko belum aktif.');
+        }
+        $categories = Category::where('status', true)->get();
+        $brands = Brand::where('status', true)->get();
+
         return view('vendor.products.create', compact('categories', 'brands'));
     }
 
@@ -47,28 +62,48 @@ class ProductController extends Controller
             'digital_file' => 'nullable|file|max:51200|mimes:zip,pdf,epub,mp3,mp4,webp,png,jpg,jpeg', 'video_file' => 'nullable|file|max:51200|mimetypes:video/mp4,video/webm',
         ]);
         $validated['shop_id'] = $shop->id;
+        $validated['description'] = app(HtmlSanitizer::class)->sanitize($validated['description'] ?? null);
+        $validated['short_description'] = app(HtmlSanitizer::class)->sanitize($validated['short_description'] ?? null);
         $validated['slug'] = Str::slug($validated['name']);
-        $originalSlug = $validated['slug']; $counter = 1;
-        while (Product::where('slug', $validated['slug'])->exists()) { $validated['slug'] = $originalSlug . '-' . $counter++; }
-        $validated['created_by'] = 'vendor'; $validated['status'] = 'pending'; $validated['published'] = true;
-        if ($validated['discount_end'] ?? null) $validated['discount_start'] = now();
+        $originalSlug = $validated['slug'];
+        $counter = 1;
+        while (Product::where('slug', $validated['slug'])->exists()) {
+            $validated['slug'] = $originalSlug.'-'.$counter++;
+        }
+        $validated['created_by'] = 'vendor';
+        $validated['status'] = 'pending';
+        $validated['published'] = true;
+        if ($validated['discount_end'] ?? null) {
+            $validated['discount_start'] = now();
+        }
         $product = Product::create($validated);
 
         if ($request->hasFile('thumbnail')) {
             $product->update(['thumbnail' => $request->file('thumbnail')->store('products', 'public')]);
         }
         if ($request->hasFile('images')) {
-            $paths = []; foreach ($request->file('images') as $i => $img) { if ($i >= 5) break; $paths[] = $img->store('products', 'public'); }
+            $paths = [];
+            foreach ($request->file('images') as $i => $img) {
+                if ($i >= 5) {
+                    break;
+                } $paths[] = $img->store('products', 'public');
+            }
             $product->update(['images' => json_encode($paths)]);
         }
         if ($request->has('variants')) {
             foreach ($request->variants as $v) {
-                if (!empty($v['name'])) \App\Models\ProductVariant::create(['product_id'=>$product->id,'variant'=>$v['name'],'sku'=>$v['sku']??null,'price'=>(float)($v['price']??$product->price),'stock'=>(int)($v['stock']??0)]);
+                if (! empty($v['name'])) {
+                    ProductVariant::create(['product_id' => $product->id, 'variant' => $v['name'], 'sku' => $v['sku'] ?? null, 'price' => (float) ($v['price'] ?? $product->price), 'stock' => (int) ($v['stock'] ?? 0)]);
+                }
             }
         }
         if ($request->filled('tags')) {
             foreach (explode(',', $request->tags) as $tag) {
-                $tag = trim($tag); if ($tag) { $pt = \App\Models\ProductTag::firstOrCreate(['name'=>$tag,'slug'=>Str::slug($tag)]); $product->tags()->attach($pt->id); }
+                $tag = trim($tag);
+                if ($tag) {
+                    $pt = ProductTag::firstOrCreate(['name' => $tag, 'slug' => Str::slug($tag)]);
+                    $product->tags()->attach($pt->id);
+                }
             }
         }
         if ($request->hasFile('digital_file') && $validated['product_type'] === 'digital') {
@@ -85,24 +120,32 @@ class ProductController extends Controller
     public function show(Product $product)
     {
         $shop = auth('vendor')->user()->shop;
-        if ($product->shop_id !== $shop->id) abort(403);
+        if ($product->shop_id !== $shop->id) {
+            abort(403);
+        }
         $product->load(['category', 'brand', 'variants']);
+
         return view('vendor.products.show', compact('product'));
     }
 
     public function edit(Product $product)
     {
         $shop = auth('vendor')->user()->shop;
-        if ($product->shop_id !== $shop->id) abort(403);
-        $categories = \App\Models\Category::where('status', true)->get();
-        $brands = \App\Models\Brand::where('status', true)->get();
+        if ($product->shop_id !== $shop->id) {
+            abort(403);
+        }
+        $categories = Category::where('status', true)->get();
+        $brands = Brand::where('status', true)->get();
+
         return view('vendor.products.edit', compact('product', 'categories', 'brands'));
     }
 
     public function update(Request $request, Product $product)
     {
         $shop = auth('vendor')->user()->shop;
-        if ($product->shop_id !== $shop->id) abort(403);
+        if ($product->shop_id !== $shop->id) {
+            abort(403);
+        }
         $validated = $request->validate([
             'name' => 'required|string|max:255', 'category_id' => 'required|exists:categories,id',
             'brand_id' => 'nullable|exists:brands,id', 'description' => 'nullable|string',
@@ -115,10 +158,17 @@ class ProductController extends Controller
             'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
         if ($validated['name'] !== $product->name) {
-            $validated['slug'] = Str::slug($validated['name']); $counter = 1;
+            $validated['slug'] = Str::slug($validated['name']);
+            $counter = 1;
             $original = $validated['slug'];
-            while (Product::where('slug', $validated['slug'])->where('id', '!=', $product->id)->exists()) { $validated['slug'] = $original . '-' . $counter++; }
+            while (Product::where('slug', $validated['slug'])->where('id', '!=', $product->id)->exists()) {
+                $validated['slug'] = $original.'-'.$counter++;
+            }
         }
+        $validated['description'] = app(HtmlSanitizer::class)->sanitize($validated['description'] ?? null);
+        $validated['short_description'] = app(HtmlSanitizer::class)->sanitize($validated['short_description'] ?? null);
+        // Vendor edits to commercial fields are moderated again before storefront changes take effect.
+        $validated['status'] = 'pending';
         $product->update($validated);
 
         if ($request->hasFile('thumbnail')) {
@@ -132,8 +182,11 @@ class ProductController extends Controller
     public function destroy(Product $product)
     {
         $shop = auth('vendor')->user()->shop;
-        if ($product->shop_id !== $shop->id) abort(403);
+        if ($product->shop_id !== $shop->id) {
+            abort(403);
+        }
         $product->delete();
+
         return redirect()->route('vendor.products.index')->with('success', 'Produk berhasil dihapus.');
     }
 }

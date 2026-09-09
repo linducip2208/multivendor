@@ -7,6 +7,7 @@ use App\Models\PaymentGroup;
 use App\Models\PaymentWebhookCallback;
 use App\Models\Provider;
 use App\Models\Transaction;
+use App\Services\AuditLogger;
 use App\Services\Payment\PaymentGatewayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -73,6 +74,9 @@ class PaymentWebhookController extends Controller
                 ]);
             }
             $log->update(['payment_group_id' => $group->id, 'status' => $normalized['status'], 'processed_at' => now(), 'processing_result' => 'processed']);
+            app(AuditLogger::class)->log('payment.callback_processed', $group, ['status' => $group->getOriginal('status')], [
+                'status' => $normalized['status'], 'provider_id' => $provider->id, 'gateway_transaction_id' => $normalized['gateway_transaction_id'],
+            ]);
 
             return ['code' => 200, 'message' => 'Processed.'];
         });

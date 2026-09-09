@@ -3,28 +3,47 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class FileManagerController extends Controller
 {
     public function index()
     {
-        $files = collect(\Illuminate\Support\Facades\Storage::disk('public')->allFiles())
-            ->map(fn($f) => ['name' => basename($f), 'path' => $f, 'size' => \Illuminate\Support\Facades\Storage::disk('public')->size($f), 'url' => \Illuminate\Support\Facades\Storage::disk('public')->url($f), 'modified' => \Illuminate\Support\Facades\Storage::disk('public')->lastModified($f)])
+        $this->ensureSuperAdmin();
+        $disk = Storage::disk('public');
+        $files = collect($disk->allFiles('uploads'))
+            ->map(fn ($file) => ['name' => basename($file), 'path' => $file, 'size' => $disk->size($file), 'url' => $disk->url($file), 'modified' => $disk->lastModified($file)])
             ->sortByDesc('modified');
+
         return view('admin.file-manager.index', compact('files'));
     }
 
     public function upload(Request $request)
     {
-        $request->validate(['file' => 'required|file|max:10240']);
+        $this->ensureSuperAdmin();
+        $request->validate(['file' => 'required|file|max:10240|mimetypes:image/jpeg,image/png,image/webp,application/pdf,text/plain,text/csv,video/mp4']);
         $path = $request->file('file')->store('uploads', 'public');
-        return back()->with('success', 'File diupload: ' . $path);
+        app(AuditLogger::class)->log('file.uploaded', null, [], ['path' => $path]);
+
+        return back()->with('success', 'File diupload: '.$path);
     }
 
     public function destroy(Request $request)
     {
-        \Illuminate\Support\Facades\Storage::disk('public')->delete($request->path);
+        $this->ensureSuperAdmin();
+        $validated = $request->validate(['path' => ['required', 'string', 'max:255']]);
+        $path = str_replace('\\', '/', ltrim($validated['path'], '/'));
+        abort_unless(str_starts_with($path, 'uploads/') && ! str_contains($path, '..') && Storage::disk('public')->exists($path), 404);
+        Storage::disk('public')->delete($path);
+        app(AuditLogger::class)->log('file.deleted', null, ['path' => $path]);
+
         return back()->with('success', 'File dihapus.');
+    }
+
+    private function ensureSuperAdmin(): void
+    {
+        abort_unless(auth('admin')->user()?->isSuperAdmin(), 403);
     }
 }

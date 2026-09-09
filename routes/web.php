@@ -167,6 +167,7 @@ Route::middleware('customer')->group(function () {
 
     Route::get('/orders', [StoreOrderController::class, 'index'])->name('orders.index');
     Route::get('/orders/{order}', [StoreOrderController::class, 'show'])->name('orders.show');
+    Route::post('/order-items/{orderItem}/refund', [StoreOrderController::class, 'requestRefund'])->middleware('throttle:10,1')->name('orders.refund.request');
 
     Route::get('/wishlist', [WishlistController::class, 'index'])->name('wishlist.index');
     Route::post('/wishlist/toggle', [WishlistController::class, 'toggle'])->name('wishlist.toggle');

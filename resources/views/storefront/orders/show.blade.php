@@ -15,7 +15,13 @@
                         <thead class="table-light"><tr><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
                         <tbody>
                             @foreach($order->items as $item)
-                            <tr><td>{{ $item->product->name ?? 'Produk' }}</td><td>{{ $item->quantity }}</td><td>Rp {{ number_format($item->price, 0, ',', '.') }}</td><td>Rp {{ number_format($item->sub_total, 0, ',', '.') }}</td></tr>
+                            <tr><td>{{ $item->product->name ?? 'Produk' }}
+                                @if($item->refund_status === 'none' && $order->payment_status === 'paid' && $order->order_status === 'delivered')
+                                    <details class="mt-2"><summary class="small text-danger">Ajukan refund</summary><form method="POST" action="{{ route('orders.refund.request', $item) }}" class="mt-2">@csrf <textarea name="reason" class="form-control form-control-sm" required minlength="10" maxlength="2000" placeholder="Alasan refund"></textarea><button class="btn btn-sm btn-outline-danger mt-2">Kirim permintaan</button></form></details>
+                                @elseif($item->refund_status !== 'none')
+                                    <span class="badge bg-warning-subtle text-warning-emphasis ms-1">Refund: {{ $item->refund_status }}</span>
+                                @endif
+                            </td><td>{{ $item->quantity }}</td><td>Rp {{ number_format($item->price, 0, ',', '.') }}</td><td>Rp {{ number_format($item->sub_total, 0, ',', '.') }}</td></tr>
                             @endforeach
                         </tbody>
                         <tfoot class="table-light">

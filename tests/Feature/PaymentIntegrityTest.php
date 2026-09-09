@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Coupon;
 use App\Models\CustomerAddress;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\PaymentGroup;
 use App\Models\Product;
 use App\Models\Provider;
@@ -15,6 +16,8 @@ use App\Models\Transaction;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\CheckoutCalculator;
+use App\Services\HtmlSanitizer;
+use App\Services\RefundWorkflowService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -97,6 +100,33 @@ class PaymentIntegrityTest extends TestCase
         $this->assertDatabaseHas('products', ['id' => $first->id, 'current_stock' => 0]);
         $this->assertDatabaseHas('products', ['id' => $second->id, 'current_stock' => 0]);
         $this->assertDatabaseMissing('carts', ['customer_id' => $customer->id]);
+    }
+
+    public function test_customer_refund_request_and_vendor_decision_are_authorized_and_idempotent(): void
+    {
+        [$customer, $vendor, $shop, $category] = $this->commerceActors();
+        $product = Product::create(['shop_id' => $shop->id, 'category_id' => $category->id, 'name' => 'Refundable', 'slug' => 'refundable', 'price' => 50000, 'current_stock' => 1, 'product_type' => 'physical', 'status' => 'approved', 'published' => true]);
+        $order = Order::create(['order_number' => Order::generateOrderNumber(), 'customer_id' => $customer->id, 'shop_id' => $shop->id, 'total' => 50000, 'payment_method' => 'transfer', 'payment_status' => 'paid', 'order_status' => 'delivered']);
+        $item = OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'quantity' => 1, 'price' => 50000, 'sub_total' => 50000]);
+
+        app(RefundWorkflowService::class)->request($item, $customer->id, 'Produk rusak saat diterima customer.');
+        $this->assertDatabaseHas('order_items', ['id' => $item->id, 'refund_status' => 'requested']);
+        app(RefundWorkflowService::class)->decide($item, $vendor->id, 'approved', 'Bukti telah diverifikasi.');
+        $this->assertDatabaseHas('order_items', ['id' => $item->id, 'refund_status' => 'approved']);
+        $this->assertDatabaseCount('audit_logs', 2);
+
+        $this->expectException(\Illuminate\Validation\ValidationException::class);
+        app(RefundWorkflowService::class)->decide($item, $vendor->id, 'approved');
+    }
+
+    public function test_html_sanitizer_removes_script_events_and_javascript_urls(): void
+    {
+        $html = app(HtmlSanitizer::class)->sanitize('<p onclick="alert(1)">Aman</p><script>alert(1)</script><a href="javascript:alert(1)">Tautan</a>');
+
+        $this->assertStringContainsString('<p>Aman</p>', $html);
+        $this->assertStringNotContainsString('onclick', $html);
+        $this->assertStringNotContainsString('javascript:', $html);
+        $this->assertStringNotContainsString('<script', $html);
     }
 
     private function commerceActors(): array

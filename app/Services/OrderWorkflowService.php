@@ -63,6 +63,7 @@ class OrderWorkflowService
             }
             $order->update($fields);
             $order->statusHistory()->create(['status' => $to, 'changed_by' => $actorId, 'note' => $note]);
+            app(AuditLogger::class)->log('order.status_changed', $order, ['order_status' => $order->getOriginal('order_status')], ['order_status' => $to, 'note' => $note], $actorId);
 
             if ($to === 'canceled') {
                 app(OrderService::class)->restoreStock($order);

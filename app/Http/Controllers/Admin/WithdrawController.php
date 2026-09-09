@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\VendorWithdrawRequest;
+use App\Models\Wallet;
+use App\Services\AuditLogger;
 use App\Services\NotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,8 +22,11 @@ class WithdrawController extends Controller
     public function index(Request $request)
     {
         $query = VendorWithdrawRequest::with(['vendor', 'shop'])->latest();
-        if ($request->filled('status')) $query->where('status', $request->status);
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
         $withdraws = $query->paginate(15);
+
         return view('admin.withdraws.index', compact('withdraws'));
     }
 
@@ -32,19 +37,25 @@ class WithdrawController extends Controller
             $withdraw = DB::transaction(function () use ($request, $withdraw) {
                 $withdraw = VendorWithdrawRequest::lockForUpdate()->findOrFail($withdraw->id);
                 $allowed = ['pending' => ['approved', 'rejected'], 'approved' => ['completed', 'rejected']];
-                if (!in_array($request->status, $allowed[$withdraw->status] ?? [], true)) abort(422, 'Status withdraw tidak dapat diubah.');
+                if (! in_array($request->status, $allowed[$withdraw->status] ?? [], true)) {
+                    abort(422, 'Status withdraw tidak dapat diubah.');
+                }
                 $withdraw->update(['status' => $request->status, 'approved_by' => auth('admin')->id(),
                     'approved_at' => $request->status === 'approved' ? now() : $withdraw->approved_at,
                     'completed_at' => $request->status === 'completed' ? now() : null,
                     'rejection_reason' => $request->status === 'rejected' ? $request->note : null]);
-                $wallet = \App\Models\Wallet::lockForUpdate()->where('user_id', $withdraw->vendor_id)->first();
-                if ($request->status === 'rejected' && $wallet) $wallet->release((float) $withdraw->amount, 'Withdraw rejected #'.$withdraw->id, 'withdraw', $withdraw->id, 'withdraw:release:'.$withdraw->id);
+                $wallet = Wallet::lockForUpdate()->where('user_id', $withdraw->vendor_id)->first();
+                if ($request->status === 'rejected' && $wallet) {
+                    $wallet->release((float) $withdraw->amount, 'Withdraw rejected #'.$withdraw->id, 'withdraw', $withdraw->id, 'withdraw:release:'.$withdraw->id);
+                }
                 if ($request->status === 'completed' && $wallet) {
                     $wallet->update(['pending_balance' => max(0, (float) $wallet->pending_balance - (float) $withdraw->amount)]);
                     $wallet->transactions()->create(['amount' => $withdraw->amount, 'type' => 'debit', 'operation' => 'withdraw', 'description' => 'Withdraw completed #'.$withdraw->id,
                         'reference_type' => 'withdraw', 'reference_id' => $withdraw->id, 'reference_key' => 'withdraw:complete:'.$withdraw->id,
                         'balance_before' => $wallet->balance, 'balance_after' => $wallet->balance, 'status' => 'completed']);
                 }
+                app(AuditLogger::class)->log('withdraw.status_changed', $withdraw, ['status' => $withdraw->getOriginal('status')], ['status' => $request->status, 'amount' => $withdraw->amount], auth('admin')->id());
+
                 return $withdraw;
             });
         } catch (\Throwable $e) {
@@ -64,6 +75,7 @@ class WithdrawController extends Controller
         }
 
         $labels = ['approved' => 'disetujui', 'rejected' => 'ditolak', 'completed' => 'selesai'];
-        return back()->with('success', 'Withdraw ' . ($labels[$request->status] ?? $request->status));
+
+        return back()->with('success', 'Withdraw '.($labels[$request->status] ?? $request->status));
     }
 }
