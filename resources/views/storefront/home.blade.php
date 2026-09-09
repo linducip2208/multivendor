@@ -5,15 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>{{ config('app.name') }} — Platform Multivendor</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    @vite(['resources/css/tabler.css', 'resources/js/tabler.js'])
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root { --brand-primary: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; }
-        body { font-family: 'Inter', system-ui, sans-serif; }
-        .navbar { backdrop-filter: blur(12px); background: rgba(255,255,255,.9) !important; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #f4f6fa; color: #182433; }
+        .navbar { backdrop-filter: blur(16px); background: rgba(255,255,255,.92) !important; border-color: #e7ebf0 !important; }
         .hero {
-            background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #3730A3 100%);
+            background: radial-gradient(circle at 82% 18%, rgba(45,212,191,.22), transparent 30%), linear-gradient(120deg, #0b1220 0%, #102a43 58%, #0f766e 140%);
             position: relative; overflow: hidden;
         }
         .hero::before {
@@ -21,8 +21,13 @@
             background: radial-gradient(circle, rgba(255,255,255,.08) 0%, transparent 70%);
             top: -200px; right: -100px; border-radius: 50%;
         }
-        .btn-primary { background: linear-gradient(135deg, var(--brand-primary), var(--brand-dark)); border: none; border-radius: 12px; padding: 14px 32px; font-weight: 600; }
-        .btn-outline-light { border-radius: 12px; padding: 14px 32px; font-weight: 600; }
+        .hero h1 { max-width: 740px; letter-spacing: -.04em; line-height: 1.04; }
+        .hero .hero-copy { max-width: 600px; color: rgba(226,232,240,.82); }
+        .btn-primary { background: linear-gradient(135deg, var(--brand-primary), var(--brand-dark)); border: none; border-radius: 10px; padding: 13px 26px; font-weight: 700; box-shadow: 0 12px 24px rgba(15,118,110,.2); }
+        .btn-outline-light { border-radius: 10px; padding: 13px 26px; font-weight: 600; }
+        .section-kicker { color: #0f766e; font-size: .72rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+        .feature-card { border: 1px solid #e7ebf0 !important; box-shadow: 0 2px 8px rgba(24,36,51,.04) !important; }
+        .feature-card:hover { border-color: rgba(15,118,110,.35) !important; }
         .feature-icon { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
     </style>
 </head>
@@ -72,7 +77,7 @@
         <div class="row align-items-center min-vh-75">
             <div class="col-lg-7 py-5">
                 <h1 class="display-3 fw-bold mb-4">Platform <span class="text-warning">Multivendor</span> #1 di Indonesia</h1>
-                <p class="fs-5 mb-4 opacity-90">Bangun marketplace Anda sendiri. Ratusan vendor, ribuan produk, satu platform. Kelola semuanya dari satu dashboard.</p>
+                <p class="fs-5 mb-4 hero-copy">Bangun marketplace yang rapi dan siap tumbuh. Satukan katalog, vendor, checkout, pembayaran, pengiriman, dan settlement dalam satu alur yang terukur.</p>
                 <div class="d-flex gap-3 flex-wrap">
                     <a href="{{ route('register') }}" class="btn btn-warning btn-lg fw-bold px-4"><i class="fas fa-rocket me-2"></i> Mulai Gratis</a>
                     <a href="#" class="btn btn-outline-light btn-lg"><i class="fas fa-play me-2"></i> Lihat Demo</a>
@@ -105,6 +110,7 @@
 <section class="py-5">
     <div class="container py-4">
         <div class="text-center mb-5">
+            <div class="section-kicker mb-2">Satu ruang kendali</div>
             <h2 class="fw-bold">Fitur Lengkap Multivendor</h2>
             <p class="text-muted">Semua yang Anda butuhkan untuk menjalankan marketplace</p>
         </div>
@@ -130,7 +136,7 @@
             ];
             @endphp
             @foreach($features as $f)
-            <div class="col-md-6 col-lg-3"><div class="card border-0 shadow-sm h-100 rounded-4 p-4 text-center card-lift"><div class="feature-icon bg-{{ $f['color'] }}-subtle text-{{ $f['color'] }} mx-auto mb-3"><i class="fas {{ $f['icon'] }}"></i></div><h5 class="fw-bold small">{{ $f['t'] }}</h5><p class="text-muted small mb-0">{{ $f['d'] }}</p></div></div>
+            <div class="col-md-6 col-lg-3"><div class="card feature-card border-0 shadow-sm h-100 rounded-4 p-4 text-center card-lift"><div class="feature-icon bg-{{ $f['color'] }}-subtle text-{{ $f['color'] }} mx-auto mb-3"><i class="fas {{ $f['icon'] }}"></i></div><h5 class="fw-bold small">{{ $f['t'] }}</h5><p class="text-muted small mb-0">{{ $f['d'] }}</p></div></div>
             @endforeach
         </div>
     </div>
@@ -260,6 +266,5 @@
     </div>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

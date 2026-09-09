@@ -224,3 +224,60 @@ body {
         transition-duration: .01ms !important;
     }
 }
+
+/* The legacy layouts still contain a small compatibility stylesheet after
+   the Vite tag. Keep the existing markup, but make the Tabler shell the
+   authoritative visual layer. */
+body.tabler-panel {
+    background: #f4f6fa !important;
+    color: #182433 !important;
+    font-family: var(--tblr-font-sans-serif) !important;
+}
+
+body.tabler-panel .sidebar {
+    background: #182433 !important;
+    box-shadow: 4px 0 18px rgb(24 36 51 / 12%) !important;
+}
+
+body.tabler-panel .sidebar .nav-link {
+    color: #b8c7d9 !important;
+    border-left: 0 !important;
+    border-radius: 8px !important;
+}
+
+body.tabler-panel .sidebar .nav-link:hover,
+body.tabler-panel .sidebar .nav-link.active {
+    color: #fff !important;
+    background: #243447 !important;
+    border-left-color: transparent !important;
+}
+
+body.tabler-panel .sidebar .nav-link.active {
+    background: color-mix(in srgb, var(--brand-primary, #206bc4) 82%, #182433) !important;
+    box-shadow: inset 3px 0 0 #fff !important;
+}
+
+body.tabler-panel .sidebar .nav-section {
+    color: #7f91a8 !important;
+}
+
+body.tabler-panel .topbar {
+    background: rgb(255 255 255 / 88%) !important;
+    border-bottom: 1px solid #e6e9ee !important;
+    box-shadow: 0 1px 2px rgb(24 36 51 / 3%) !important;
+}
+
+body.tabler-panel .main-content {
+    background: #f4f6fa !important;
+}
+
+body.tabler-panel .card,
+body.tabler-panel .card-stat {
+    border: 1px solid #e7ebf0 !important;
+    box-shadow: var(--tblr-box-shadow) !important;
+}
+
+body.tabler-panel .card-stat:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 12px 28px rgb(24 36 51 / 11%) !important;
+}
