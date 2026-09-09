@@ -74,7 +74,8 @@ class TripayClosedAdapter implements PaymentAdapterInterface
     {
         $privateKey = $this->provider->getApiSecretAttribute();
         $callbackSignature = $requestData['headers']['x-callback-signature'] ?? '';
-        $jsonBody = json_encode($requestData['body'] ?? []);
+        $jsonBody = $requestData['raw'] ?? json_encode($requestData['body'] ?? [], JSON_UNESCAPED_SLASHES);
+        if (!$privateKey || !$callbackSignature) return false;
         $signature = hash_hmac('sha256', $jsonBody, $privateKey);
         return hash_equals($signature, $callbackSignature);
     }

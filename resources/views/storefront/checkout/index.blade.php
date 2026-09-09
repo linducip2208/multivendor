@@ -36,6 +36,7 @@
                             <div class="col-md-4"><input type="text" name="new_city" class="form-control form-control-sm" placeholder="Kota" required></div>
                             <div class="col-md-4"><input type="text" name="new_province" class="form-control form-control-sm" placeholder="Provinsi" required></div>
                             <div class="col-md-4"><input type="text" name="new_postal_code" class="form-control form-control-sm" placeholder="Kode pos"></div>
+                            <div class="col-md-4"><input type="text" name="new_shipping_destination_id" class="form-control form-control-sm" placeholder="ID tujuan dari provider ongkir" required></div>
                         </div>
                     </div>
                 </div>
@@ -66,13 +67,13 @@
                         @foreach($shops as $shopId => $shopData)
                         <div class="mb-2">
                             <label class="small fw-semibold">{{ $shopData['shop']->name }}</label>
-                            <select name="shipping_methods[{{ $shopId }}][service]" class="form-select form-select-sm">
-                                <option value="">Pilih kurir</option>
-                                @foreach($shippingProviders as $sp)
-                                <option value="{{ $sp->name }} - Reguler">{{ $sp->name }} Reguler - Rp 15.000</option>
-                                @endforeach
-                            </select>
-                            <input type="hidden" name="shipping_methods[{{ $shopId }}][cost]" value="15000">
+                            <div class="row g-2">
+                                <div class="col-md-4"><select name="shipping_methods[{{ $shopId }}][provider_id]" class="form-select form-select-sm" required><option value="">Provider ongkir</option>@foreach($shippingProviders as $sp)<option value="{{ $sp->id }}">{{ $sp->name }}</option>@endforeach</select></div>
+                                <div class="col-md-3"><input name="shipping_methods[{{ $shopId }}][courier]" class="form-control form-control-sm" placeholder="Kurir, contoh JNE" required></div>
+                                <div class="col-md-3"><input name="shipping_methods[{{ $shopId }}][service]" class="form-control form-control-sm" placeholder="Layanan, contoh REG" required></div>
+                                <div class="col-md-2"><input name="shipping_methods[{{ $shopId }}][destination]" class="form-control form-control-sm" placeholder="ID tujuan" required></div>
+                            </div>
+                            <div class="form-text">Tarif dihitung ulang dari provider saat checkout. Nominal dari browser tidak digunakan.</div>
                         </div>
                         @endforeach
                     </div>

@@ -15,7 +15,7 @@ class ProfileController extends Controller
         return back()->with('success','Profil diperbarui.');
     }
     public function addressStore(Request $request) {
-        $v = $request->validate(['label'=>'required','receiver_name'=>'required','receiver_phone'=>'required','address'=>'required','city'=>'required','province'=>'required','postal_code'=>'nullable']);
+        $v = $request->validate(['label'=>'required','receiver_name'=>'required','receiver_phone'=>'required','address'=>'required','city'=>'required','province'=>'required','postal_code'=>'nullable','shipping_destination_id'=>'nullable|string|max:100']);
         $v['customer_id'] = auth()->id();
         if($request->is_default) \App\Models\CustomerAddress::where('customer_id',auth()->id())->update(['is_default'=>false]);
         $v['is_default'] = $request->boolean('is_default');

@@ -13,7 +13,7 @@
             <thead class="table-light"><tr><th class="text-uppercase small">ORDER</th><th class="text-uppercase small">JUMLAH</th><th class="text-uppercase small">STATUS</th><th class="text-uppercase small">TANGGAL</th><th></th></tr></thead>
             <tbody>
                 @forelse($collects as $c)
-                <tr><td><strong>{{ $c->order->order_number ?? '-' }}</strong></td><td class="fw-bold">Rp {{ number_format($c->amount,0,',','.') }}</td><td><span class="badge bg-{{ $c->collected ? 'success' : 'warning' }}-subtle">{{ $c->collected ? 'Lunas' : 'Pending' }}</span></td><td><small>{{ $c->created_at->format('d/m/Y H:i') }}</small></td><td>@if(!$c->collected)<form method="POST" action="{{ route('vendor.cash-collect.mark', $c) }}">@csrf <button class="btn btn-success btn-sm">Tandai Lunas</button></form>@else<small class="text-muted">{{ $c->collected_at?->format('d/m/Y H:i') }}</small>@endif</td></tr>
+                <tr><td><strong>{{ $c->order->order_number ?? '-' }}</strong></td><td class="fw-bold">Rp {{ number_format($c->amount,0,',','.') }}</td><td><span class="badge bg-{{ $c->collected ? 'success' : 'warning' }}-subtle">{{ $c->collected ? 'Lunas' : 'Pending' }}</span></td><td><small>{{ $c->created_at->format('d/m/Y H:i') }}</small></td><td>@if(!$c->collected)<form method="POST" action="{{ route('delivery.cash-collect.mark', $c) }}">@csrf <button class="btn btn-success btn-sm">Tandai Diterima</button></form>@else<small class="text-muted">{{ $c->collected_at?->format('d/m/Y H:i') }}</small>@endif</td></tr>
                 @empty
                 <tr><td colspan="5" class="text-center py-5 text-muted">Tidak ada cash collect.</td></tr>
                 @endforelse

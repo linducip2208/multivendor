@@ -10,7 +10,7 @@ class CustomerMiddleware
 {
     public function handle(Request $request, Closure $next)
     {
-        if (!Auth::guard('web')->check()) {
+        if (!Auth::guard('web')->check() || !Auth::guard('web')->user()->isCustomer()) {
             if ($request->expectsJson()) {
                 return response()->json(['message' => 'Unauthorized.'], 403);
             }

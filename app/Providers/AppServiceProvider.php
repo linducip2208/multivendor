@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -13,6 +16,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        RateLimiter::for('payment-webhook', fn (Request $request) => Limit::perMinute(120)->by(($request->route('provider')?->id ?? 'unknown').'|'.$request->ip()));
+        RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by(strtolower((string) $request->input('email')).'|'.$request->ip()));
         \Illuminate\Support\Facades\View::composer('*', function ($view) {
             $settings = \Illuminate\Support\Facades\Cache::remember('whitelabel_branding', 3600, function () {
                 $themePrimary = \App\Models\SystemSetting::get('theme_primary_color')

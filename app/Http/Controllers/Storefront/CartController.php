@@ -37,16 +37,18 @@ class CartController extends Controller
             'quantity' => 'required|integer|min:1',
         ]);
 
-        $product = Product::findOrFail($request->product_id);
+        $product = Product::with('shop')->findOrFail($request->product_id);
         $quantity = $request->quantity;
         $price = $product->getEffectivePrice();
+        $variant = null;
+
+        $this->assertCartable($product, $quantity);
 
         if ($request->variant_id) {
-            $variant = ProductVariant::find($request->variant_id);
-            if ($variant && $variant->product_id === $product->id) {
-                $price = $variant->special_price && $variant->discount_start <= now() && $variant->discount_end >= now()
-                    ? $variant->special_price : $variant->price;
-            }
+            $variant = ProductVariant::whereKey($request->variant_id)->where('product_id', $product->id)->first();
+            if (!$variant) return back()->withInput()->with('error', 'Varian tidak sesuai dengan produk.');
+            if ($variant->stock < $quantity) return back()->withInput()->with('error', 'Stok varian tidak mencukupi.');
+            $price = $variant->getEffectivePrice();
         }
 
         $existingCart = Cart::where('customer_id', auth()->id())
@@ -55,6 +57,8 @@ class CartController extends Controller
             ->first();
 
         if ($existingCart) {
+            $newQuantity = $existingCart->quantity + $quantity;
+            $this->assertCartable($product, $newQuantity, $variant);
             $existingCart->increment('quantity', $quantity);
             $existingCart->update(['price' => $price]);
         } else {
@@ -76,6 +80,8 @@ class CartController extends Controller
         if ($cart->customer_id !== auth()->id()) abort(403);
 
         $request->validate(['quantity' => 'required|integer|min:1']);
+        $cart->load('product.shop', 'variant');
+        $this->assertCartable($cart->product, (int) $request->quantity, $cart->variant);
         $cart->update(['quantity' => $request->quantity]);
         return back()->with('success', 'Keranjang diperbarui.');
     }
@@ -85,5 +91,14 @@ class CartController extends Controller
         if ($cart->customer_id !== auth()->id()) abort(403);
         $cart->delete();
         return back()->with('success', 'Item dihapus dari keranjang.');
+    }
+
+    private function assertCartable(Product $product, int $quantity, ?ProductVariant $variant = null): void
+    {
+        if ($product->status !== 'approved' || !$product->published || $product->shop->status !== 'active') abort(422, 'Produk tidak tersedia.');
+        if ($product->shop->vacation_mode) abort(422, 'Toko sedang libur.');
+        if ($quantity < $product->min_qty || ($product->max_qty && $quantity > $product->max_qty)) abort(422, 'Kuantitas tidak memenuhi batas pembelian.');
+        $stock = $variant?->stock ?? $product->current_stock;
+        if ($quantity > $stock) abort(422, 'Stok tidak mencukupi.');
     }
 }

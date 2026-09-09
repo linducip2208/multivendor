@@ -30,9 +30,3 @@ class LoyaltyPoint extends Model
         return $amount;
     }
 }
-
-class LoyaltyTransaction extends Model
-{
-    protected $fillable = ['customer_id', 'points', 'type', 'description', 'reference_type', 'reference_id'];
-    public function customer(): BelongsTo { return $this->belongsTo(User::class, 'customer_id'); }
-}

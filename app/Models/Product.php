@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 #[Fillable([
     'shop_id', 'category_id', 'brand_id', 'name', 'slug', 'description',
     'short_description', 'thumbnail', 'images', 'unit', 'min_qty', 'max_qty',
-    'current_stock', 'sku', 'barcode', 'product_type', 'refundable', 'featured',
+    'current_stock', 'weight', 'sku', 'barcode', 'product_type', 'refundable', 'featured',
     'published', 'created_by', 'price', 'special_price', 'discount_type',
     'discount_start', 'discount_end', 'tax', 'tax_type', 'shipping_cost',
     'shipping_cost_type', 'multiply_qty', 'meta_title', 'meta_description',
@@ -85,7 +85,7 @@ class Product extends Model
 
     public function getEffectivePrice(): float
     {
-        if ($this->special_price && $this->discount_start <= now() && $this->discount_end >= now()) {
+        if ($this->special_price && (!$this->discount_start || $this->discount_start <= now()) && (!$this->discount_end || $this->discount_end >= now())) {
             return (float) $this->special_price;
         }
         return (float) $this->price;

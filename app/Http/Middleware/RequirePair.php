@@ -47,6 +47,7 @@ class RequirePair
 
         // Marketing & SEO — accessible without license
         if ($path === '/' || $path === '/docs' || $path === '/sitemap.xml' || $path === '/robots.txt') return true;
+        if (str_starts_with($path, '/marketing/') || str_starts_with($path, '/shop/')) return true;
         if (str_starts_with($path, '/blog')) return true;
         if (str_starts_with($path, '/products')) return true;
         if (str_starts_with($path, '/pengganti-')) return true;

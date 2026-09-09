@@ -39,10 +39,12 @@ class ProductController extends Controller
             'special_price' => 'nullable|numeric|min:0', 'current_stock' => 'required|integer|min:0',
             'unit' => 'nullable|string|max:50', 'sku' => 'nullable|string|max:100',
             'min_qty' => 'integer|min:1', 'max_qty' => 'integer|min:1',
-            'product_type' => 'required|in:physical,digital', 'tax' => 'numeric|min:0', 'shipping_cost' => 'numeric|min:0',
+            'product_type' => 'required|in:physical,digital', 'tax' => 'numeric|min:0', 'shipping_cost' => 'numeric|min:0', 'weight' => 'nullable|integer|min:1|max:100000',
             'video_url' => 'nullable|url|max:500', 'discount_type' => 'nullable|in:flat,percentage',
             'discount_end' => 'nullable|date', 'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:500', 'tags' => 'nullable|string|max:500',
+            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120', 'images.*' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'digital_file' => 'nullable|file|max:51200|mimes:zip,pdf,epub,mp3,mp4,webp,png,jpg,jpeg', 'video_file' => 'nullable|file|max:51200|mimetypes:video/mp4,video/webm',
         ]);
         $validated['shop_id'] = $shop->id;
         $validated['slug'] = Str::slug($validated['name']);
@@ -70,7 +72,7 @@ class ProductController extends Controller
             }
         }
         if ($request->hasFile('digital_file') && $validated['product_type'] === 'digital') {
-            $product->update(['digital_file' => $request->file('digital_file')->store('digital-products', 'public')]);
+            $product->update(['digital_file' => $request->file('digital_file')->store('digital-products', 'private')]);
         }
 
         if ($request->hasFile('video_file')) {
@@ -108,8 +110,9 @@ class ProductController extends Controller
             'special_price' => 'nullable|numeric|min:0', 'current_stock' => 'required|integer|min:0',
             'unit' => 'nullable|string|max:50', 'sku' => 'nullable|string|max:100',
             'min_qty' => 'integer|min:1', 'max_qty' => 'integer|min:1',
-            'product_type' => 'required|in:physical,digital', 'tax' => 'numeric|min:0', 'shipping_cost' => 'numeric|min:0',
+            'product_type' => 'required|in:physical,digital', 'tax' => 'numeric|min:0', 'shipping_cost' => 'numeric|min:0', 'weight' => 'nullable|integer|min:1|max:100000',
             'video_url' => 'nullable|url|max:500',
+            'thumbnail' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:5120',
         ]);
         if ($validated['name'] !== $product->name) {
             $validated['slug'] = Str::slug($validated['name']); $counter = 1;

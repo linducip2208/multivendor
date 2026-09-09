@@ -33,6 +33,7 @@ class CouponController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after:start_date',
             'usage_limit' => 'nullable|integer|min:1',
+            'usage_per_customer' => 'nullable|integer|min:1',
             'status' => 'boolean',
         ]);
         $validated['shop_id'] = $shop->id;
@@ -61,6 +62,7 @@ class CouponController extends Controller
             'start_date' => 'nullable|date',
             'end_date' => 'nullable|date|after:start_date',
             'usage_limit' => 'nullable|integer|min:1',
+            'usage_per_customer' => 'nullable|integer|min:1',
             'status' => 'boolean',
         ]);
         $coupon->update($validated);

@@ -153,6 +153,7 @@ Route::post('/logout', function () {
 
 Route::get('/products', [StoreProductController::class, 'index'])->name('products.index');
 Route::get('/products/{product:slug}', [StoreProductController::class, 'show'])->name('products.show');
+Route::get('/shop/{shop:slug}', [StoreShopController::class, 'show'])->name('shop.show');
 
 Route::middleware('customer')->group(function () {
     Route::get('/cart', [CartController::class, 'index'])->name('cart.index');
@@ -176,17 +177,10 @@ Route::middleware('customer')->group(function () {
     Route::resource('tickets', TicketController::class)->only(['index', 'create', 'store', 'show']);
     Route::post('tickets/{ticket}/reply', [TicketController::class, 'reply'])->name('tickets.reply');
 
-    Route::get('/track-order', function(\Illuminate\Http\Request $request){
-        $order = null;
-        if ($request->has('order_number')) {
-            $order = \App\Models\Order::where('order_number', $request->order_number)->with(['items.product','statusHistory','shop'])->first();
-        }
-        return view('storefront.track-order.index', compact('order'));
-    })->name('track-order');
+    Route::get('/track-order', [\App\Http\Controllers\Storefront\TrackOrderController::class, 'show'])->name('track-order');
     Route::get('/loyalty', [LoyaltyController::class, 'index'])->name('loyalty.index');
     Route::post('/loyalty/redeem', [LoyaltyController::class, 'redeem'])->name('loyalty.redeem');
 
-    Route::get('/shop/{shop:slug}', [StoreShopController::class, 'show'])->name('shop.show');
 
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile.index');
     Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -228,9 +222,9 @@ Route::middleware('customer')->group(function () {
     Route::post('/orders/{order}/rate-delivery', [DeliveryRatingController::class, 'store'])->name('delivery.rate.store');
 });
 
-Route::post('/webhook/payment/{provider}', function ($providerId) {
-    return response()->json(['status' => 'ok']);
-})->name('webhook.payment');
+Route::post('/webhook/payment/{provider}', \App\Http\Controllers\Webhook\PaymentWebhookController::class)
+    ->middleware('throttle:payment-webhook')
+    ->name('webhook.payment');
 
 Route::get('/blog', function () {
     $posts = \App\Models\BlogPost::where('is_published', true)->where('published_at', '<=', now())->with('author')->latest()->paginate(12);
@@ -626,10 +620,12 @@ Route::prefix('vendor')->name('vendor.')->group(function () {
         Route::post('onboarding/step4', [OnboardingController::class, 'storeStep4'])->name('onboarding.step4.store');
         Route::get('onboarding/skip', [OnboardingController::class, 'skip'])->name('onboarding.skip');
 
-        // Cash collect (delivery)
-        Route::get('cash-collect', [CashCollectController::class, 'index'])->name('cash-collect.index');
-        Route::post('cash-collect/{collect}/mark', [CashCollectController::class, 'markCollected'])->name('cash-collect.mark');
     });
+});
+
+Route::prefix('delivery')->name('delivery.')->middleware('delivery')->group(function () {
+    Route::get('cash-collect', [\App\Http\Controllers\Delivery\CashCollectController::class, 'index'])->name('cash-collect.index');
+    Route::post('cash-collect/{collect}/mark', [\App\Http\Controllers\Delivery\CashCollectController::class, 'markCollected'])->name('cash-collect.mark');
 });
 
 require base_path('routes/pair-routes.php');

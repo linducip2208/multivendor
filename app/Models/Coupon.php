@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
-    'code', 'title', 'coupon_type', 'discount_value', 'min_purchase',
+    'shop_id', 'code', 'title', 'coupon_type', 'discount_value', 'min_purchase',
     'max_discount', 'start_date', 'end_date', 'usage_limit',
     'usage_per_customer', 'usage_count', 'status'
 ])]
@@ -31,6 +31,11 @@ class Coupon extends Model
         return $this->belongsToMany(Product::class, 'coupon_product');
     }
 
+    public function shop(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Shop::class);
+    }
+
     public function categories(): BelongsToMany
     {
         return $this->belongsToMany(Category::class, 'coupon_category');
@@ -41,12 +46,13 @@ class Coupon extends Model
         return $this->hasMany(CouponUsage::class);
     }
 
-    public function isValid(): bool
+    public function isValid(?int $customerId = null): bool
     {
         if (!$this->status) return false;
         if ($this->start_date && now()->lt($this->start_date)) return false;
         if ($this->end_date && now()->gt($this->end_date)) return false;
         if ($this->usage_limit && $this->usage_count >= $this->usage_limit) return false;
+        if ($customerId && $this->usage_per_customer && $this->usages()->where('customer_id', $customerId)->count() >= $this->usage_per_customer) return false;
         return true;
     }
 
@@ -54,6 +60,7 @@ class Coupon extends Model
     {
         if ($orderTotal < $this->min_purchase) return 0;
 
+        if ($this->coupon_type === 'free_shipping') return 0;
         $discount = $this->coupon_type === 'percentage'
             ? $orderTotal * ($this->discount_value / 100)
             : $this->discount_value;

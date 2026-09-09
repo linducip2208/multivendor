@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Http\Request;
+use App\Services\OrderWorkflowService;
 
 class OrderController extends Controller
 {
@@ -36,7 +37,7 @@ class OrderController extends Controller
         return view('admin.orders.show', compact('order'));
     }
 
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(Request $request, Order $order, OrderWorkflowService $workflow)
     {
         $validStatuses = ['confirmed', 'processing', 'shipped', 'delivered', 'canceled'];
         $request->validate([
@@ -45,18 +46,13 @@ class OrderController extends Controller
             'tracking_id' => 'nullable|string',
         ]);
 
-        $order->update([
-            'order_status' => $request->status,
-            $request->status . '_at' => now(),
-            'cancel_reason' => $request->status === 'canceled' ? $request->note : null,
-            'shipping_tracking_id' => $request->tracking_id ?: $order->shipping_tracking_id,
-        ]);
-
-        $order->statusHistory()->create([
-            'status' => $request->status,
-            'changed_by' => auth('admin')->id(),
-            'note' => $request->note,
-        ]);
+        match ($request->status) {
+            'confirmed' => $workflow->confirm($order, auth('admin')->id(), $request->note),
+            'processing' => $workflow->process($order, auth('admin')->id(), $request->note),
+            'shipped' => $workflow->ship($order, auth('admin')->id(), $request->tracking_id, $request->note),
+            'delivered' => $workflow->deliver($order, auth('admin')->id(), $request->note),
+            'canceled' => $workflow->cancel($order, auth('admin')->id(), $request->note),
+        };
 
         $labels = ['confirmed' => 'Dikonfirmasi', 'processing' => 'Diproses', 'shipped' => 'Dikirim', 'delivered' => 'Terkirim', 'canceled' => 'Dibatalkan'];
         return back()->with('success', 'Status diubah: ' . ($labels[$request->status] ?? $request->status));

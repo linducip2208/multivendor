@@ -60,4 +60,38 @@ class PaymentGatewayService
         $adapter = $this->getAdapter($provider);
         return $adapter?->verifyCallback($data) ?? false;
     }
+
+    /** @return array{external_id:?string,gateway_transaction_id:?string,status:?string} */
+    public function normalizeCallback(Provider $provider, array $data): array
+    {
+        $body = $data['body'] ?? $data;
+        $status = strtolower((string) ($body['transaction_status'] ?? $body['status'] ?? ''));
+
+        if (in_array($provider->api_format, ['midtrans-snap', 'midtrans-core'], true)) {
+            $status = match (true) {
+                $status === 'settlement', $status === 'capture' && ($body['fraud_status'] ?? 'accept') === 'accept' => 'paid',
+                in_array($status, ['deny', 'cancel'], true) => 'failed',
+                $status === 'expire' => 'expired',
+                $status === 'refund', $status === 'partial_refund' => 'refunded',
+                default => 'pending',
+            };
+            return ['external_id' => $body['order_id'] ?? null, 'gateway_transaction_id' => $body['transaction_id'] ?? null, 'status' => $status];
+        }
+
+        if ($provider->api_format === 'xendit-invoice') {
+            $status = match ($status) {
+                'paid', 'settled' => 'paid', 'expired' => 'expired', 'failed' => 'failed', 'refunded' => 'refunded', default => 'pending',
+            };
+            return ['external_id' => $body['external_id'] ?? null, 'gateway_transaction_id' => $body['id'] ?? $body['invoice_id'] ?? null, 'status' => $status];
+        }
+
+        if ($provider->api_format === 'tripay-closed') {
+            $status = match ($status) {
+                'paid', 'settlement' => 'paid', 'expired' => 'expired', 'failed', 'unpaid' => 'failed', 'refund', 'refunded' => 'refunded', default => 'pending',
+            };
+            return ['external_id' => $body['merchant_ref'] ?? $body['reference'] ?? null, 'gateway_transaction_id' => $body['reference'] ?? null, 'status' => $status];
+        }
+
+        return ['external_id' => null, 'gateway_transaction_id' => null, 'status' => null];
+    }
 }

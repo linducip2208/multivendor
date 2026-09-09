@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'vendor' => \App\Http\Middleware\VendorMiddleware::class,
             'customer' => \App\Http\Middleware\CustomerMiddleware::class,
+            'vendor.api' => \App\Http\Middleware\EnsureVendorApi::class,
+            'delivery.api' => \App\Http\Middleware\EnsureDeliveryApi::class,
+            'delivery' => \App\Http\Middleware\DeliveryMiddleware::class,
             'language' => \App\Http\Middleware\LanguageMiddleware::class,
         ]);
         $middleware->web(append: [\App\Http\Middleware\LanguageMiddleware::class]);

@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'wallet_id', 'amount', 'type', 'reference_type', 'reference_id',
+    'wallet_id', 'amount', 'type', 'operation', 'reference_type', 'reference_id', 'reference_key',
     'description', 'balance_before', 'balance_after', 'status'
 ])]
 class WalletTransaction extends Model

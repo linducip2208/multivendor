@@ -13,7 +13,7 @@ class TrackOrderController extends Controller
         $order = null;
         if ($request->has('order_number')) {
             $order = Order::where('order_number', $request->order_number)
-                ->when(auth()->check(), fn($q) => $q->where('customer_id', auth()->id()))
+                ->where('customer_id', $request->user()->id)
                 ->with(['items.product', 'statusHistory', 'shop'])
                 ->first();
         }

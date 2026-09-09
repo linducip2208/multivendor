@@ -1,58 +1,60 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# MultiVendor Marketplace
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Marketplace multi-vendor Laravel 13 untuk Indonesia: katalog publik, toko vendor, cart, checkout multi-vendor, pembayaran gateway BYOK, pengiriman, wallet, komisi, delivery, blog, dan SEO.
 
-## About Laravel
+## Fitur produksi utama
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- Payment group tunggal untuk beberapa order vendor (`PAY-*`) dengan callback terverifikasi dan idempoten.
+- Harga, pajak, diskon, bobot, ongkir, stok, dan komisi dihitung ulang dari server; browser tidak menjadi sumber angka otoritatif.
+- Stok dikunci saat checkout, dikurangi atomik, dan dipulihkan tepat sekali bila order dibatalkan.
+- Coupon global/vendor, pembatasan penggunaan per customer, alokasi diskon per order, dan free-shipping.
+- Wallet ledger dengan reference key idempoten serta saldo withdraw yang di-reserve.
+- API publik menggunakan resource terfilter; data rekening toko dan PII customer tidak diekspos.
+- File digital disimpan pada disk privat dan hanya tersedia untuk pembeli yang telah membayar serta lulus OTP.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Instalasi
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+npm install
+copy .env.example .env
+php artisan key:generate
+php artisan migrate:fresh --seed
+npm run build
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Konfigurasikan database, mail, queue, dan provider melalui panel admin. API key provider tersimpan terenkripsi; jangan menaruh credential gateway di source code.
 
-## Contributing
+## Menjalankan aplikasi
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+php artisan serve --host=127.0.0.1 --port=8765
+php artisan queue:work
+php artisan schedule:work
+```
 
-## Code of Conduct
+## Pembayaran dan pengiriman
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Provider ditambahkan di Admin → Integrasi. Pilih format API yang sesuai lalu masukkan URL, key, secret, dan header sendiri. Callback aman didukung untuk format yang memiliki kontrak signature (`midtrans-*`, `xendit-invoice`, dan `tripay-closed`). Generic adapter tidak akan meng-settle callback otomatis tanpa signature strategy yang diverifikasi.
 
-## Security Vulnerabilities
+Setiap toko fisik memerlukan origin provider di setting `shop_shipping_origin_{shop_id}` dan alamat customer memerlukan `shipping_destination_id` yang sesuai provider sebelum checkout.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Akun demo
 
-## License
+Setelah seeding, lihat data demo yang dibuat oleh seeder atau halaman `/docs`. Password demo tidak boleh dipakai di production.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Pengujian dan deployment
+
+```bash
+php artisan test
+php artisan route:list
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+Ikuti [DEPLOYMENT.md](DEPLOYMENT.md) untuk Nginx, Supervisor, queue, cron, storage, dan pasangan license. Setelah memilih domain production, ubah `APP_URL`, canonical/OG meta, dan submit `/sitemap.xml` ke Google Search Console.
+
+## Keamanan
+
+Jangan aktifkan `LICENSE_DEV_BYPASS` di luar host local/testing. Jangan kirim secret, token license, atau backup database ke repository. Laporkan kerentanan secara privat ke maintainer.

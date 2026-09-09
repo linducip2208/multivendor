@@ -4,276 +4,167 @@ namespace App\Http\Controllers\Storefront;
 
 use App\Http\Controllers\Controller;
 use App\Models\Cart;
-use App\Models\Coupon;
+use App\Models\CouponUsage;
+use App\Models\CustomerAddress;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\PaymentGroup;
 use App\Models\Provider;
-use App\Models\SystemSetting;
 use App\Models\Transaction;
+use App\Services\CheckoutCalculator;
 use App\Services\Payment\PaymentGatewayService;
 use App\Services\Shipping\ShippingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
 {
     public function index()
     {
-        $cartItems = Cart::where('customer_id', auth()->id())
-            ->with(['product.shop', 'variant'])
-            ->get();
+        $cartItems = Cart::where('customer_id', auth()->id())->with(['product.shop', 'variant'])->get();
+        if ($cartItems->isEmpty()) return redirect()->route('cart.index')->with('error', 'Keranjang kosong.');
 
-        if ($cartItems->isEmpty()) {
-            return redirect()->route('cart.index')->with('error', 'Keranjang kosong.');
-        }
-
-        $groupedByShop = $cartItems->groupBy(fn ($i) => $i->product->shop_id);
-        $shops = [];
-        foreach ($groupedByShop as $shopId => $items) {
-            $shop = $items->first()->product->shop;
-            $subtotal = $items->sum(fn ($i) => $i->price * $i->quantity);
-            $shops[] = ['shop' => $shop, 'items' => $items, 'subtotal' => $subtotal];
-        }
-
-        $total = collect($shops)->sum('subtotal');
+        $shops = $cartItems->groupBy(fn ($item) => $item->product->shop_id)->map(fn ($items) => [
+            'shop' => $items->first()->product->shop, 'items' => $items,
+            'subtotal' => $items->sum(fn ($item) => $item->price * $item->quantity),
+        ]);
+        $total = $shops->sum('subtotal');
         $addresses = auth()->user()->addresses;
         $paymentGateways = Provider::ofType('payment')->active()->orderBy('sort_order')->get();
         $shippingProviders = Provider::ofType('shipping')->active()->orderBy('sort_order')->get();
-
-        return view('storefront.checkout.index', compact(
-            'shops', 'total', 'addresses', 'paymentGateways', 'shippingProviders'
-        ));
+        return view('storefront.checkout.index', compact('shops', 'total', 'addresses', 'paymentGateways', 'shippingProviders'));
     }
 
-    public function process(Request $request)
+    public function process(Request $request, CheckoutCalculator $calculator, PaymentGatewayService $payments)
     {
-        $request->validate([
+        $validated = $request->validate([
             'address_id' => 'nullable|exists:customer_addresses,id',
             'new_receiver_name' => 'nullable|required_without:address_id|string|max:255',
             'new_receiver_phone' => 'nullable|required_without:address_id|string|max:20',
             'new_address' => 'nullable|required_without:address_id|string|max:500',
             'new_city' => 'nullable|required_without:address_id|string|max:100',
             'new_province' => 'nullable|required_without:address_id|string|max:100',
+            'new_shipping_destination_id' => 'nullable|required_without:address_id|string|max:100',
             'shipping_methods' => 'required|array',
-            'payment_provider_id' => 'required|exists:providers,id',
-            'note' => 'nullable|string',
-            'coupon_code' => 'nullable|string',
+            'shipping_methods.*.provider_id' => 'nullable|integer',
+            'shipping_methods.*.courier' => 'nullable|string|max:50',
+            'shipping_methods.*.service' => 'nullable|string|max:100',
+            'shipping_methods.*.destination' => 'nullable|string|max:100',
+            'payment_provider_id' => 'required|integer',
+            'payment_channel' => 'nullable|array', 'note' => 'nullable|string|max:2000', 'coupon_code' => 'nullable|string|max:50',
         ]);
+        $customer = $request->user();
+        $provider = Provider::ofType('payment')->active()->find($validated['payment_provider_id']);
+        if (!$provider) return back()->withInput()->with('error', 'Metode pembayaran tidak tersedia.');
 
-        $customer = auth()->user();
-        if ($request->address_id) {
-            $address = $customer->addresses()->findOrFail($request->address_id);
-        } else {
-            $address = \App\Models\CustomerAddress::create([
-                'customer_id' => $customer->id,
-                'label' => $request->new_label ?? 'Rumah',
-                'receiver_name' => $request->new_receiver_name,
-                'receiver_phone' => $request->new_receiver_phone,
-                'address' => $request->new_address,
-                'city' => $request->new_city,
-                'province' => $request->new_province,
-                'postal_code' => $request->new_postal_code,
-                'is_default' => $customer->addresses()->count() === 0,
-            ]);
-        }
-        $cartItems = Cart::where('customer_id', $customer->id)
-            ->with(['product.shop', 'variant'])
-            ->get();
-
-        if ($cartItems->isEmpty()) {
-            return back()->with('error', 'Keranjang kosong.');
-        }
-
-        $paymentProvider = Provider::findOrFail($request->payment_provider_id);
-        $shippingMethods = $request->shipping_methods;
-
-        DB::beginTransaction();
         try {
-            $groupedByShop = $cartItems->groupBy(fn ($i) => $i->product->shop_id);
-            $orders = [];
-            $grandTotal = 0;
-            $orderPrefix = SystemSetting::get('order_prefix', 'ORD');
-
-            foreach ($groupedByShop as $shopId => $items) {
-                $shop = $items->first()->product->shop;
-                $subTotal = $items->sum(fn ($i) => $i->price * $i->quantity);
-                $tax = 0;
-                $shippingCost = 0;
-                $categoryShippingCost = 0;
-
-                if (isset($shippingMethods[$shopId])) {
-                    $shippingCost = (float) ($shippingMethods[$shopId]['cost'] ?? 0);
-                }
-
-                foreach ($items as $cartItem) {
-                    $product = $cartItem->product;
-                    $catId = $product->category_id;
-                    if ($catId && isset($shippingMethods[$shopId])) {
-                        $methodKey = $shippingMethods[$shopId]['method'] ?? $shippingMethods[$shopId]['code'] ?? null;
-                        if ($methodKey) {
-                            $catShipping = SystemSetting::get("cat_shipping_{$catId}_{$methodKey}");
-                            if ($catShipping) {
-                                $categoryShippingCost += (float) $catShipping * $cartItem->quantity;
-                            }
-                        }
-                    }
-
-                    if ($product->vat_tax_id) {
-                        $vatTax = \App\Models\VatTax::find($product->vat_tax_id);
-                        if ($vatTax && $vatTax->is_active) {
-                            $tax += $cartItem->price * $cartItem->quantity * ($vatTax->rate / 100);
-                        }
+            $result = DB::transaction(function () use ($validated, $customer, $provider, $calculator, $payments) {
+                $address = $this->resolveAddress($validated, $customer->id);
+                $cartItems = Cart::where('customer_id', $customer->id)->with(['product.shop', 'variant'])->lockForUpdate()->get();
+                if ($cartItems->isEmpty()) throw ValidationException::withMessages(['cart' => 'Keranjang kosong.']);
+                foreach ($validated['shipping_methods'] as $shopId => $selection) {
+                    if (!$address->shipping_destination_id || ($selection['destination'] ?? null) !== $address->shipping_destination_id) {
+                        throw ValidationException::withMessages(["shipping_methods.{$shopId}.destination" => 'Tujuan pengiriman harus sesuai alamat yang dipilih.']);
                     }
                 }
-
-                $shippingCost += $categoryShippingCost;
-
-                $couponDiscount = 0;
-                if ($request->coupon_code) {
-                    $coupon = Coupon::where('code', $request->coupon_code)->first();
-                    if ($coupon && $coupon->isValid()) {
-                        $couponDiscount = $coupon->calculateDiscount($subTotal);
-                        $coupon->increment('usage_count');
-                    }
-                }
-
-                $total = $subTotal + $tax + $shippingCost - $couponDiscount;
-
-                $order = Order::create([
-                    'order_number' => $orderPrefix . '-' . now()->format('YmdHis') . '-' . strtoupper(substr(uniqid(), -4)),
-                    'customer_id' => $customer->id,
-                    'shop_id' => $shop->id,
-                    'coupon_code' => $request->coupon_code,
-                    'coupon_discount' => $couponDiscount,
-                    'sub_total' => $subTotal,
-                    'tax' => $tax,
-                    'shipping_cost' => $shippingCost,
-                    'discount' => 0,
-                    'total' => max(0, $total),
-                    'shipping_method' => $shippingMethods[$shopId]['service'] ?? null,
-                    'shipping_address' => $address->only(['label', 'receiver_name', 'receiver_phone', 'address', 'city', 'province', 'postal_code']),
-                    'payment_method' => $paymentProvider->name,
-                    'payment_status' => 'unpaid',
-                    'order_status' => 'pending',
-                    'note' => $request->note,
+                $quote = $calculator->calculate($customer, $cartItems, $validated['shipping_methods'], $validated['coupon_code'] ?? null, $address->toArray());
+                $group = PaymentGroup::create([
+                    'payment_number' => PaymentGroup::generateNumber(), 'customer_id' => $customer->id, 'provider_id' => $provider->id,
+                    'subtotal' => $quote['subtotal'], 'tax' => $quote['tax'], 'shipping_cost' => $quote['shipping'],
+                    'discount' => $quote['discount'], 'grand_total' => $quote['grand_total'], 'status' => 'pending',
                 ]);
-
-                $order->statusHistory()->create([
-                    'status' => 'pending',
-                    'changed_by' => $customer->id,
-                    'note' => 'Pesanan dibuat',
-                ]);
-
-                foreach ($items as $cartItem) {
-                    OrderItem::create([
-                        'order_id' => $order->id,
-                        'product_id' => $cartItem->product_id,
-                        'product_variant_id' => $cartItem->product_variant_id,
-                        'quantity' => $cartItem->quantity,
-                        'price' => $cartItem->price,
-                        'tax' => $cartItem->tax,
-                        'discount' => 0,
-                        'sub_total' => $cartItem->price * $cartItem->quantity,
-                        'variant_detail' => $cartItem->variant?->variant,
+                $orders = collect();
+                foreach ($quote['shops'] as $shopQuote) {
+                    $selection = $validated['shipping_methods'][$shopQuote->shop->id] ?? [];
+                    $order = Order::create([
+                        'payment_group_id' => $group->id, 'order_number' => Order::generateOrderNumber(), 'customer_id' => $customer->id,
+                        'shop_id' => $shopQuote->shop->id, 'coupon_code' => $quote['coupon']?->code,
+                        'coupon_discount' => $shopQuote->couponDiscount, 'sub_total' => $shopQuote->subtotal, 'tax' => $shopQuote->tax,
+                        'shipping_cost' => $shopQuote->shipping, 'discount' => 0,
+                        'total' => max(0, $shopQuote->subtotal + $shopQuote->tax + $shopQuote->shipping - $shopQuote->couponDiscount),
+                        'shipping_method' => $selection['courier'] ?? null, 'shipping_service' => $selection['service'] ?? null,
+                        'shipping_address' => $address->only(['label', 'receiver_name', 'receiver_phone', 'address', 'city', 'province', 'postal_code']),
+                        'payment_method' => $provider->api_format, 'payment_status' => 'unpaid', 'order_status' => 'pending', 'note' => $validated['note'] ?? null,
                     ]);
+                    $group->orders()->attach($order->id, ['amount' => $order->total]);
+                    $order->statusHistory()->create(['status' => 'pending', 'changed_by' => $customer->id, 'note' => 'Pesanan dibuat.']);
+                    foreach ($shopQuote->shopLines as $line) {
+                        OrderItem::create(['order_id' => $order->id, 'product_id' => $line->product->id, 'product_variant_id' => $line->variant?->id,
+                            'quantity' => $line->quantity, 'price' => $line->price, 'tax' => $line->line_total * ($line->tax_rate / 100),
+                            'discount' => 0, 'sub_total' => $line->line_total, 'variant_detail' => $line->variant?->variant]);
+                        if ($line->variant) $line->variant->decrement('stock', $line->quantity);
+                        else $line->product->decrement('current_stock', $line->quantity);
+                    }
+                    Transaction::create(['transaction_id' => 'TRX-'.$order->order_number, 'payment_group_id' => $group->id, 'order_id' => $order->id,
+                        'customer_id' => $customer->id, 'shop_id' => $order->shop_id, 'amount' => $order->total, 'admin_commission' => 0,
+                        'vendor_amount' => 0, 'payment_method' => $this->transactionPaymentMethod($provider), 'status' => 'pending']);
+                    $orders->push($order);
                 }
-
-                $orders[] = $order;
-                $grandTotal += $total;
-            }
-
-            $paymentService = app(PaymentGatewayService::class);
-            $paymentResult = $paymentService->createPayment($paymentProvider, [
-                'order_id' => $orders[0]->order_number,
-                'amount' => $grandTotal,
-                'channel' => $request->payment_channel[$paymentProvider->id] ?? 'default',
-                'customer' => [
-                    'name' => $customer->name,
-                    'email' => $customer->email,
-                    'phone' => $customer->phone,
-                ],
-                'items' => $cartItems->map(fn ($i) => [
-                    'id' => $i->product_id,
-                    'name' => $i->product->name,
-                    'price' => (int) $i->price,
-                    'quantity' => $i->quantity,
-                ])->toArray(),
-                'success_url' => route('orders.index'),
-                'callback_url' => route('webhook.payment', $paymentProvider->id),
-            ]);
-
-            if (!$paymentResult['success']) {
-                DB::rollBack();
-                $errMsg = $paymentResult['message'] ?? 'Unknown error';
-                if (str_contains($errMsg, 'Invalid signature') || str_contains($errMsg, 'signature')) {
-                    $errMsg = 'Payment gateway error: API Key/Private Key tidak cocok. Cek ulang di Admin → Integrasi.';
-                } elseif (str_contains($errMsg, '401') || str_contains($errMsg, 'Unauthorized')) {
-                    $errMsg = 'Payment gateway error: API Key tidak valid. Cek di Admin → Integrasi.';
-                } elseif (str_contains($errMsg, '404') || str_contains($errMsg, 'Not Found')) {
-                    $errMsg = 'Payment gateway error: Base URL salah atau endpoint tidak ditemukan.';
-                } elseif (str_contains($errMsg, 'timeout') || str_contains($errMsg, 'cURL')) {
-                    $errMsg = 'Payment gateway error: Server gateway tidak merespons. Coba lagi nanti.';
+                if ($quote['coupon']) {
+                    $quote['coupon']->increment('usage_count');
+                    CouponUsage::create(['coupon_id' => $quote['coupon']->id, 'customer_id' => $customer->id, 'order_id' => $orders->first()->id, 'discount_amount' => $quote['discount']]);
                 }
-                return back()->with('error', 'Gagal membuat pembayaran: ' . $errMsg);
-            }
-
-            foreach ($orders as $order) {
-                $commission = 0;
-                $shop = $order->shop;
-                if ($shop->commission_type === 'percentage') {
-                    $commission = $order->sub_total * ($shop->commission_value / 100);
-                } else {
-                    $commission = $shop->commission_value;
-                }
-
-                Transaction::create([
-                    'transaction_id' => 'TRX-' . $order->order_number,
-                    'order_id' => $order->id,
-                    'customer_id' => $customer->id,
-                    'shop_id' => $order->shop_id,
-                    'amount' => $order->total,
-                    'admin_commission' => $commission,
-                    'vendor_amount' => $order->total - $commission,
-                    'payment_method' => $paymentProvider->name,
-                    'status' => 'pending',
+                $paymentResult = $payments->createPayment($provider, [
+                    'order_id' => $group->payment_number, 'amount' => $group->grand_total,
+                    'channel' => $validated['payment_channel'][$provider->id] ?? 'default',
+                    'customer' => ['name' => $customer->name, 'email' => $customer->email, 'phone' => $customer->phone],
+                    'items' => $this->paymentItems($orders), 'success_url' => route('orders.index'),
+                    'callback_url' => route('webhook.payment', $provider),
                 ]);
-            }
-
-            Cart::where('customer_id', $customer->id)->delete();
-
-            DB::commit();
-
-            if (!empty($paymentResult['redirect_url'])) {
-                return redirect()->away($paymentResult['redirect_url']);
-            }
-
-            return redirect()->route('orders.index')->with('success', 'Pesanan berhasil dibuat!');
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+                if (!($paymentResult['success'] ?? false)) throw ValidationException::withMessages(['payment_provider_id' => 'Gateway pembayaran tidak dapat membuat transaksi. Silakan pilih metode lain atau coba kembali.']);
+                $group->update(['gateway_reference' => $paymentResult['transaction_id'] ?? $paymentResult['invoice_id'] ?? $paymentResult['reference'] ?? null, 'gateway_response' => $paymentResult['raw'] ?? []]);
+                Cart::where('customer_id', $customer->id)->delete();
+                return ['group' => $group, 'payment' => $paymentResult];
+            });
+            return !empty($result['payment']['redirect_url'])
+                ? redirect()->away($result['payment']['redirect_url'])
+                : redirect()->route('orders.index')->with('success', 'Pesanan dibuat. Selesaikan pembayaran Anda.');
+        } catch (ValidationException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            Log::error('Checkout failed', ['customer_id' => $customer->id, 'exception' => $e::class]);
+            return back()->withInput()->with('error', 'Checkout tidak dapat diproses. Silakan coba kembali.');
         }
     }
 
-    public function shippingCost(Request $request)
+    public function shippingCost(Request $request, ShippingService $shipping)
     {
-        $request->validate([
-            'destination' => 'required',
-            'weight' => 'required|integer|min:1',
-            'courier' => 'required|string',
-            'provider_id' => 'required|exists:providers,id',
-        ]);
+        $data = $request->validate(['shop_id' => 'required|integer|exists:shops,id', 'destination' => 'required|string|max:100', 'courier' => 'required|string|max:50', 'provider_id' => 'required|integer']);
+        $provider = Provider::ofType('shipping')->active()->find($data['provider_id']);
+        if (!$provider) return response()->json(['success' => false, 'message' => 'Provider pengiriman tidak tersedia.'], 422);
+        $cart = Cart::where('customer_id', $request->user()->id)->whereHas('product', fn ($q) => $q->where('shop_id', $data['shop_id']))->with('product')->get();
+        $origin = \App\Models\SystemSetting::get("shop_shipping_origin_{$data['shop_id']}") ?: \App\Models\SystemSetting::get('shipping_origin');
+        if (!$origin || $cart->isEmpty()) return response()->json(['success' => false, 'message' => 'Data pengiriman belum lengkap.'], 422);
+        return response()->json($shipping->getShippingRates($provider, ['origin' => $origin, 'destination' => $data['destination'], 'courier' => $data['courier'], 'weight' => $cart->sum(fn ($item) => max(1, (int) $item->product->weight) * $item->quantity)]));
+    }
 
-        $provider = Provider::findOrFail($request->provider_id);
-        $shipping = app(ShippingService::class);
+    private function resolveAddress(array $data, int $customerId): CustomerAddress
+    {
+        if (!empty($data['address_id'])) return CustomerAddress::where('customer_id', $customerId)->findOrFail($data['address_id']);
+        return CustomerAddress::create(['customer_id' => $customerId, 'label' => $data['new_label'] ?? 'Rumah', 'receiver_name' => $data['new_receiver_name'],
+            'receiver_phone' => $data['new_receiver_phone'], 'address' => $data['new_address'], 'city' => $data['new_city'], 'province' => $data['new_province'],
+            'postal_code' => $data['new_postal_code'] ?? null, 'shipping_destination_id' => $data['new_shipping_destination_id'], 'is_default' => !CustomerAddress::where('customer_id', $customerId)->exists()]);
+    }
 
-        $result = $shipping->getShippingRates($provider, [
-            'origin' => $request->origin ?? config('services.shipping.origin_city_id', 501),
-            'destination' => $request->destination,
-            'weight' => $request->weight,
-            'courier' => $request->courier,
-        ]);
+    private function transactionPaymentMethod(Provider $provider): string
+    {
+        return match (true) {
+            str_contains($provider->api_format, 'midtrans') => 'midtrans', str_contains($provider->api_format, 'xendit') => 'xendit',
+            default => 'transfer',
+        };
+    }
 
-        return response()->json($result);
+    private function paymentItems($orders): array
+    {
+        $items = [];
+        foreach ($orders as $order) {
+            foreach ($order->items as $item) $items[] = ['id' => 'ITEM-'.$item->id, 'name' => mb_substr($item->product->name, 0, 50), 'price' => (int) round($item->price), 'quantity' => $item->quantity];
+            if ((float) $order->shipping_cost > 0) $items[] = ['id' => 'SHIP-'.$order->id, 'name' => 'Biaya pengiriman', 'price' => (int) round($order->shipping_cost), 'quantity' => 1];
+            if ((float) $order->tax > 0) $items[] = ['id' => 'TAX-'.$order->id, 'name' => 'Pajak', 'price' => (int) round($order->tax), 'quantity' => 1];
+            if ((float) $order->coupon_discount > 0) $items[] = ['id' => 'DISC-'.$order->id, 'name' => 'Diskon', 'price' => -(int) round($order->coupon_discount), 'quantity' => 1];
+        }
+        return $items;
     }
 }

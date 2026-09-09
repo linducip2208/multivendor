@@ -27,4 +27,13 @@ class ProductVariant extends Model
     {
         return $this->belongsTo(Product::class);
     }
+
+    public function getEffectivePrice(): float
+    {
+        if ($this->special_price && (!$this->discount_start || $this->discount_start <= now()) && (!$this->discount_end || $this->discount_end >= now())) {
+            return (float) $this->special_price;
+        }
+
+        return (float) $this->price;
+    }
 }

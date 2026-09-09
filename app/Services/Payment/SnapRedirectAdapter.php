@@ -73,14 +73,16 @@ class SnapRedirectAdapter implements PaymentAdapterInterface
 
     public function verifyCallback(array $requestData): bool
     {
+        $body = $requestData['body'] ?? $requestData;
+        if (!$this->provider->getApiSecretAttribute()) return false;
         $signatureKey = hash('sha512',
-            $requestData['order_id'] .
-            $requestData['status_code'] .
-            ($requestData['gross_amount'] ?? '') .
+            ($body['order_id'] ?? '') .
+            ($body['status_code'] ?? '') .
+            ($body['gross_amount'] ?? '') .
             $this->provider->getApiSecretAttribute()
         );
 
-        return ($signatureKey === ($requestData['signature_key'] ?? ''));
+        return hash_equals($signatureKey, (string) ($body['signature_key'] ?? ''));
     }
 
     public function getChannels(): array

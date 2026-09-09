@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 #[Fillable(['user_id', 'balance', 'pending_balance'])]
 class Wallet extends Model
@@ -28,41 +29,62 @@ class Wallet extends Model
         return $this->hasMany(WalletTransaction::class);
     }
 
-    public function credit(float $amount, string $description = null, string $referenceType = null, int $referenceId = null): WalletTransaction
+    public function credit(float $amount, string $description = null, string $referenceType = null, int $referenceId = null, ?string $referenceKey = null): WalletTransaction
     {
-        $before = $this->balance;
-        $this->balance += $amount;
-        $this->save();
-
-        return WalletTransaction::create([
-            'wallet_id' => $this->id,
-            'amount' => $amount,
-            'type' => 'credit',
-            'description' => $description,
-            'reference_type' => $referenceType,
-            'reference_id' => $referenceId,
-            'balance_before' => $before,
-            'balance_after' => $this->balance,
-            'status' => 'completed',
-        ]);
+        return $this->mutate('credit', $amount, $description, $referenceType, $referenceId, $referenceKey);
     }
 
-    public function debit(float $amount, string $description = null, string $referenceType = null, int $referenceId = null): WalletTransaction
+    public function debit(float $amount, string $description = null, string $referenceType = null, int $referenceId = null, ?string $referenceKey = null): WalletTransaction
     {
-        $before = $this->balance;
-        $this->balance -= $amount;
-        $this->save();
+        return $this->mutate('debit', $amount, $description, $referenceType, $referenceId, $referenceKey);
+    }
 
-        return WalletTransaction::create([
-            'wallet_id' => $this->id,
-            'amount' => $amount,
-            'type' => 'debit',
-            'description' => $description,
-            'reference_type' => $referenceType,
-            'reference_id' => $referenceId,
-            'balance_before' => $before,
-            'balance_after' => $this->balance,
-            'status' => 'completed',
-        ]);
+    public function reserve(float $amount, string $description = null, string $referenceType = null, int $referenceId = null, ?string $referenceKey = null): WalletTransaction
+    {
+        return $this->mutate('debit', $amount, $description, $referenceType, $referenceId, $referenceKey, 'hold', true);
+    }
+
+    public function release(float $amount, string $description = null, string $referenceType = null, int $referenceId = null, ?string $referenceKey = null): WalletTransaction
+    {
+        return $this->mutate('credit', $amount, $description, $referenceType, $referenceId, $referenceKey, 'release', true);
+    }
+
+    private function mutate(string $type, float $amount, ?string $description, ?string $referenceType, ?int $referenceId, ?string $referenceKey, ?string $operation = null, bool $movePending = false): WalletTransaction
+    {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Nominal wallet harus lebih dari nol.');
+        }
+
+        return DB::transaction(function () use ($type, $amount, $description, $referenceType, $referenceId, $referenceKey, $operation, $movePending) {
+            $wallet = static::lockForUpdate()->findOrFail($this->id);
+            if ($referenceKey && ($existing = $wallet->transactions()->where('reference_key', $referenceKey)->first())) {
+                return $existing;
+            }
+            if ($type === 'debit' && (float) $wallet->balance < $amount) {
+                throw new \DomainException('Saldo wallet tidak cukup.');
+            }
+
+            $before = (float) $wallet->balance;
+            $wallet->balance = $type === 'credit' ? $before + $amount : $before - $amount;
+            if ($movePending) {
+                $wallet->pending_balance = $operation === 'hold'
+                    ? (float) $wallet->pending_balance + $amount
+                    : max(0, (float) $wallet->pending_balance - $amount);
+            }
+            $wallet->save();
+
+            return $wallet->transactions()->create([
+                'amount' => $amount,
+                'type' => $type,
+                'operation' => $operation ?? $type,
+                'description' => $description,
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
+                'reference_key' => $referenceKey,
+                'balance_before' => $before,
+                'balance_after' => $wallet->balance,
+                'status' => 'completed',
+            ]);
+        });
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Vendor;
 use App\Http\Controllers\Controller;
 use App\Models\Order;
 use Illuminate\Http\Request;
+use App\Services\OrderWorkflowService;
 
 class OrderController extends Controller
 {
@@ -41,25 +42,20 @@ class OrderController extends Controller
         return view('vendor.orders.show', compact('order'));
     }
 
-    public function updateStatus(Request $request, Order $order)
+    public function updateStatus(Request $request, Order $order, OrderWorkflowService $workflow)
     {
         $shop = auth('vendor')->user()->shop;
         if ($order->shop_id !== $shop->id) abort(403);
 
         $validStatuses = ['confirmed', 'processing', 'shipped', 'canceled'];
-        $request->validate(['status' => 'required|in:' . implode(',', $validStatuses)]);
+        $request->validate(['status' => 'required|in:' . implode(',', $validStatuses), 'note' => 'nullable|string|max:1000', 'reason' => 'nullable|string|max:1000', 'tracking_id' => 'nullable|string|max:100']);
 
-        $order->update([
-            'order_status' => $request->status,
-            $request->status . '_at' => now(),
-            'cancel_reason' => $request->status === 'canceled' ? $request->reason : null,
-        ]);
-
-        $order->statusHistory()->create([
-            'status' => $request->status,
-            'changed_by' => auth('vendor')->id(),
-            'note' => $request->note,
-        ]);
+        match ($request->status) {
+            'confirmed' => $workflow->confirm($order, auth('vendor')->id(), $request->note),
+            'processing' => $workflow->process($order, auth('vendor')->id(), $request->note),
+            'shipped' => $workflow->ship($order, auth('vendor')->id(), $request->tracking_id, $request->note),
+            'canceled' => $workflow->cancel($order, auth('vendor')->id(), $request->reason ?: $request->note),
+        };
 
         $labels = [
             'confirmed' => 'Dikonfirmasi', 'processing' => 'Diproses',

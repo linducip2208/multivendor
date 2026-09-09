@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'delivery_verification_code', 'delivery_man_id', 'shipping_address',
     'billing_address', 'payment_method', 'payment_status', 'order_status',
     'note', 'cancel_reason', 'confirmed_at', 'processing_at', 'shipped_at',
-    'delivered_at', 'canceled_at'
+    'delivered_at', 'canceled_at', 'payment_group_id', 'stock_released_at'
 ])]
 class Order extends Model
 {
@@ -34,12 +34,18 @@ class Order extends Model
             'shipped_at' => 'datetime',
             'delivered_at' => 'datetime',
             'canceled_at' => 'datetime',
+            'stock_released_at' => 'datetime',
         ];
     }
 
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'customer_id');
+    }
+
+    public function paymentGroup(): BelongsTo
+    {
+        return $this->belongsTo(PaymentGroup::class);
     }
 
     public function shop(): BelongsTo
@@ -70,8 +76,9 @@ class Order extends Model
     public static function generateOrderNumber(): string
     {
         $prefix = \App\Models\SystemSetting::get('order_prefix', 'ORD');
-        $timestamp = now()->format('YmdHis');
-        $random = strtoupper(substr(uniqid(), -4));
-        return "{$prefix}-{$timestamp}-{$random}";
+        do {
+            $number = "{$prefix}-".now()->format('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(10));
+        } while (static::where('order_number', $number)->exists());
+        return $number;
     }
 }
