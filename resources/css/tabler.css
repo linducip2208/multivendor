@@ -235,30 +235,40 @@ body.tabler-panel {
 }
 
 body.tabler-panel .sidebar {
-    background: #182433 !important;
-    box-shadow: 4px 0 18px rgb(24 36 51 / 12%) !important;
+    background: #fff !important;
+    border-right: 1px solid #e6eaf0 !important;
+    box-shadow: 3px 0 16px rgb(24 36 51 / 5%) !important;
 }
 
 body.tabler-panel .sidebar .nav-link {
-    color: #b8c7d9 !important;
+    color: #667382 !important;
     border-left: 0 !important;
     border-radius: 8px !important;
 }
 
 body.tabler-panel .sidebar .nav-link:hover,
 body.tabler-panel .sidebar .nav-link.active {
-    color: #fff !important;
-    background: #243447 !important;
+    color: #206bc4 !important;
+    background: #edf5ff !important;
     border-left-color: transparent !important;
 }
 
 body.tabler-panel .sidebar .nav-link.active {
-    background: color-mix(in srgb, var(--brand-primary, #206bc4) 82%, #182433) !important;
-    box-shadow: inset 3px 0 0 #fff !important;
+    background: #e9f2fc !important;
+    box-shadow: inset 3px 0 0 #206bc4 !important;
 }
 
 body.tabler-panel .sidebar .nav-section {
-    color: #7f91a8 !important;
+    color: #9aa6b2 !important;
+}
+
+body.tabler-panel .sidebar .logo {
+    color: #182433 !important;
+    border-bottom-color: #edf0f3 !important;
+}
+
+body.tabler-panel .sidebar .logo i {
+    color: #206bc4 !important;
 }
 
 body.tabler-panel .topbar {
