@@ -27,10 +27,17 @@ class SearchController extends Controller
 
         $breadcrumb = [['label' => $query->hasTerm() ? 'Pencarian' : 'Semua Produk', 'href' => null]];
 
+        // Penanganan zero-result: saran otomatis dari analitik pencarian
+        // (istilah populer yang mirip), dihitung hanya saat memang nol hasil.
+        $saranNolHasil = $result->total === 0 && $query->hasTerm()
+            ? SearchAnalytics::saranUntukNolHasil($query->term)
+            : [];
+
         return view('storefront.search.index', [
             'result' => $result,
             'products' => $result->paginator,
             'query' => $query,
+            'saranNolHasil' => $saranNolHasil,
             'suggestions' => $query->hasTerm() ? $this->suggestPayload($query->term, 5, $request) : [
                 'products' => [], 'categories' => [], 'brands' => [], 'shops' => [], 'terms' => [],
             ],
