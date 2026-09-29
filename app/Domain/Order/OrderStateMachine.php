@@ -20,7 +20,7 @@ final class OrderStateMachine
     /** @var array<string, list<string>> */
     private const TRANSITIONS = [
         'pending' => ['payment_pending', 'paid', 'confirmed', 'cancel_requested', 'canceled', 'failed'],
-        'payment_pending' => ['paid', 'canceled', 'failed', 'expired'],
+        'payment_pending' => ['paid', 'canceled', 'failed'],
         'paid' => ['processing', 'cancel_requested', 'confirmed'],
         'confirmed' => ['processing', 'packed', 'cancel_requested', 'canceled'],
         'processing' => ['packed', 'shipped', 'cancel_requested', 'canceled'],
@@ -35,7 +35,6 @@ final class OrderStateMachine
         'refund_pending' => ['refunded', 'returned'],
         'refunded' => [],
         'failed' => ['pending', 'payment_pending'],
-        'expired' => ['pending', 'payment_pending'],
     ];
 
     /** States that require the order to be paid before they may be entered. */
@@ -110,9 +109,6 @@ final class OrderStateMachine
             'confirmed' => [['notify', 'order_confirmed']],
             'packed' => [['notify', 'order_packed']],
             'shipped' => [['notify', 'order_shipped'], ['event', 'OrderShipped']],
-            'delivered' => [['event', 'OrderDelivered']],
-            'completed' => [['event', 'OrderCompleted']],
-            'canceled' => [['event', 'OrderCancelled']],
             'refunded' => [['event', 'RefundCompleted']],
             'returned' => [['event', 'ReturnCompleted']],
             default => [],

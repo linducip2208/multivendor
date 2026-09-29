@@ -84,6 +84,8 @@ class CatalogController extends Controller
             'metaImage' => $product->meta_image ?: ($product->thumbnail ? url('img/'.ltrim($product->thumbnail, '/')) : null),
             'canonicalUrl' => route('products.show', $product->slug),
             'metaRobots' => $request->query('preview') && auth()->check() ? 'noindex, nofollow' : null,
+            'ogType' => 'product',
+            'productPrice' => $product->getEffectivePrice(),
             'jsonLd' => $this->productSchema($product, $breadcrumb),
         ]);
     }
@@ -521,7 +523,66 @@ class CatalogController extends Controller
             ];
         }
 
+        // Variant Offer hook: when the product has priced variants, expose one
+        // Offer per variant (base offer first) so crawlers see every purchasable
+        // option. Single-variant-less products keep the original single Offer.
+        try {
+            $variantOffers = $this->variantOffers($product, $url, $node['offers']);
+            if ($variantOffers !== []) {
+                $node['offers'] = count($variantOffers) > 1 ? $variantOffers : $node['offers'];
+            }
+        } catch (\Throwable) {
+            // Never break the base Product node because of variant expansion.
+        }
+
         return $node + $this->breadcrumbsSchema($breadcrumb, $url);
+    }
+
+    /**
+     * Build one Offer per variant (base offer first). Returns [] when the
+     * product has no priced variants, letting the caller keep the single Offer.
+     *
+     * @param  array<string, mixed>  $baseOffer
+     * @return list<array<string, mixed>>
+     */
+    private function variantOffers(Product $product, string $url, array $baseOffer): array
+    {
+        $variants = $product->relationLoaded('variants')
+            ? $product->variants
+            : $product->variants()->get(['id', 'sku', 'price', 'special_price', 'discount_start', 'discount_end', 'stock']);
+
+        if ($variants->isEmpty()) {
+            return [];
+        }
+
+        $offers = [$baseOffer];
+
+        foreach ($variants as $variant) {
+            $price = $variant->getEffectivePrice();
+            if ($price <= 0) {
+                continue;
+            }
+
+            $offer = [
+                '@type' => 'Offer',
+                'url' => $url.'?variant='.$variant->id,
+                'priceCurrency' => $baseOffer['priceCurrency'],
+                'price' => number_format($price, Currency::config()['decimals'], '.', ''),
+                'availability' => ((int) $variant->stock > 0)
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+                'itemCondition' => $baseOffer['itemCondition'],
+                'seller' => $baseOffer['seller'],
+            ];
+
+            if ($variant->sku) {
+                $offer['sku'] = (string) $variant->sku;
+            }
+
+            $offers[] = $offer;
+        }
+
+        return count($offers) > 1 ? $offers : [];
     }
 
     private function breadcrumbsSchema(array $items, string $url): array

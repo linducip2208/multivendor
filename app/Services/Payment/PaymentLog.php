@@ -13,9 +13,13 @@ final class PaymentLog
     private const SENSITIVE_TOKENS = [
         'api_key', 'api_secret', 'apikey', 'secret', 'password', 'passwd',
         'token', 'authorization', 'auth', 'signature', 'sign_key', 'signature_key',
-        'callback_token', 'callback_signature', 'cookie', 'session', 'card', 'cvv',
+        'callback_token', 'callback_signature', 'cookie', 'session', 'card', 'card_number',
+        'cardnumber', 'cvv', 'cvc', 'email', 'e_mail', 'phone', 'mobile',
         'x-callback-token', 'x-callback-signature', 'server_key', 'basic',
     ];
+
+    /** Max logged string length; longer values are truncated to bound PII/card-data exposure. */
+    public const MAX_STRING_LENGTH = 500;
 
     public const REDACTED = '[redacted]';
 
@@ -40,7 +44,7 @@ final class PaymentLog
         }
 
         if (is_string($value)) {
-            return self::maskBearer($value);
+            return self::truncate(self::maskBearer($value));
         }
 
         return $value;
@@ -51,6 +55,15 @@ final class PaymentLog
         $masked = preg_replace('/(Basic|Bearer)\s+[A-Za-z0-9\-\._~\+\/=]+/i', '$1 '.self::REDACTED, $value);
 
         return is_string($masked) ? $masked : $value;
+    }
+
+    public static function truncate(string $value): string
+    {
+        if (mb_strlen($value) > self::MAX_STRING_LENGTH) {
+            return mb_substr($value, 0, self::MAX_STRING_LENGTH).'…[truncated]';
+        }
+
+        return $value;
     }
 
     private static function isSensitive(string $key): bool

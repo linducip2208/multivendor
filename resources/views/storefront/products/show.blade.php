@@ -416,6 +416,72 @@
         </div>
     </section>
 
+    @isset($productQuestions)
+        @if (! empty($productQuestions))
+            <section class="sf-container sf-section sf-section--tight" aria-labelledby="sf-pdp-faq-title">
+                <h2 class="sf-section-head__title" id="sf-pdp-faq-title">Pertanyaan seputar produk ini</h2>
+                <div class="sf-stack" style="gap:10px;max-width:720px">
+                    @foreach ($productQuestions as $item)
+                        @php
+                            $item = is_array($item) ? $item : (array) $item;
+                            $q = $item['q'] ?? $item['question'] ?? $item['name'] ?? null;
+                            $a = $item['a'] ?? $item['answer'] ?? $item['text'] ?? null;
+                        @endphp
+                        @if ($q && $a)
+                            <details class="sf-panel" style="padding:12px 16px">
+                                <summary class="sf-bold" style="cursor:pointer">{{ $q }}</summary>
+                                <p class="sf-small sf-muted sf-mb-0" style="margin-top:8px">{{ $a }}</p>
+                            </details>
+                        @endif
+                    @endforeach
+                </div>
+                @php
+                    $faqEntities = collect($productQuestions)->map(fn ($item) => is_array($item) ? $item : (array) $item)
+                        ->filter(fn ($item) => ! empty($item['q'] ?? $item['question'] ?? $item['name'] ?? null) && ! empty($item['a'] ?? $item['answer'] ?? $item['text'] ?? null))
+                        ->map(fn ($item) => [
+                            '@type' => 'Question',
+                            'name' => $item['q'] ?? $item['question'] ?? $item['name'],
+                            'acceptedAnswer' => ['@type' => 'Answer', 'text' => $item['a'] ?? $item['answer'] ?? $item['text']],
+                        ])->values()->all();
+                @endphp
+                @if ($faqEntities !== [])
+                    <x-seo.json-ld :data="[
+                        '@context' => 'https://schema.org',
+                        '@type' => 'FAQPage',
+                        'mainEntity' => $faqEntities,
+                    ]" />
+                @endif
+            </section>
+        @endif
+    @endisset
+
+    <section class="sf-container sf-section sf-section--tight" aria-labelledby="sf-pdp-facts-title">
+        <h2 class="sf-section-head__title" id="sf-pdp-facts-title" style="font-size:1.15rem">Informasi pembelian</h2>
+        <ul class="sf-small sf-muted" style="margin:12px 0 0;padding-left:20px;display:grid;gap:6px;max-width:720px">
+            @if ($product->shop)
+                <li>Dijual oleh <a href="{{ route('shop.show', $product->shop->slug) }}">{{ $product->shop->name }}</a>.</li>
+            @endif
+            @if (! empty($shippingEstimate))
+                <li>Estimasi tiba {{ $shippingEstimate }} setelah pembayaran selesai.</li>
+            @endif
+            <li>
+                @if ($product->is_out_of_stock)
+                    Stok saat ini habis.
+                @else
+                    Stok tersedia {{ \App\Support\Currency::number($stock) }} unit.
+                @endif
+            </li>
+            @if ($product->sku)
+                <li>SKU: {{ $product->sku }}.</li>
+            @endif
+            <li>Kondisi: {{ ucfirst((string) ($product->condition ?: 'baru')) }}; satuan {{ $product->unit ?: 'pcs' }}; tipe {{ $product->product_type === 'digital' ? 'digital' : 'fisik' }}.</li>
+            @if ($product->warranty)
+                <li>Garansi {{ $product->warranty }} {{ $product->warranty_unit }} dari penjual.</li>
+            @endif
+            <li><a href="{{ route('page.return') }}">Kebijakan pengiriman dan retur</a> mengikuti ketentuan toko penjual.</li>
+        </ul>
+    </section>
+
     @if ($boughtTogether->isNotEmpty())
         <section class="sf-section sf-section--subtle" aria-labelledby="sf-bought-title">
             <div class="sf-container">

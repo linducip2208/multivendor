@@ -12,6 +12,7 @@ use App\Search\SearchManager;
 use App\Search\SearchQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class SearchController extends Controller
 {
@@ -33,8 +34,8 @@ class SearchController extends Controller
             'suggestions' => $query->hasTerm() ? $this->suggestPayload($query->term, 5, $request) : [
                 'products' => [], 'categories' => [], 'brands' => [], 'shops' => [], 'terms' => [],
             ],
-            'categories' => Category::whereNull('parent_id')->where('status', true)->orderBy('sort_order')->limit(12)->get(),
-            'brands' => Brand::where('status', true)->orderBy('name')->limit(40)->get(),
+            'categories' => Cache::remember('search:facets:categories', 300, fn () => Category::whereNull('parent_id')->where('status', true)->orderBy('sort_order')->limit(12)->get()),
+            'brands' => Cache::remember('search:facets:brands', 300, fn () => Brand::where('status', true)->orderBy('name')->limit(40)->get()),
             'breadcrumbItems' => $breadcrumb,
             'metaTitle' => $query->hasTerm() ? 'Hasil pencarian "'.$query->term.'"' : 'Cari Produk',
             'metaDescription' => $query->hasTerm()

@@ -16,15 +16,16 @@
         :type="$ogType ?? null"
         :robots="$metaRobots ?? null"
         :noindex="($metaRobots ?? '') === 'noindex, follow' || request()->routeIs('*.search') || request()->is('search')"
+        :product-price="$productPrice ?? null"
+        :product="$product ?? null"
     />
 
     @if (($jsonLd ?? null))
         <x-seo.json-ld :data="$jsonLd" />
     @endif
 
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family={{ $whitelabel['fontFamily'] ?? 'Plus Jakarta Sans' }}:wght@400;500;600;700;800&display=swap">
+    {{-- Fonts are bundled via Bunny in vite.config.js (laravel-vite-plugin fonts);
+         no external Google Fonts link — avoids a duplicate font double-load. --}}
 
     <style>
         :root {
