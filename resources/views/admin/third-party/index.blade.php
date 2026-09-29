@@ -3,7 +3,7 @@
 @section('title', 'Integrasi Pihak Ketiga')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['System', ['label' => 'Integrasi']]" />
+    <x-admin.breadcrumb :items="['Sistem', ['label' => 'Integrasi']]" />
 @endsection
 
 @section('content')
@@ -96,7 +96,7 @@
         </div>
 
         <div class="col-12 col-xl-6">
-            <x-admin.card title="Analytics" icon="bar-chart" class="h-100">
+            <x-admin.card title="Analitik" icon="bar-chart" class="h-100">
                 <form method="POST" action="{{ route('admin.third-party.update') }}">
                     @csrf
                     @method('PUT')

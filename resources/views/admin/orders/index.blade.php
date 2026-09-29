@@ -13,12 +13,12 @@
 
 <x-admin.card :padding="false">
     <div class="p-3 border-bottom"><form method="GET" class="row g-2">
-        <div class="col-md-3"><input type="text" name="search" class="form-control" placeholder="Cari nomor order..." value="{{ request('search') }}"></div>
-        <div class="col-md-2"><select name="payment" class="form-select"><option value="">Payment</option><option value="unpaid" {{ request('payment')==='unpaid'?'selected' : '' }}>Unpaid</option><option value="paid" {{ request('payment')==='paid'?'selected' : '' }}>Paid</option></select></div>
+        <div class="col-md-3"><input type="text" name="search" class="form-control" placeholder="Cari nomor pesanan..." value="{{ request('search') }}"></div>
+        <div class="col-md-2"><select name="payment" class="form-select"><option value="">Pembayaran</option><option value="unpaid" {{ request('payment')==='unpaid'?'selected' : '' }}>Belum Dibayar</option><option value="paid" {{ request('payment')==='paid'?'selected' : '' }}>Dibayar</option></select></div>
         <div class="col-md-2"><button class="btn btn-outline-primary w-100"><x-admin.icon name="search" :size="16" class="me-1" />Filter</button></div>
     </form></div>
     <div class="table-responsive"><table class="table table-hover mb-0">
-        <thead class="table-light"><tr><th>Order</th><th>Pelanggan</th><th>Toko</th><th>Total</th><th>Bayar</th><th>Status</th><th>Tgl</th><th>Aksi</th></tr></thead>
+        <thead class="table-light"><tr><th>Pesanan</th><th>Pelanggan</th><th>Toko</th><th>Total</th><th>Bayar</th><th>Status</th><th>Tgl</th><th>Aksi</th></tr></thead>
         <tbody>
             @forelse($orders as $o)
             <tr>

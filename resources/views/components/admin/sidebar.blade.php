@@ -72,7 +72,7 @@
                                 @if (request()->routeIs($dashboardRoute)) aria-current="page" @endif
                             >
                                 <span class="nav-link-icon"><x-admin.icon name="dashboard" :size="20" /></span>
-                                <span class="nav-link-title">Dashboard</span>
+                                <span class="nav-link-title">Dasbor</span>
                             </a>
                         </li>
                     @endif

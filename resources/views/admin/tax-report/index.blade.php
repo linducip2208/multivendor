@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Tax Report')
+@section('title', 'Laporan Pajak')
 @section('content')
 <div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="receipt" :size="16" class="me-2" />Laporan Pajak</h4></div>
 

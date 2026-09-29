@@ -3,7 +3,7 @@
 @section('title', 'SMS Gateway')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['System', ['label' => 'SMS']]" />
+    <x-admin.breadcrumb :items="['Sistem', ['label' => 'SMS']]" />
 @endsection
 
 @section('content')

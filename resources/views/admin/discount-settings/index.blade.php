@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Discount Settings')
+@section('title', 'Pengaturan Diskon')
 @section('content')
 <div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="tag" :size="16" class="me-2" />Pengaturan Diskon</h4></div>
 <x-admin.card :padding="false" style="max-width:600px">

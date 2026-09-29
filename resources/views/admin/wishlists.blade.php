@@ -1,13 +1,13 @@
 @extends('layouts.admin')
 
-@section('title', 'Wishlist Pelanggan')
+@section('title', 'Favorit Pelanggan')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Customers', ['label' => 'Wishlist']]" />
+    <x-admin.breadcrumb :items="['Pelanggan', ['label' => 'Favorit']]" />
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Wishlist" subtitle="Produk yang ditandai pelanggan, berguna untuk menyusun merchandising." />
+    <x-admin.page-header title="Favorit" subtitle="Produk yang ditandai pelanggan, berguna untuk menyusun merchandising." />
 
     <div class="row g-3 mb-3">
         @foreach ($kpis as $kpi)
@@ -26,7 +26,7 @@
 
     <div class="row g-3">
         <div class="col-lg-8">
-            <x-admin.card title="Produk Wishlist" icon="heart" flush>
+            <x-admin.card title="Produk Favorit" icon="heart" flush>
                 <div class="table-responsive">
                     <table class="table admin-table mb-0 table-hover">
                         <thead>
@@ -59,7 +59,7 @@
                             @empty
                                 <tr>
                                     <td colspan="5">
-                                        <x-admin.empty-state icon="heart" title="Belum ada wishlist" text="Tidak ada produk yang ditandai pelanggan." />
+                                        <x-admin.empty-state icon="heart" title="Belum ada favorit" text="Tidak ada produk yang ditandai pelanggan." />
                                     </td>
                                 </tr>
                             @endforelse
@@ -79,7 +79,7 @@
                     type="bar"
                     horizontal
                     :labels="array_map(fn (array $row): string => \Illuminate\Support\Str::limit($row['name'], 26), $top_products)"
-                    :data="[['label' => 'Wishlist', 'data' => array_column($top_products, 'count')]]"
+                    :data="[['label' => 'Favorit', 'data' => array_column($top_products, 'count')]]"
                     :height="300"
                 />
             </x-admin.card>

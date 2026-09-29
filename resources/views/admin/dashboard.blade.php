@@ -1,11 +1,11 @@
 @extends('layouts.admin')
 
-@section('title', 'Dashboard')
+@section('title', 'Dasbor')
 
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h4 class="fw-bold mb-1">Dashboard</h4>
+        <h4 class="fw-bold mb-1">Dasbor</h4>
         <p class="text-muted small mb-0">Ringkasan platform multivendor</p>
     </div>
     <span class="text-muted small">{{ now()->translatedFormat('l, d F Y') }}</span>
@@ -136,7 +136,7 @@
                     <table class="table table-hover mb-0">
                         <thead class="table-light">
                             <tr>
-                                <th class="ps-3 text-uppercase small">Order</th>
+                                <th class="ps-3 text-uppercase small">Pesanan</th>
                                 <th class="text-uppercase small">Pelanggan</th>
                                 <th class="text-uppercase small">Toko</th>
                                 <th class="text-uppercase small">Total</th>

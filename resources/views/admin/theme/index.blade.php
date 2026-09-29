@@ -1,7 +1,7 @@
 @extends('layouts.admin')
-@section('title', 'Theme Settings')
+@section('title', 'Pengaturan Tema')
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="palette" :size="16" class="me-2" />Theme Settings</h4></div>
+<div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="palette" :size="16" class="me-2" />Pengaturan Tema</h4></div>
 <x-admin.card :padding="false" style="max-width:600px">
     <div class="card-body">
         <form method="POST" action="{{ route('admin.theme.update') }}">

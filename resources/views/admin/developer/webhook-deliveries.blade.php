@@ -34,7 +34,7 @@
             <dd class="col-8 text-end text-break"><code>{{ $endpoint['url'] }}</code></dd>
             <dt class="col-4 text-secondary">Secret</dt>
             <dd class="col-8 text-end"><code>{{ $endpoint['secret_masked'] }}</code></dd>
-            <dt class="col-4 text-secondary">Event</dt>
+            <dt class="col-4 text-secondary">Peristiwa</dt>
             <dd class="col-8 text-end">
                 @foreach ($endpoint['events'] as $event)
                     <x-admin.badge :text="$event" color="info" pill />
@@ -62,7 +62,7 @@
                 <thead>
                     <tr>
                         <th scope="col">Waktu</th>
-                        <th scope="col">Event</th>
+                        <th scope="col">Peristiwa</th>
                         <th scope="col" class="text-center">Percobaan</th>
                         <th scope="col" class="text-center">HTTP</th>
                         <th scope="col" class="text-center">Status</th>

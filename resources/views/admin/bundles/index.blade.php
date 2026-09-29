@@ -1,21 +1,21 @@
 @extends('layouts.admin')
 
-@section('title', 'Product Bundles')
+@section('title', 'Bundel Produk')
 
 @section('breadcrumb')
     <x-admin.breadcrumb :items="['Commerce', ['label' => 'Bundling']]" />
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Product Bundles" subtitle="Grup produk yang dijual bersama dengan potongan harga.">
+    <x-admin.page-header title="Bundel Produk" subtitle="Grup produk yang dijual bersama dengan potongan harga.">
         <x-slot:actions>
             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#bundle-modal" aria-haspopup="dialog">
-                <x-admin.icon name="plus" :size="14" /> Buat Bundle
+                <x-admin.icon name="plus" :size="14" /> Buat Bundel
             </button>
         </x-slot:actions>
     </x-admin.page-header>
 
-    <x-admin.card title="Daftar Bundle" icon="boxes" flush>
+    <x-admin.card title="Daftar Bundel" icon="boxes" flush>
         <div class="table-responsive">
             <table class="table admin-table mb-0 table-hover">
                 <thead>
@@ -43,7 +43,7 @@
                             <td class="text-end">
                                 <x-admin.confirmation-form
                                     :action="route('admin.bundles.destroy', $bundle['id'])"
-                                    message="Bundle beserta seluruh produknya akan dihapus. Lanjutkan?"
+                                    message="Bundel beserta seluruh produknya akan dihapus. Lanjutkan?"
                                     label="Hapus"
                                     variant="outline-danger"
                                     icon="trash"
@@ -56,7 +56,7 @@
                             <td colspan="6">
                                 <x-admin.empty-state
                                     icon="boxes"
-                                    title="Belum ada bundle"
+                                    title="Belum ada bundel"
                                     text="Buat bundling pertama untuk menawarkan beberapa produk sekaligus."
                                 />
                             </td>
@@ -67,7 +67,7 @@
         </div>
     </x-admin.card>
 
-    <x-admin.modal id="bundle-modal" title="Buat Bundle" icon="plus" size="sm">
+    <x-admin.modal id="bundle-modal" title="Buat Bundel" icon="plus" size="sm">
         <form method="POST" action="{{ route('admin.bundles.store') }}">
             @csrf
             <div class="row g-3">
@@ -96,7 +96,7 @@
             </div>
             <div class="d-flex justify-content-end gap-2 mt-3">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
-                <button type="submit" class="btn btn-primary">Simpan Bundle</button>
+                <button type="submit" class="btn btn-primary">Simpan Bundel</button>
             </div>
         </form>
     </x-admin.modal>

@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Wallet Detail')
+@section('title', 'Detail Dompet')
 @section('content')
 <div class="mb-4">
     <a href="{{ route('admin.customers.wallets') }}" class="small"><x-admin.icon name="arrow-left" :size="16" class="me-1" />Kembali</a>
@@ -9,19 +9,19 @@
 
 <div class="row g-3 mb-4">
     <div class="col-md-4"><div class="card card-stat"><div class="stat-label">Saldo</div><div class="stat-value text-success">Rp {{ number_format($wallet->balance ?? 0,0,',','.') }}</div></div></div>
-    <div class="col-md-4"><div class="card card-stat"><div class="stat-label">Pending</div><div class="stat-value text-warning">Rp {{ number_format($wallet->pending_balance ?? 0,0,',','.') }}</div></div></div>
+    <div class="col-md-4"><div class="card card-stat"><div class="stat-label">Menunggu</div><div class="stat-value text-warning">Rp {{ number_format($wallet->pending_balance ?? 0,0,',','.') }}</div></div></div>
     <div class="col-md-4"><div class="card card-stat"><div class="stat-label">Total Transaksi</div><div class="stat-value">{{ $transactions->total() }}</div></div></div>
 </div>
 
 <x-admin.card :padding="false" class="mb-4" style="max-width:500px">
     <div class="card-body">
-        <h6 class="fw-bold">Adjust Saldo</h6>
+        <h6 class="fw-bold">Sesuaikan Saldo</h6>
         <form method="POST" action="{{ route('admin.customers.wallet-adjust', $user) }}">
             @csrf
             <div class="mb-2"><input type="number" name="amount" class="form-control" placeholder="Jumlah" step="1" required></div>
-            <div class="mb-2"><select name="type" class="form-select"><option value="credit">Credit (+)</option><option value="debit">Debit (-)</option></select></div>
+            <div class="mb-2"><select name="type" class="form-select"><option value="credit">Kredit (+)</option><option value="debit">Debit (-)</option></select></div>
             <div class="mb-2"><input type="text" name="description" class="form-control" placeholder="Deskripsi"></div>
-            <button type="submit" class="btn btn-primary"><x-admin.icon name="refresh" :size="16" class="me-2" />Adjust</button>
+            <button type="submit" class="btn btn-primary"><x-admin.icon name="refresh" :size="16" class="me-2" />Sesuaikan</button>
         </form>
     </div>
 </x-admin.card>

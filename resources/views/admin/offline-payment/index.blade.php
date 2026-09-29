@@ -3,7 +3,7 @@
 @section('title', 'Metode Pembayaran Offline')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['System', ['label' => 'Pembayaran Offline']]" />
+    <x-admin.breadcrumb :items="['Sistem', ['label' => 'Pembayaran Offline']]" />
 @endsection
 
 @section('content')

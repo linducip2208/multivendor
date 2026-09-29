@@ -7,9 +7,9 @@
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Webhooks" subtitle="Endpoint yang menerima notifikasi event platform.">
+    <x-admin.page-header title="Webhooks" subtitle="Endpoint yang menerima notifikasi peristiwa platform.">
         <x-slot:actions>
-            <a href="{{ route('admin.events.index') }}" class="btn btn-outline-secondary btn-sm">Katalog Event</a>
+            <a href="{{ route('admin.events.index') }}" class="btn btn-outline-secondary btn-sm">Katalog Peristiwa</a>
             <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#webhook-modal" aria-haspopup="dialog">
                 <x-admin.icon name="plus" :size="14" /> Tambah Endpoint
             </button>
@@ -27,9 +27,9 @@
                     <tr>
                         <th scope="col">Nama</th>
                         <th scope="col">URL</th>
-                        <th scope="col">Event</th>
+                        <th scope="col">Peristiwa</th>
                         <th scope="col" class="text-center">Kegagalan</th>
-                        <th scope="col" class="text-end">Delivery</th>
+                        <th scope="col" class="text-end">Pengiriman</th>
                         <th scope="col">Terakhir Dipicu</th>
                         <th scope="col" class="text-center">Status</th>
                         <th scope="col" class="text-end">Aksi</th>
@@ -66,7 +66,7 @@
                             </td>
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm" role="group" aria-label="Aksi endpoint {{ $row['name'] }}">
-                                    <a href="{{ route('admin.webhooks.deliveries', $row['id']) }}" class="btn btn-outline-secondary">Delivery</a>
+                                    <a href="{{ route('admin.webhooks.deliveries', $row['id']) }}" class="btn btn-outline-secondary">Pengiriman</a>
                                     <button
                                         type="button"
                                         class="btn btn-outline-primary"
@@ -100,7 +100,7 @@
                                         <x-admin.form-field name="url" label="URL Endpoint" type="url" :value="$row['url']" required :maxlength="500" />
                                     </div>
                                     <div class="col-12">
-                                        <label class="form-label" for="wh-events-{{ $row['id'] }}">Event</label>
+                                        <label class="form-label" for="wh-events-{{ $row['id'] }}">Peristiwa</label>
                                         <select class="form-select" id="wh-events-{{ $row['id'] }}" name="events[]" multiple size="8" required data-multi-select>
                                             @foreach ($events as $event)
                                                 <option value="{{ $event['event'] }}" @selected(in_array($event['event'], $row['events'], true))>{{ $event['event'] }} — {{ $event['description'] }}</option>
@@ -120,7 +120,7 @@
                     @empty
                         <tr>
                             <td colspan="8">
-                                <x-admin.empty-state icon="webhook" title="Belum ada webhook" text="Tambahkan endpoint untuk menerima notifikasi event." />
+                                <x-admin.empty-state icon="webhook" title="Belum ada webhook" text="Tambahkan endpoint untuk menerima notifikasi peristiwa." />
                             </td>
                         </tr>
                     @endforelse
@@ -147,7 +147,7 @@
                     <x-admin.form-field name="url" label="URL Endpoint" type="url" required :maxlength="500" placeholder="https://example.com/webhooks/platform" />
                 </div>
                 <div class="col-12">
-                    <label class="form-label" for="wh-new-events">Event</label>
+                    <label class="form-label" for="wh-new-events">Peristiwa</label>
                     <select class="form-select" id="wh-new-events" name="events[]" multiple size="8" required data-multi-select>
                         @foreach ($events as $event)
                             <option value="{{ $event['event'] }}">{{ $event['event'] }} — {{ $event['description'] }}</option>

@@ -1,7 +1,7 @@
 @extends('layouts.admin')
-@section('title', 'Deal of the Day')
+@section('title', 'Penawaran Hari Ini')
 @section('content')
-<h4 class="fw-bold mb-1"><x-admin.icon name="calendar" :size="16" class="me-2 text-danger" /> Deal of the Day</h4>
+<h4 class="fw-bold mb-1"><x-admin.icon name="calendar" :size="16" class="me-2 text-danger" /> Penawaran Hari Ini</h4>
 <p class="text-muted small mb-3">Pilih 1 produk untuk diskon spesial hari ini</p>
 <div class="row g-4"><div class="col-lg-5"><x-admin.card :padding="false"><div class="card-body p-4"><form action="{{ route('admin.deals.store') }}" method="POST">@csrf
 <div class="mb-3"><label class="fw-medium">Produk</label><select name="product_id" class="form-select" required><option value="">Pilih produk...</option>@foreach($products as $p)<option value="{{ $p->id }}">{{ $p->name }} (Rp {{ number_format($p->price,0,',','.') }}) — {{ $p->shop->name ?? '' }}</option>@endforeach</select></div>

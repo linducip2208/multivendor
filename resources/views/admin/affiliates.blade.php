@@ -1,13 +1,13 @@
 @extends('layouts.admin')
 
-@section('title', 'Affiliate')
+@section('title', 'Afiliasi')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Marketing', ['label' => 'Affiliate']]" />
+    <x-admin.breadcrumb :items="['Pemasaran', ['label' => 'Afiliasi']]" />
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Affiliate" subtitle="Mitra promosi, klik yang tercatat, dan komisi yang dibayarkan." />
+    <x-admin.page-header title="Afiliasi" subtitle="Mitra promosi, klik yang tercatat, dan komisi yang dibayarkan." />
 
     <div class="row g-3 mb-3">
         @foreach ($kpis as $kpi)
@@ -27,7 +27,7 @@
         />
     </x-admin.card>
 
-    <x-admin.card title="Daftar Affiliate" icon="link" flush>
+    <x-admin.card title="Daftar Afiliasi" icon="link" flush>
         <x-slot:menu>
             <form method="POST" action="{{ route('admin.affiliates.update') }}" class="d-flex align-items-center gap-2">
                 @csrf
@@ -48,10 +48,10 @@
                         <th scope="col" style="width: 36px">
                             <input type="checkbox" class="form-check-input" data-bulk-select-all aria-label="Pilih semua baris">
                         </th>
-                        <th scope="col">Affiliate</th>
+                        <th scope="col">Afiliasi</th>
                         <th scope="col">Kode</th>
                         <th scope="col" class="text-center">Status</th>
-                        <th scope="col" class="text-end">Rate</th>
+                        <th scope="col" class="text-end">Tarif</th>
                         <th scope="col" class="text-end">Klik</th>
                         <th scope="col" class="text-end">Pesanan</th>
                         <th scope="col" class="text-end">Omzet</th>
@@ -92,7 +92,7 @@
                     @empty
                         <tr>
                             <td colspan="9">
-                                <x-admin.empty-state icon="link" title="Belum ada affiliate" text="Affiliate terdaftar akan tampil di sini beserta klik dan komisinya." />
+                                <x-admin.empty-state icon="link" title="Belum ada afiliasi" text="Afiliasi terdaftar akan tampil di sini beserta klik dan komisinya." />
                             </td>
                         </tr>
                     @endforelse

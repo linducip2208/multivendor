@@ -3,7 +3,7 @@
 @section('title', 'Loyalty')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Customers', ['label' => 'Loyalty']]" />
+    <x-admin.breadcrumb :items="['Pelanggan', ['label' => 'Loyalty']]" />
 @endsection
 
 @section('content')

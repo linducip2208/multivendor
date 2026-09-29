@@ -68,7 +68,7 @@
                 <div class="col-4">
                     <div class="p-3 rounded-4" style="background:rgba(255,255,255,.1);backdrop-filter:blur(8px);">
                         <x-admin.icon name="bar-chart" :size="32" class="mb-2 opacity-75" />
-                        <div class="fw-semibold small">Analytics</div>
+                        <div class="fw-semibold small">Analitik</div>
                     </div>
                 </div>
             </div>
@@ -101,7 +101,7 @@
                                placeholder="admin@multivendor.test" required autofocus>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label fw-medium">Password</label>
+                        <label class="form-label fw-medium">Kata sandi</label>
                         <input type="password" name="password" class="form-control"
                                placeholder="Masukkan password" required>
                     </div>
@@ -116,7 +116,7 @@
 
                 <div class="demo-box p-4 mt-4">
                     <div class="fw-semibold mb-2 text-dark">
-                        <x-admin.icon name="sparkles" :size="16" class="me-1 text-warning" /> Demo Login
+                        <x-admin.icon name="sparkles" :size="16" class="me-1 text-warning" /> Demo Masuk
                     </div>
                     <div class="small text-muted font-monospace">
                         <div><span class="fw-bold">Admin:</span> admin@multivendor.test / password</div>

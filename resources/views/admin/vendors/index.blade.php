@@ -23,9 +23,9 @@
                 <div class="col-md-3">
                     <select name="status" class="form-select">
                         <option value="">Semua Status</option>
-                        <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
+                        <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Menunggu</option>
                         <option value="active" {{ request('status') === 'active' ? 'selected' : '' }}>Aktif</option>
-                        <option value="suspended" {{ request('status') === 'suspended' ? 'selected' : '' }}>Suspended</option>
+                        <option value="suspended" {{ request('status') === 'suspended' ? 'selected' : '' }}>Ditangguhkan</option>
                         <option value="rejected" {{ request('status') === 'rejected' ? 'selected' : '' }}>Ditolak</option>
                     </select>
                 </div>
@@ -90,7 +90,7 @@
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="{{ route('admin.vendors.show', $shop) }}"><x-admin.icon name="eye" :size="16" class="me-2" /> Detail</a></li>
-                                    <li><a class="dropdown-item" href="{{ route('admin.vendors.edit', $shop) }}"><x-admin.icon name="edit" :size="16" class="me-2" /> Edit</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('admin.vendors.edit', $shop) }}"><x-admin.icon name="edit" :size="16" class="me-2" /> Ubah</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     @if($shop->status !== 'active')
                                     <li>

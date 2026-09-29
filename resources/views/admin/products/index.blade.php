@@ -6,7 +6,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
         <h4 class="fw-bold mb-1"><x-admin.icon name="box" :size="16" class="me-2 text-warning" /> Moderasi Produk</h4>
-        <p class="text-muted small mb-0">Review, approve, atau tolak produk dari semua vendor</p>
+        <p class="text-muted small mb-0">Tinjau, setujui, atau tolak produk dari semua vendor</p>
     </div>
 </div>
 
@@ -20,9 +20,9 @@
                 <div class="col-md-2">
                     <select name="status" class="form-select">
                         <option value="">Semua Status</option>
-                        <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="approved" {{ request('status') === 'approved' ? 'selected' : '' }}>Approved</option>
-                        <option value="suspended" {{ request('status') === 'suspended' ? 'selected' : '' }}>Suspended</option>
+                        <option value="pending" {{ request('status') === 'pending' ? 'selected' : '' }}>Menunggu</option>
+                        <option value="approved" {{ request('status') === 'approved' ? 'selected' : '' }}>Disetujui</option>
+                        <option value="suspended" {{ request('status') === 'suspended' ? 'selected' : '' }}>Ditangguhkan</option>
                     </select>
                 </div>
                 <div class="col-md-2">

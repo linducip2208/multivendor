@@ -1,9 +1,9 @@
 @extends('layouts.admin')
 
-@section('title', 'Environment Settings')
+@section('title', 'Pengaturan Lingkungan')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['System', ['label' => 'Environment']]" />
+    <x-admin.breadcrumb :items="['Sistem', ['label' => 'Environment']]" />
 @endsection
 
 @section('content')

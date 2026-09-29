@@ -28,7 +28,7 @@
                     @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label fw-medium">Password <span class="text-danger">*</span></label>
+                    <label class="form-label fw-medium">Kata sandi <span class="text-danger">*</span></label>
                     <input type="password" name="password" class="form-control @error('password') is-invalid @enderror" required>
                     @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
@@ -41,8 +41,8 @@
                     <label class="form-label fw-medium">Status <span class="text-danger">*</span></label>
                     <select name="status" class="form-select @error('status') is-invalid @enderror" required>
                         <option value="active" {{ old('status') === 'active' ? 'selected' : '' }}>Aktif</option>
-                        <option value="pending" {{ old('status') === 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="suspended" {{ old('status') === 'suspended' ? 'selected' : '' }}>Suspended</option>
+                        <option value="pending" {{ old('status') === 'pending' ? 'selected' : '' }}>Menunggu</option>
+                        <option value="suspended" {{ old('status') === 'suspended' ? 'selected' : '' }}>Ditangguhkan</option>
                     </select>
                 </div>
 

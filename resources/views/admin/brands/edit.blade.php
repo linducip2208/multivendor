@@ -1,7 +1,7 @@
 @extends('layouts.admin')
-@section('title', 'Edit Brand')
+@section('title', 'Ubah Brand')
 @section('content')
-<div class="mb-4"><a href="{{ route('admin.brands.index') }}" class="small"><i class="fas fa-arrow-left me-1"></i>Kembali</a><h4 class="fw-bold mt-2">Edit Brand: {{ $brand->name }}</h4></div>
+<div class="mb-4"><a href="{{ route('admin.brands.index') }}" class="small"><i class="fas fa-arrow-left me-1"></i>Kembali</a><h4 class="fw-bold mt-2">Ubah Brand: {{ $brand->name }}</h4></div>
 <div class="card border-0 rounded-4 shadow-sm"><div class="card-body p-4">
 <form method="POST" action="{{ route('admin.brands.update', $brand) }}">@csrf @method('PUT')
 <div class="row g-3">

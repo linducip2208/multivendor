@@ -3,7 +3,7 @@
 @section('title', $campaign['name'])
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Marketing', ['label' => 'Kampanye', 'href' => route('admin.campaigns.index')], ['label' => \Illuminate\Support\Str::limit($campaign['name'], 40)]]" />
+    <x-admin.breadcrumb :items="['Pemasaran', ['label' => 'Kampanye', 'href' => route('admin.campaigns.index')], ['label' => \Illuminate\Support\Str::limit($campaign['name'], 40)]]" />
 @endsection
 
 @section('content')

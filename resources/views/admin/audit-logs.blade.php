@@ -1,13 +1,13 @@
 @extends('layouts.admin')
 
-@section('title', 'Audit Trail')
+@section('title', 'Jejak Audit')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['System', ['label' => 'Audit Trail']]" />
+    <x-admin.breadcrumb :items="['Sistem', ['label' => 'Jejak Audit']]" />
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Audit Trail" subtitle="Setiap tindakan administratif yang tercatat beserta nilai lama dan baru." />
+    <x-admin.page-header title="Jejak Audit" subtitle="Setiap tindakan administratif yang tercatat beserta nilai lama dan baru." />
 
     <x-admin.alert type="info" :dismissible="false" title="Sumber kebenaran" icon="history">
         Jejak ini ditulis oleh <code>App\Services\AuditLogger</code> pada setiap aksi yang mengubah data. Nilai rahasia tidak pernah ditulis ke sini.

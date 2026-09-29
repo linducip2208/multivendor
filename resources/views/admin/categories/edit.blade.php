@@ -1,11 +1,11 @@
 @extends('layouts.admin')
 
-@section('title', 'Edit Kategori')
+@section('title', 'Ubah Kategori')
 
 @section('content')
 <div class="mb-4">
     <a href="{{ route('admin.categories.index') }}" class="text-decoration-none small"><x-admin.icon name="arrow-left" :size="16" class="me-1" /> Kembali</a>
-    <h4 class="fw-bold mt-2 mb-1">Edit Kategori: {{ $category->name }}</h4>
+    <h4 class="fw-bold mt-2 mb-1">Ubah Kategori: {{ $category->name }}</h4>
 </div>
 
 <x-admin.card :padding="false">

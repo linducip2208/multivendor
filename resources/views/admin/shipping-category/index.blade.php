@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Category Shipping Cost')
+@section('title', 'Biaya Pengiriman Kategori')
 @section('content')
 <div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="truck" :size="16" class="me-2" />Biaya Kirim per Kategori</h4></div>
 <x-admin.card :padding="false" style="max-width:600px">

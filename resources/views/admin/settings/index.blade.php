@@ -49,8 +49,8 @@
                 <div class="col-md-2"><label class="form-label fw-medium">Port</label><input type="text" name="mail_port" class="form-control" value="{{ old('mail_port', config('mail.mailer') === 'log' ? '' : config('mail.port')) }}" placeholder="587"></div>
                 <div class="col-md-2"><label class="form-label fw-medium">Enkripsi</label><input type="text" class="form-control" value="tls" disabled></div>
                 <div class="col-md-6"><label class="form-label fw-medium">Username / Email</label><input type="text" name="mail_username" class="form-control" value="{{ old('mail_username', $settings['mail_username'] ?? '') }}" placeholder="email@gmail.com"></div>
-                <div class="col-md-6"><label class="form-label fw-medium">Password (App Password)</label><input type="password" name="mail_password" class="form-control" placeholder="xxxx"><small class="text-muted">Kosongkan jika tidak diubah. Untuk Gmail, gunakan <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a>.</small></div>
-                <div class="col-md-6"><label class="form-label fw-medium">From Address</label><input type="email" name="mail_from_address" class="form-control" value="{{ old('mail_from_address', $settings['mail_from_address'] ?? config('mail.from.address')) }}" placeholder="noreply@domain.com"></div>
+                <div class="col-md-6"><label class="form-label fw-medium">Kata sandi (App Password)</label><input type="password" name="mail_password" class="form-control" placeholder="xxxx"><small class="text-muted">Kosongkan jika tidak diubah. Untuk Gmail, gunakan <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a>.</small></div>
+                <div class="col-md-6"><label class="form-label fw-medium">Alamat Pengirim</label><input type="email" name="mail_from_address" class="form-control" value="{{ old('mail_from_address', $settings['mail_from_address'] ?? config('mail.from.address')) }}" placeholder="noreply@domain.com"></div>
             </div>
         </div></x-admin.card>
     </div>

@@ -25,7 +25,7 @@
         </div></x-admin.card>
 
         @if(!in_array($order->order_status, ['delivered','canceled']))
-        <x-admin.card :padding="false"><div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><x-admin.icon name="settings" :size="16" class="me-2" />Update Status</h6></div><div class="card-body">
+        <x-admin.card :padding="false"><div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><x-admin.icon name="settings" :size="16" class="me-2" />Perbarui Status</h6></div><div class="card-body">
             <form method="POST" action="{{ route('admin.orders.update-status', $order) }}">@csrf @method('PUT')
                 <div class="mb-2"><select name="status" class="form-select" required>
                     @if($order->order_status==='pending')<option value="confirmed">Konfirmasi</option>@endif
@@ -36,7 +36,7 @@
                 </select></div>
                 <div class="mb-2"><input type="text" name="tracking_id" class="form-control form-control-sm" placeholder="Nomor resi (opsional)"></div>
                 <div class="mb-2"><textarea name="note" class="form-control form-control-sm" rows="2" placeholder="Catatan"></textarea></div>
-                <button class="btn btn-primary w-100"><x-admin.icon name="check" :size="16" class="me-2" />Update</button>
+                <button class="btn btn-primary w-100"><x-admin.icon name="check" :size="16" class="me-2" />Perbarui</button>
             </form>
         </div></x-admin.card>
         @endif

@@ -8,7 +8,7 @@
     <div class="col-md-6"><label class="fw-medium">Judul <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" value="{{ old('title') }}" required></div>
     <div class="col-md-3"><label class="fw-medium">Mulai <span class="text-danger">*</span></label><input type="datetime-local" name="start_date" class="form-control" value="{{ old('start_date') }}" required></div>
     <div class="col-md-3"><label class="fw-medium">Berakhir <span class="text-danger">*</span></label><input type="datetime-local" name="end_date" class="form-control" value="{{ old('end_date') }}" required></div>
-    <div class="col-md-6"><div class="form-check mt-2"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" checked><label for="st" class="fw-medium">Aktif</label></div><div class="form-check"><input type="checkbox" name="featured" class="form-check-input" id="feat" value="1"><label for="feat">Featured</label></div></div>
+    <div class="col-md-6"><div class="form-check mt-2"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" checked><label for="st" class="fw-medium">Aktif</label></div><div class="form-check"><input type="checkbox" name="featured" class="form-check-input" id="feat" value="1"><label for="feat">Unggulan</label></div></div>
     <div class="col-12"><h6 class="fw-bold mt-3">Pilih Produk</h6>
         <div class="row g-2" id="productList">
             @foreach(\App\Models\Product::where('status','approved')->take(30)->get() as $p)

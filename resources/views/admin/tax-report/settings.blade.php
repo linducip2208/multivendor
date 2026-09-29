@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Tax Settings')
+@section('title', 'Pengaturan Pajak')
 @section('content')
 <div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="settings" :size="16" class="me-2" />Pengaturan Pajak</h4></div>
 <x-admin.card :padding="false" style="max-width:600px">

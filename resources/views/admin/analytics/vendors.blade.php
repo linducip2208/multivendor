@@ -3,7 +3,7 @@
 @section('title', 'Analitik Vendor')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Analytics', ['label' => 'Vendor']]" />
+    <x-admin.breadcrumb :items="['Analitik', ['label' => 'Vendor']]" />
 @endsection
 
 @section('content')
@@ -61,7 +61,7 @@
                     <tr>
                         <th scope="col">Toko</th>
                         <th scope="col" class="text-center">Produk</th>
-                        <th scope="col" class="text-center">Rating</th>
+                        <th scope="col" class="text-center">Peringkat</th>
                         <th scope="col" class="text-end">Pesanan</th>
                         <th scope="col" class="text-end">Omzet</th>
                         <th scope="col" class="text-end">Komisi</th>

@@ -3,7 +3,7 @@
 @section('title', 'Tambah Provider')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['System', ['label' => 'Provider', 'href' => route('admin.providers.index')], ['label' => 'Baru']]" />
+    <x-admin.breadcrumb :items="['Sistem', ['label' => 'Provider', 'href' => route('admin.providers.index')], ['label' => 'Baru']]" />
 @endsection
 
 @section('content')

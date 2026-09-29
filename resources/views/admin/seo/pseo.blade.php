@@ -40,12 +40,12 @@
         </div>
     </div>
 
-    <x-admin.card title="Template" subtitle="Kombinasi entitas yang didukung engine PSEO." icon="layers" flush class="mb-3">
+    <x-admin.card title="Templat" subtitle="Kombinasi entitas yang didukung engine PSEO." icon="layers" flush class="mb-3">
         <div class="table-responsive">
             <table class="table admin-table mb-0 table-hover">
                 <thead>
                     <tr>
-                        <th scope="col">Template</th>
+                        <th scope="col">Templat</th>
                         <th scope="col">Pola Rute</th>
                         <th scope="col" class="text-center">Ambang Skor</th>
                         <th scope="col" class="text-end">Kandidat</th>
@@ -103,7 +103,7 @@
                     'stale' => 'Kedaluwarsa',
                     'disabled' => 'Dinonaktifkan',
                 ]],
-                ['name' => 'template', 'label' => 'Template', 'type' => 'select', 'options' => array_merge(['' => 'Semua template'], array_column($overview['templates'], 'name', 'code'))],
+                ['name' => 'template', 'label' => 'Templat', 'type' => 'select', 'options' => array_merge(['' => 'Semua templat'], array_column($overview['templates'], 'name', 'code'))],
             ]"
         />
     </x-admin.card>
@@ -114,7 +114,7 @@
                 <thead>
                     <tr>
                         <th scope="col">Judul &amp; URL</th>
-                        <th scope="col">Template</th>
+                        <th scope="col">Templat</th>
                         <th scope="col" class="text-center">Produk</th>
                         <th scope="col" class="text-center">Skor</th>
                         <th scope="col" class="text-center">Index</th>
@@ -208,7 +208,7 @@
             </x-admin.alert>
             <div class="row g-3">
                 <div class="col-12">
-                    <label class="form-label" for="pseo-template">Template</label>
+                    <label class="form-label" for="pseo-template">Templat</label>
                     <select class="form-select" id="pseo-template" name="template_code" required>
                         @foreach ($overview['templates'] as $template)
                             <option value="{{ $template['code'] }}">{{ $template['name'] }} ({{ number_format($template['candidates'], 0, ',', '.') }} kandidat)</option>

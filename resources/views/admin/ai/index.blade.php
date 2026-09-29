@@ -7,7 +7,7 @@
 @endsection
 
 @section('content')
-    <x-admin.page-header title="AI Copilot" subtitle="Analisis consultatif berdasarkan agregat data katalog dan transaksi.">
+    <x-admin.page-header title="AI Copilot" subtitle="Analisis konsultatif berdasarkan agregat data katalog dan transaksi.">
         <x-slot:actions>
             <a href="{{ route('admin.ai.prompts') }}" class="btn btn-outline-secondary btn-sm">Prompt</a>
             <a href="{{ route('admin.ai.usage') }}" class="btn btn-outline-secondary btn-sm">Pemakaian</a>

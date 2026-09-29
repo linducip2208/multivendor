@@ -15,7 +15,7 @@
             <td><x-admin.badge color="info">{{ $fd->products_count }} produk</x-admin.badge></td>
             <td class="small">{{ $fd->start_date->format('d/m/Y H:i') }}</td>
             <td class="small">{{ $fd->end_date->format('d/m/Y H:i') }}</td>
-            <td><x-admin.badge :color="$fd->status ? 'success' : 'secondary'" :text="$fd->status ? 'Aktif' : 'Off'" /> @if($fd->featured)<x-admin.badge color="warning" class="ms-1">Featured</x-admin.badge>@endif</td>
+            <td><x-admin.badge :color="$fd->status ? 'success' : 'secondary'" :text="$fd->status ? 'Aktif' : 'Nonaktif'" /> @if($fd->featured)<x-admin.badge color="warning" class="ms-1">Unggulan</x-admin.badge>@endif</td>
             <td>
                 <a href="{{ route('admin.flashdeals.edit', $fd) }}" class="btn btn-sm btn-outline-primary"><x-admin.icon name="edit" :size="16" /></a>
                 <form action="{{ route('admin.flashdeals.destroy', $fd) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus?')">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger"><x-admin.icon name="trash" :size="16" /></button></form>

@@ -3,15 +3,15 @@
 @section('title', 'Error Logs')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['System', ['label' => 'Error Logs']]" />
+    <x-admin.breadcrumb :items="['Sistem', ['label' => 'Error Logs']]" />
 @endsection
 
 @section('content')
     <x-admin.page-header title="Error Logs" subtitle="500 baris terakhir dari storage/logs/laravel.log.">
         <x-slot:actions>
-            <a href="{{ route('admin.system.db-settings') }}" class="btn btn-outline-secondary btn-sm">DB Settings</a>
+            <a href="{{ route('admin.system.db-settings') }}" class="btn btn-outline-secondary btn-sm">Pengaturan DB</a>
             <a href="{{ route('admin.system.env-settings') }}" class="btn btn-outline-secondary btn-sm">.env</a>
-            <a href="{{ route('admin.system.software-update') }}" class="btn btn-outline-secondary btn-sm">Update</a>
+            <a href="{{ route('admin.system.software-update') }}" class="btn btn-outline-secondary btn-sm">Perbarui</a>
             <form method="POST" action="{{ route('admin.system.error-logs-clear') }}">
                 @csrf
                 <button type="submit" class="btn btn-outline-danger btn-sm">Clear Logs</button>

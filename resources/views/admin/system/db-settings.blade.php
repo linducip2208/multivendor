@@ -1,9 +1,9 @@
 @extends('layouts.admin')
 
-@section('title', 'Database Settings')
+@section('title', 'Pengaturan Basis Data')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['System', ['label' => 'Database']]" />
+    <x-admin.breadcrumb :items="['Sistem', ['label' => 'Database']]" />
 @endsection
 
 @section('content')

@@ -1,13 +1,13 @@
 @extends('layouts.admin')
 
-@section('title', 'Homepage')
+@section('title', 'Beranda')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Marketing', ['label' => 'Homepage']]" />
+    <x-admin.breadcrumb :items="['Pemasaran', ['label' => 'Beranda']]" />
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Komposisi Homepage" :subtitle="$enabled_count.' dari '.$total_count.' section aktif di storefront.'">
+    <x-admin.page-header title="Komposisi Homepage" :subtitle="$enabled_count.' dari '.$total_count.' bagian aktif di storefront.'">
         <x-slot:actions>
             <button type="button" class="btn btn-outline-secondary btn-sm" id="preview-homepage" data-preview-url="{{ route('admin.homepage.preview') }}">
                 <x-admin.icon name="eye" :size="14" /> Pratinjau Data
@@ -106,13 +106,13 @@
             <div class="card-footer d-flex justify-content-end gap-2">
                 <button type="button" class="btn btn-outline-secondary" data-reset-order>Reset Urutan</button>
                 <button type="submit" class="btn btn-primary">
-                    <x-admin.icon name="save" :size="14" /> Simpan Homepage
+                    <x-admin.icon name="save" :size="14" /> Simpan Beranda
                 </button>
             </div>
         </x-admin.card>
     </form>
 
-    <x-admin.modal id="preview-modal" title="Pratinjau Data Homepage" icon="eye" size="lg">
+    <x-admin.modal id="preview-modal" title="Pratinjau Data Beranda" icon="eye" size="lg">
         <div id="preview-body">
             <x-admin.skeleton type="text" :rows="4" />
         </div>
@@ -142,7 +142,7 @@
                 }
                 var sections = payload.data.sections || [];
                 if (!sections.length) {
-                    body.innerHTML = '<p class="text-secondary mb-0">Tidak ada section aktif untuk ditampilkan.</p>';
+                    body.innerHTML = '<p class="text-secondary mb-0">Tidak ada bagian aktif untuk ditampilkan.</p>';
                     return;
                 }
                 body.innerHTML = sections.map(function (section) {

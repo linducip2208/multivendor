@@ -1,13 +1,13 @@
 @extends('layouts.admin')
 
-@section('title', 'Prompt Templates')
+@section('title', 'Templat Prompt')
 
 @section('breadcrumb')
     <x-admin.breadcrumb :items="['AI', ['label' => 'Prompt']]" />
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Prompt Template" subtitle="System prompt per tugas. Guardrail selalu ditambahkan otomatis." />
+    <x-admin.page-header title="Templat Prompt" subtitle="Prompt sistem per tugas. Guardrail selalu ditambahkan otomatis." />
 
     <x-admin.alert type="warning" :title="'Guardrail tidak dapat dihapus'" icon="shield">
         {{ $guardrail }}
@@ -59,7 +59,7 @@
                                 @csrf
                                 <x-admin.form-field
                                     name="system"
-                                    label="System Prompt"
+                                    label="Prompt Sistem"
                                     type="textarea"
                                     :rows="14"
                                     :value="$task['system']"

@@ -1,9 +1,9 @@
 @extends('layouts.admin')
 
-@section('title', 'Inhouse Shop')
+@section('title', 'Toko Internal')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Sellers', ['label' => 'Inhouse Shop']]" />
+    <x-admin.breadcrumb :items="['Penjual', ['label' => 'Toko Internal']]" />
 @endsection
 
 @section('content')

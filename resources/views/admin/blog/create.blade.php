@@ -9,9 +9,9 @@
     <div class="col-md-4"><label class="fw-medium">Kategori</label><select name="categories[]" class="form-select" multiple><option value="">--</option>@foreach($categories as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach</select></div>
     <div class="col-12"><label class="fw-medium">Excerpt</label><textarea name="excerpt" class="form-control" rows="2">{{ old('excerpt') }}</textarea></div>
     <div class="col-12"><label class="fw-medium">Konten <span class="text-danger">*</span></label><div id="quillEditor" style="height:300px;"></div><input type="hidden" name="content" id="contentInput" value="{{ old('content') }}"></div>
-    <div class="col-md-6"><label class="fw-medium">Meta Title</label><input type="text" name="meta_title" class="form-control" value="{{ old('meta_title') }}"></div>
-    <div class="col-md-6"><label class="fw-medium">Meta Description</label><input type="text" name="meta_description" class="form-control" value="{{ old('meta_description') }}"></div>
-    <div class="col-12"><div class="form-check"><input type="checkbox" name="is_published" class="form-check-input" id="pub" value="1" checked><label for="pub" class="fw-medium">Publish</label></div></div>
+    <div class="col-md-6"><label class="fw-medium">Judul Meta</label><input type="text" name="meta_title" class="form-control" value="{{ old('meta_title') }}"></div>
+    <div class="col-md-6"><label class="fw-medium">Deskripsi Meta</label><input type="text" name="meta_description" class="form-control" value="{{ old('meta_description') }}"></div>
+    <div class="col-12"><div class="form-check"><input type="checkbox" name="is_published" class="form-check-input" id="pub" value="1" checked><label for="pub" class="fw-medium">Terbit</label></div></div>
     <div class="col-12"><button class="btn btn-primary"><x-admin.icon name="check" :size="16" class="me-2" />Simpan</button></div>
 </div>
 </form></div></x-admin.card>

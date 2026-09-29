@@ -3,7 +3,7 @@
 @section('title', 'Pelanggan '.$customer['name'])
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Customers', ['label' => 'Pelanggan', 'href' => route('admin.customers.index')], ['label' => $customer['name']]]" />
+    <x-admin.breadcrumb :items="['Pelanggan', ['label' => 'Pelanggan', 'href' => route('admin.customers.index')], ['label' => $customer['name']]]" />
 @endsection
 
 @section('content')
@@ -25,7 +25,7 @@
             <x-admin.stat label="Jumlah Pesanan" :value="$customer['summary']['order_count']" icon="shopping-bag" color="primary" />
         </div>
         <div class="col-6 col-xl-3">
-            <x-admin.stat label="Rata-rata Order" :value="$customer['summary']['aov']" money icon="calculator" color="info" />
+            <x-admin.stat label="Rata-rata Pesanan" :value="$customer['summary']['aov']" money icon="calculator" color="info" />
         </div>
         <div class="col-6 col-xl-3">
             <x-admin.stat label="Poin Loyalty" :value="$customer['loyalty']['points_formatted']" icon="award" color="warning" />
@@ -187,7 +187,7 @@
             </x-admin.card>
         </div>
         <div class="col-lg-7">
-            <x-admin.card title="Wishlist" icon="heart" :subtitle="$customer['wishlist']['count'].' produk ditandai.'" class="mb-3">
+            <x-admin.card title="Favorit" icon="heart" :subtitle="$customer['wishlist']['count'].' produk ditandai.'" class="mb-3">
                 <div class="row g-2">
                     @forelse ($customer['wishlist']['items'] as $item)
                         <div class="col-12 col-sm-6">
@@ -198,7 +198,7 @@
                         </div>
                     @empty
                         <div class="col-12">
-                            <x-admin.empty-state compact icon="heart" title="Wishlist kosong" text="Pelanggan belum menandai produk apa pun." />
+                            <x-admin.empty-state compact icon="heart" title="Favorit kosong" text="Pelanggan belum menandai produk apa pun." />
                         </div>
                     @endforelse
                 </div>

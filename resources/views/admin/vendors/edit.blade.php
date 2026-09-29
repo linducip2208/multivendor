@@ -1,13 +1,13 @@
 @extends('layouts.admin')
 
-@section('title', 'Edit Vendor')
+@section('title', 'Ubah Vendor')
 
 @section('content')
 <div class="mb-4">
     <a href="{{ route('admin.vendors.index') }}" class="text-decoration-none small">
         <x-admin.icon name="arrow-left" :size="16" class="me-1" /> Kembali ke daftar vendor
     </a>
-    <h4 class="fw-bold mt-2 mb-1">Edit Vendor: {{ $shop->name }}</h4>
+    <h4 class="fw-bold mt-2 mb-1">Ubah Vendor: {{ $shop->name }}</h4>
     <p class="text-muted small mb-0">Perbarui data vendor dan toko</p>
 </div>
 
@@ -28,7 +28,7 @@
                     @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label fw-medium">Password <small class="text-muted">(kosongkan jika tidak diubah)</small></label>
+                    <label class="form-label fw-medium">Kata sandi <small class="text-muted">(kosongkan jika tidak diubah)</small></label>
                     <input type="password" name="password" class="form-control @error('password') is-invalid @enderror">
                     @error('password')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
@@ -41,8 +41,8 @@
                     <label class="form-label fw-medium">Status <span class="text-danger">*</span></label>
                     <select name="status" class="form-select @error('status') is-invalid @enderror" required>
                         <option value="active" {{ old('status', $shop->status) === 'active' ? 'selected' : '' }}>Aktif</option>
-                        <option value="pending" {{ old('status', $shop->status) === 'pending' ? 'selected' : '' }}>Pending</option>
-                        <option value="suspended" {{ old('status', $shop->status) === 'suspended' ? 'selected' : '' }}>Suspended</option>
+                        <option value="pending" {{ old('status', $shop->status) === 'pending' ? 'selected' : '' }}>Menunggu</option>
+                        <option value="suspended" {{ old('status', $shop->status) === 'suspended' ? 'selected' : '' }}>Ditangguhkan</option>
                     </select>
                 </div>
 

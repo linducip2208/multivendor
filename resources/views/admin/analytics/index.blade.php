@@ -3,7 +3,7 @@
 @section('title', 'Analitik Eksekutif')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Analytics', ['label' => 'Eksekutif']]" />
+    <x-admin.breadcrumb :items="['Analitik', ['label' => 'Eksekutif']]" />
 @endsection
 
 @section('content')

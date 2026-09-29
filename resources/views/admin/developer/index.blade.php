@@ -7,7 +7,7 @@
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Dokumentasi API" subtitle="Kontrak endpoint publik dan katalog event webhook.">
+    <x-admin.page-header title="Dokumentasi API" subtitle="Kontrak endpoint publik dan katalog peristiwa webhook.">
         <x-slot:actions>
             <a href="{{ route('admin.api-keys.index') }}" class="btn btn-outline-secondary btn-sm">API Keys</a>
             <a href="{{ route('admin.webhooks.index') }}" class="btn btn-outline-secondary btn-sm">Webhooks</a>
@@ -50,7 +50,7 @@
                         <th scope="col">Metode</th>
                         <th scope="col">Path</th>
                         <th scope="col">Deskripsi</th>
-                        <th scope="col">Scope</th>
+                        <th scope="col">Cakupan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -77,12 +77,12 @@
 
     <div class="row g-3">
         <div class="col-lg-6">
-            <x-admin.card title="Scope" icon="key-square" flush>
+            <x-admin.card title="Cakupan" icon="key-square" flush>
                 <div class="table-responsive">
                     <table class="table admin-table mb-0 table-hover">
                         <thead>
                             <tr>
-                                <th scope="col">Scope</th>
+                                <th scope="col">Cakupan</th>
                                 <th scope="col">Keterangan</th>
                             </tr>
                         </thead>
@@ -105,7 +105,7 @@
                         <li class="mb-1">{{ $note }}</li>
                     @endforeach
                 </ul>
-                <a href="{{ route('admin.events.index') }}" class="btn btn-outline-secondary btn-sm mt-3">Katalog Event</a>
+                <a href="{{ route('admin.events.index') }}" class="btn btn-outline-secondary btn-sm mt-3">Katalog Peristiwa</a>
             </x-admin.card>
         </div>
     </div>

@@ -7,13 +7,13 @@
 </div>
 <x-admin.card :padding="false"><div class="table-responsive">
 <table class="table table-hover mb-0">
-    <thead class="table-light"><tr><th>Judul</th><th>Penulis</th><th>Status</th><th>Tgl Publish</th><th>Aksi</th></tr></thead>
+    <thead class="table-light"><tr><th>Judul</th><th>Penulis</th><th>Status</th><th>Tgl Terbit</th><th>Aksi</th></tr></thead>
     <tbody>
         @forelse($posts as $p)
         <tr>
             <td class="fw-semibold">{{ Str::limit($p->title, 60) }}</td>
             <td><small>{{ $p->author->name ?? '-' }}</small></td>
-            <td><x-admin.badge :color="$p->is_published ? 'success' : 'secondary'" :text="$p->is_published ? 'Published' : 'Draft'" /></td>
+            <td><x-admin.badge :color="$p->is_published ? 'success' : 'secondary'" :text="$p->is_published ? 'Terbit' : 'Draf'" /></td>
             <td class="small">{{ $p->published_at?->format('d/m/Y') ?? '-' }}</td>
             <td>
                 <a href="{{ route('admin.blog.edit', $p) }}" class="btn btn-sm btn-outline-primary"><x-admin.icon name="edit" :size="16" /></a>

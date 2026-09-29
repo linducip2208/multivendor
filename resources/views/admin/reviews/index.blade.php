@@ -33,7 +33,7 @@
             <x-admin.stat label="Disetujui" :value="$counts['approved']" icon="check" color="success" />
         </div>
         <div class="col-6 col-xl-3">
-            <x-admin.stat label="Rata-rata Rating" :value="number_format($average_rating, 2, ',', '.')" icon="award" color="info" hint="Hanya ulasan yang disetujui." />
+            <x-admin.stat label="Rata-rata Peringkat" :value="number_format($average_rating, 2, ',', '.')" icon="award" color="info" hint="Hanya ulasan yang disetujui." />
         </div>
     </div>
 
@@ -54,7 +54,7 @@
                     <tr>
                         <th scope="col">Produk</th>
                         <th scope="col">Pelanggan</th>
-                        <th scope="col" class="text-center" style="width: 160px">Rating</th>
+                        <th scope="col" class="text-center" style="width: 160px">Peringkat</th>
                         <th scope="col">Ulasan</th>
                         <th scope="col">Waktu</th>
                         <th scope="col" class="text-center">Status</th>
@@ -69,7 +69,7 @@
                                 {{ $row['customer'] }}
                                 <small class="d-block text-secondary">{{ $row['email'] }}</small>
                             </td>
-                            <td class="text-center" aria-label="Rating {{ $row['rating'] }} dari 5">
+                            <td class="text-center" aria-label="Peringkat {{ $row['rating'] }} dari 5">
                                 <x-admin.badge
                                     :text="$row['rating'].' / 5'"
                                     :color="match(true) { $row['rating'] >= 4 => 'success', $row['rating'] >= 3 => 'warning', default => 'danger' }"

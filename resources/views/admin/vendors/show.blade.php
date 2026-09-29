@@ -10,7 +10,7 @@
     <div class="d-flex justify-content-between align-items-center mt-2">
         <h4 class="fw-bold mb-0">{{ $shop->name }}</h4>
         <div>
-            <a href="{{ route('admin.vendors.edit', $shop) }}" class="btn btn-outline-primary btn-sm"><x-admin.icon name="edit" :size="16" class="me-1" /> Edit</a>
+            <a href="{{ route('admin.vendors.edit', $shop) }}" class="btn btn-outline-primary btn-sm"><x-admin.icon name="edit" :size="16" class="me-1" /> Ubah</a>
         </div>
     </div>
 </div>
@@ -93,7 +93,7 @@
             <div class="table-responsive">
                 <table class="table table-hover mb-0">
                     <thead class="table-light">
-                        <tr><th>Order</th><th>Total</th><th>Status</th><th>Tanggal</th></tr>
+                        <tr><th>Pesanan</th><th>Total</th><th>Status</th><th>Tanggal</th></tr>
                     </thead>
                     <tbody>
                         @forelse($shop->orders as $order)

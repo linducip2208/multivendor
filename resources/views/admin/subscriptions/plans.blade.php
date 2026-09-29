@@ -16,7 +16,7 @@
             <div class="form-check form-check-inline small"><input type="checkbox" name="can_bulk_import" class="form-check-input" value="1"><label>Bulk Import</label></div>
             <div class="form-check form-check-inline small"><input type="checkbox" name="can_pos" class="form-check-input" value="1"><label>POS</label></div>
             <div class="form-check form-check-inline small"><input type="checkbox" name="can_barcode" class="form-check-input" value="1"><label>Barcode</label></div>
-            <div class="form-check form-check-inline small"><input type="checkbox" name="featured_shop" class="form-check-input" value="1"><label>Featured</label></div>
+            <div class="form-check form-check-inline small"><input type="checkbox" name="featured_shop" class="form-check-input" value="1"><label>Unggulan</label></div>
             <div class="mt-2"><button type="submit" class="btn btn-primary btn-sm">Tambah</button></div>
         </form>
     </div>
@@ -35,7 +35,7 @@
                     @if($plan->can_chat)<li class="text-success">Chat custom</li>@endif
                     @if($plan->can_pos)<li class="text-success">POS</li>@endif
                     @if($plan->can_bulk_import)<li class="text-success">Bulk Import</li>@endif
-                    @if($plan->featured_shop)<li class="text-success">Featured Shop</li>@endif
+                    @if($plan->featured_shop)<li class="text-success">Toko Unggulan</li>@endif
                 </ul>
                 <form method="POST" action="{{ route('admin.subscriptions.plans.destroy', $plan) }}" onsubmit="return confirm('Hapus paket ini?')">
                     @csrf @method('DELETE')

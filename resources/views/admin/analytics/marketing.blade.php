@@ -3,11 +3,11 @@
 @section('title', 'Analitik Marketing')
 
 @section('breadcrumb')
-    <x-admin.breadcrumb :items="['Analytics', ['label' => 'Marketing']]" />
+    <x-admin.breadcrumb :items="['Analitik', ['label' => 'Marketing']]" />
 @endsection
 
 @section('content')
-    <x-admin.page-header title="Efektivitas Marketing" subtitle="Kampanye, kupon, keranjang tertinggal, dan afiliasi.">
+    <x-admin.page-header title="Efektivitas Pemasaran" subtitle="Kampanye, kupon, keranjang tertinggal, dan afiliasi.">
         <x-slot:actions>
             <a href="{{ route('admin.campaigns.index') }}" class="btn btn-primary btn-sm">
                 <x-admin.icon name="target" :size="14" /> Kelola Kampanye
@@ -62,7 +62,7 @@
                     <dd class="col-5 text-end">{{ number_format($report['affiliates']['converted'], 0, ',', '.') }}</dd>
                     <dt class="col-7 text-secondary">Tingkat konversi</dt>
                     <dd class="col-5 text-end">{{ number_format($report['affiliates']['conversion_rate'], 1, ',', '.') }}%</dd>
-                    <dt class="col-7 text-secondary">Total affiliate</dt>
+                    <dt class="col-7 text-secondary">Total afiliasi</dt>
                     <dd class="col-5 text-end">{{ number_format($report['affiliates']['affiliates'], 0, ',', '.') }}</dd>
                     <dt class="col-7 text-secondary">Omzet influenci</dt>
                     <dd class="col-5 text-end fw-semibold">{{ \App\Support\Currency::format($report['affiliates']['revenue']) }}</dd>

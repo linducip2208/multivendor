@@ -35,7 +35,7 @@
                     <x-admin.form-field name="expires_in_days" label="Masa Berlaku (hari)" type="number" :min="1" :max="3650" help="Kosongkan untuk tidak kedaluwarsa." />
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label" for="api-key-scopes">Scope</label>
+                    <label class="form-label" for="api-key-scopes">Cakupan</label>
                     <select class="form-select" id="api-key-scopes" name="scopes[]" multiple size="4" data-multi-select>
                         @foreach ($scopes as $scope => $label)
                             <option value="{{ $scope }}" @selected($scope === 'catalog:read')>{{ $label }} ({{ $scope }})</option>
@@ -57,7 +57,7 @@
                     <tr>
                         <th scope="col">Nama</th>
                         <th scope="col">Awalan</th>
-                        <th scope="col">Scope</th>
+                        <th scope="col">Cakupan</th>
                         <th scope="col">Terakhir Dipakai</th>
                         <th scope="col" class="text-center">Kedaluwarsa</th>
                         <th scope="col" class="text-center">Status</th>
