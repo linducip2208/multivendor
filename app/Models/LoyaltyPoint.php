@@ -126,6 +126,37 @@ class LoyaltyPoint extends Model
         }
     }
 
+    /** Ringkasan misi harian + streak check-in (komputasi, tanpa kolom baru). */
+    public function missionSummary(): array
+    {
+        try {
+            $owner = $this->customer ?? User::find($this->customer_id);
+            if (! $owner) {
+                return ['missions' => [], 'streak' => 0];
+            }
+            $misi = app(\App\Services\Loyalitas\MisiHarian::class);
+
+            return ['missions' => $misi->statusFor($owner), 'streak' => $misi->streak($owner)];
+        } catch (\Throwable) {
+            return ['missions' => [], 'streak' => 0];
+        }
+    }
+
+    /** Streak check-in beruntun pemilik poin (delegasi ke MisiHarian). */
+    public function checkinStreak(): int
+    {
+        try {
+            $owner = $this->customer ?? User::find($this->customer_id);
+            if (! $owner) {
+                return 0;
+            }
+
+            return app(\App\Services\Loyalitas\MisiHarian::class)->streak($owner);
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
     public static function earn(User $customer, int $points, string $description = null, string $refType = null, int $refId = null): void
     {
         $lp = static::firstOrCreate(['customer_id' => $customer->id], ['points' => 0]);

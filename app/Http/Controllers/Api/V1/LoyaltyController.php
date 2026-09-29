@@ -84,4 +84,60 @@ class LoyaltyController extends ApiController
             ], 'Poin berhasil ditukar');
         });
     }
+
+    /** Daftar misi harian + streak check-in milik pengguna. */
+    public function missions(Request $request): JsonResponse
+    {
+        $misi = app(\App\Services\Loyalitas\MisiHarian::class);
+        $user = $request->user();
+        $points = LoyaltyPoint::firstOrCreate(['customer_id' => $user->id], ['points' => 0]);
+
+        return $this->ok([
+            'missions' => $misi->statusFor($user),
+            'streak' => $misi->streak($user),
+            'checkin_points_berikutnya' => $misi->checkinPoints($misi->streak($user) + 1),
+            'points' => (int) $points->points,
+        ]);
+    }
+
+    /** Klaim hadiah satu misi harian (idempoten per hari). */
+    public function claimMission(Request $request): JsonResponse
+    {
+        return $this->idempotent($request, function () use ($request): JsonResponse {
+            $data = $request->validate([
+                'key' => 'required|string|in:login,checkin,review,share,belanja',
+            ]);
+            $hasil = app(\App\Services\Loyalitas\MisiHarian::class)->claim($request->user(), (string) $data['key']);
+
+            if (! $hasil['ok']) {
+                return ApiResponse::error(ErrorCodes::VALIDATION_FAILED, $hasil['pesan'], 422, ['key' => [$hasil['pesan']]]);
+            }
+            $this->markResource($request, 'loyalty_mission', $data['key'].'-'.now()->toDateString());
+
+            return $this->ok([
+                'key' => $data['key'],
+                'poin' => $hasil['poin'],
+                'remaining_points' => (int) LoyaltyPoint::where('customer_id', $request->user()->id)->value('points'),
+            ], $hasil['pesan']);
+        });
+    }
+
+    /** Check-in harian beruntun (idempoten per hari). */
+    public function checkin(Request $request): JsonResponse
+    {
+        return $this->idempotent($request, function () use ($request): JsonResponse {
+            $hasil = app(\App\Services\Loyalitas\MisiHarian::class)->checkin($request->user());
+
+            if (! $hasil['ok']) {
+                return ApiResponse::error(ErrorCodes::VALIDATION_FAILED, $hasil['pesan'], 422, ['checkin' => [$hasil['pesan']]]);
+            }
+            $this->markResource($request, 'loyalty_checkin', now()->toDateString());
+
+            return $this->ok([
+                'poin' => $hasil['poin'],
+                'streak' => $hasil['streak'],
+                'remaining_points' => (int) LoyaltyPoint::where('customer_id', $request->user()->id)->value('points'),
+            ], $hasil['pesan']);
+        });
+    }
 }

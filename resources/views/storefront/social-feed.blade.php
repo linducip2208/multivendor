@@ -66,13 +66,43 @@
                             </div>
 
                             @if ($feed->product)
+                                @php
+                                    $tagged = $feed->product;
+                                    $harga = $tagged->getEffectivePrice();
+                                    $coret = $tagged->hasActiveSpecialPrice() && (float) $tagged->special_price < (float) $tagged->price
+                                        ? (float) $tagged->price : null;
+                                    $stok = (int) ($tagged->current_stock ?? 0);
+                                @endphp
                                 <div class="sf-card__foot">
-                                    <a href="{{ $feed->product->storefront_url }}" class="sf-row sf-row--between" style="gap:10px">
+                                    <a href="{{ $tagged->storefront_url }}" class="sf-row sf-row--between" style="gap:10px">
                                         <span class="sf-clamp-2 sf-small sf-bold" style="color:var(--sf-text);min-width:0">
-                                            {{ $feed->product->name }}
+                                            {{ $tagged->name }}
                                         </span>
-                                        <x-storefront.price :amount="$feed->product->getEffectivePrice()" class="sf-nowrap" />
+                                        <span class="sf-nowrap" style="text-align:right">
+                                            <x-storefront.price :amount="$harga" />
+                                            @if ($coret)
+                                                <s class="sf-small sf-muted" style="display:block">{{ \App\Support\Currency::format($coret) }}</s>
+                                            @endif
+                                        </span>
                                     </a>
+                                    <div class="sf-row sf-row--between sf-row--wrap" style="gap:8px;margin-top:10px">
+                                        <span class="sf-badge {{ $stok > 0 ? 'sf-badge--success' : 'sf-badge--warning' }}">
+                                            {{ $stok > 0 ? 'Stok '.$stok : 'Stok habis' }}
+                                        </span>
+                                        <span class="sf-row" style="gap:8px">
+                                            <a href="{{ $tagged->storefront_url }}" class="sf-btn sf-btn--outline sf-btn--sm">Lihat</a>
+                                            @if ($stok > 0)
+                                                <form method="POST" action="{{ route('cart.add') }}" style="margin:0">
+                                                    @csrf
+                                                    <input type="hidden" name="product_id" value="{{ $tagged->id }}">
+                                                    <input type="hidden" name="quantity" value="1">
+                                                    <button type="submit" class="sf-btn sf-btn--primary sf-btn--sm">
+                                                        <x-storefront.icon name="cart" :size="14" /> Beli
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        </span>
+                                    </div>
                                 </div>
                             @endif
                         </article>

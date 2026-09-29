@@ -104,4 +104,44 @@
     <div class="mt-3">
         <x-admin.pagination :paginator="\App\Support\AdminPaginator::fromArray($pagination, $pagination['total'], $pagination['per_page'], $pagination['current_page'])" size="sm" />
     </div>
+
+    @isset($rows)
+        @php
+            $topAffiliates = collect($rows)->sortByDesc(fn ($r) => (float) ($r['total_revenue'] ?? 0))->take(5)->values();
+        @endphp
+        @if ($topAffiliates->isNotEmpty())
+            <x-admin.card title="Papan Peringkat Afiliasi" icon="trophy" class="mt-3" flush>
+                <div class="table-responsive">
+                    <table class="table admin-table mb-0 table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Afiliasi</th>
+                                <th scope="col" class="text-end">Klik</th>
+                                <th scope="col" class="text-end">Pesanan</th>
+                                <th scope="col" class="text-end">Omzet</th>
+                                <th scope="col" class="text-end">Komisi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($topAffiliates as $i => $top)
+                                <tr>
+                                    <td class="fw-semibold">{{ $i + 1 }}</td>
+                                    <td>{{ $top['name'] }} <small class="d-block text-secondary"><code>{{ $top['code'] }}</code></small></td>
+                                    <td class="text-end">{{ number_format($top['clicks'] ?? 0, 0, ',', '.') }}</td>
+                                    <td class="text-end">{{ number_format($top['total_orders'] ?? 0, 0, ',', '.') }}</td>
+                                    <td class="text-end">{{ $top['total_revenue_formatted'] ?? '' }}</td>
+                                    <td class="text-end fw-semibold">{{ $top['total_commission_formatted'] ?? '' }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer text-secondary small">
+                    Komisi dihitung otomatis dari order yang memakai kode referral (kolom <code>orders.coupon_code</code>)
+                    lalu dibayarkan ke dompet pemilik afiliasi. Klik dilacak di <code>affiliate_clicks</code>.
+                </div>
+            </x-admin.card>
+        @endif
+    @endisset
 @endsection

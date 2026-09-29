@@ -215,6 +215,91 @@
                             </div>
                         </section>
                     @endif
+
+                    @php
+                        try { $misiPanel = app(\App\Http\Controllers\Storefront\AccountController::class)->misiHarianData(); }
+                        catch (\Throwable $e) { $misiPanel = ['missions' => [], 'streak' => 0, 'points' => 0]; }
+                        try { $koleksiPanel = app(\App\Http\Controllers\Storefront\AccountController::class)->koleksiBerbagiData(); }
+                        catch (\Throwable $e) { $koleksiPanel = []; }
+                        try { $afiliasiPanel = app(\App\Http\Controllers\Storefront\AccountController::class)->dasborAfiliasiData(); }
+                        catch (\Throwable $e) { $afiliasiPanel = ['affiliate' => null, 'leaderboard' => []]; }
+                    @endphp
+
+                    @if (! empty($misiPanel['missions']))
+                        <section class="sf-card" aria-labelledby="sf-dashboard-misi">
+                            <div class="sf-card__body">
+                                <div class="sf-row sf-row--between sf-row--wrap" style="gap:10px">
+                                    <h2 class="sf-footer__title" id="sf-dashboard-misi">Misi harian</h2>
+                                    <span class="sf-badge sf-badge--warning">Streak {{ (int) ($misiPanel['streak'] ?? 0) }} hari</span>
+                                </div>
+                                <ul class="sf-stack sf-small" style="gap:8px;margin-top:12px;list-style:none;padding:0">
+                                    @foreach ($misiPanel['missions'] as $misi)
+                                        <li class="sf-row sf-row--between" style="gap:10px">
+                                            <span style="min-width:0">
+                                                <strong>{{ $misi['label'] }}</strong>
+                                                <span class="sf-muted" style="display:block">{{ $misi['deskripsi'] }}</span>
+                                            </span>
+                                            <span class="sf-nowrap">
+                                                @if ($misi['diklaim'])
+                                                    <span class="sf-badge sf-badge--success">Diklaim</span>
+                                                @elseif ($misi['selesai'])
+                                                    <span class="sf-badge sf-badge--brand">+{{ $misi['poin'] }} poin</span>
+                                                @else
+                                                    <span class="sf-badge">{{ $misi['progress'] }}/{{ $misi['target'] }}</span>
+                                                @endif
+                                            </span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                <p class="sf-small sf-muted sf-mb-0" style="margin-top:8px">
+                                    Klaim hadiah misi lewat halaman loyalitas atau API. Check-in setiap hari menaikkan bonus streak.
+                                </p>
+                                <a href="{{ route('loyalty.index') }}" class="sf-btn sf-btn--outline sf-btn--sm" style="margin-top:8px">
+                                    <x-storefront.icon name="coins" :size="15" /> Klaim di halaman loyalitas
+                                </a>
+                            </div>
+                        </section>
+                    @endif
+
+                    @if (! empty($koleksiPanel))
+                        <section class="sf-card" aria-labelledby="sf-dashboard-share">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-dashboard-share">Bagikan koleksi wishlist</h2>
+                                <ul class="sf-stack sf-small" style="gap:8px;margin-top:10px;list-style:none;padding:0">
+                                    @foreach (collect($koleksiPanel)->take(5) as $folder)
+                                        <li class="sf-row sf-row--between" style="gap:10px">
+                                            <span style="min-width:0">
+                                                <strong>{{ $folder['label'] }}</strong>
+                                                &middot; {{ \App\Support\Currency::number($folder['count']) }} produk
+                                            </span>
+                                            <button type="button" class="sf-btn sf-btn--outline sf-btn--sm"
+                                                onclick="navigator.clipboard && navigator.clipboard.writeText('{{ $folder['share_url'] }}');this.textContent='Tautan disalin!'">
+                                                Salin tautan
+                                            </button>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </section>
+                    @endif
+
+                    @if (! empty($afiliasiPanel['affiliate']))
+                        <section class="sf-card" aria-labelledby="sf-dashboard-afiliasi">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-dashboard-afiliasi">Afiliasi saya</h2>
+                                <p class="sf-small sf-muted">
+                                    Kode <strong>{{ $afiliasiPanel['affiliate']['code'] }}</strong> &middot;
+                                    {{ \App\Support\Currency::number($afiliasiPanel['affiliate']['clicks']) }} klik &middot;
+                                    {{ \App\Support\Currency::number($afiliasiPanel['affiliate']['total_orders']) }} pesanan &middot;
+                                    Komisi {{ \App\Support\Currency::format($afiliasiPanel['affiliate']['total_commission']) }}
+                                </p>
+                                <button type="button" class="sf-btn sf-btn--outline sf-btn--sm"
+                                    onclick="navigator.clipboard && navigator.clipboard.writeText('{{ $afiliasiPanel['affiliate']['link'] }}');this.textContent='Tautan disalin!'">
+                                    Salin tautan afiliasi
+                                </button>
+                            </div>
+                        </section>
+                    @endif
                 </div>
             </div>
         </div>

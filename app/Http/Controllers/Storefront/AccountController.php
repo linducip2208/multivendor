@@ -289,6 +289,106 @@ class AccountController extends Controller
         return view('storefront.account.reviews', compact('reviews'));
     }
 
+    /** Data misi harian + streak untuk panel akun (aditif, tanpa mengubah method existing). */
+    public function misiHarianData(): array
+    {
+        try {
+            $user = auth()->user();
+            if (! $user) {
+                return ['missions' => [], 'streak' => 0, 'points' => 0];
+            }
+            $misi = app(\App\Services\Loyalitas\MisiHarian::class);
+
+            return [
+                'missions' => $misi->statusFor($user),
+                'streak' => $misi->streak($user),
+                'points' => (int) (LoyaltyPoint::where('customer_id', $user->id)->value('points') ?? 0),
+            ];
+        } catch (\Throwable) {
+            return ['missions' => [], 'streak' => 0, 'points' => 0];
+        }
+    }
+
+    /** Koleksi wishlist lanjutan: folder per kategori + tautan berbagi (virtual, tanpa kolom baru). */
+    public function koleksiBerbagiData(): array
+    {
+        try {
+            $customerId = (int) auth()->id();
+            if ($customerId === 0) {
+                return [];
+            }
+            $rows = \App\Models\Wishlist::where('customer_id', $customerId)
+                ->with(['product:id,name,slug,price,special_price,thumbnail'])
+                ->latest('id')->limit(120)->get();
+
+            $folders = [];
+            foreach ($rows as $row) {
+                if (! $row->product) {
+                    continue;
+                }
+                $key = (string) ($row->product->category?->name ?? 'Lainnya');
+                $slug = (string) (\Illuminate\Support\Str::slug($key) ?: 'lainnya');
+                if (! isset($folders[$slug])) {
+                    try {
+                        $share = route('wishlist.index', ['koleksi' => $slug]);
+                    } catch (\Throwable) {
+                        $share = url('/wishlist?koleksi='.$slug);
+                    }
+                    $folders[$slug] = ['slug' => $slug, 'label' => $key, 'count' => 0, 'items' => [], 'share_url' => $share];
+                }
+                $folders[$slug]['count']++;
+                if (count($folders[$slug]['items']) < 6) {
+                    $folders[$slug]['items'][] = [
+                        'product_id' => (int) $row->product_id,
+                        'name' => (string) $row->product->name,
+                        'url' => (string) $row->product->storefront_url,
+                        'price' => (float) $row->product->getEffectivePrice(),
+                    ];
+                }
+            }
+
+            return array_values($folders);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** Dasbor afiliasi pelanggan: tautan + klik + komisi + leaderboard (read-only). */
+    public function dasborAfiliasiData(): array
+    {
+        try {
+            $user = auth()->user();
+            if (! $user) {
+                return ['affiliate' => null, 'leaderboard' => []];
+            }
+            $affiliate = \App\Models\Affiliate::where('user_id', $user->id)->first();
+            if (! $affiliate && ! empty($user->referral_code)) {
+                $affiliate = \App\Models\Affiliate::findByCode((string) $user->referral_code);
+            }
+            if (! $affiliate) {
+                return ['affiliate' => null, 'leaderboard' => \App\Models\Affiliate::leaderboard(5)];
+            }
+
+            return [
+                'affiliate' => [
+                    'code' => (string) $affiliate->code,
+                    'link' => $affiliate->referralLink(),
+                    'status' => (string) $affiliate->status,
+                    'commission_rate' => (float) $affiliate->commission_rate,
+                    'clicks' => (int) $affiliate->clicks()->count(),
+                    'clicks_30d' => (int) $affiliate->clicks()->where('created_at', '>=', now()->subDays(30))->count(),
+                    'conversions' => (int) $affiliate->clicks()->whereNotNull('converted_order_id')->count(),
+                    'total_orders' => (int) $affiliate->total_orders,
+                    'total_revenue' => (float) $affiliate->total_revenue,
+                    'total_commission' => (float) $affiliate->total_commission,
+                ],
+                'leaderboard' => \App\Models\Affiliate::leaderboard(5),
+            ];
+        } catch (\Throwable) {
+            return ['affiliate' => null, 'leaderboard' => []];
+        }
+    }
+
     private function unreadCount(int $userId): int
     {
         try {

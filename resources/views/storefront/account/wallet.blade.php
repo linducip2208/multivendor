@@ -151,6 +151,66 @@
                             </div>
                         </section>
                     @endif
+
+                    @php
+                        try { $misiWallet = app(\App\Http\Controllers\Storefront\AccountController::class)->misiHarianData(); }
+                        catch (\Throwable $e) { $misiWallet = ['missions' => [], 'streak' => 0, 'points' => 0]; }
+                        try { $afiliasiWallet = app(\App\Http\Controllers\Storefront\AccountController::class)->dasborAfiliasiData(); }
+                        catch (\Throwable $e) { $afiliasiWallet = ['affiliate' => null, 'leaderboard' => []]; }
+                    @endphp
+
+                    @if (! empty($misiWallet['missions']))
+                        <section class="sf-card" aria-labelledby="sf-wallet-misi">
+                            <div class="sf-card__body">
+                                <div class="sf-row sf-row--between sf-row--wrap" style="gap:10px">
+                                    <h2 class="sf-footer__title" id="sf-wallet-misi">Misi harian + check-in</h2>
+                                    <span class="sf-badge sf-badge--warning">Streak {{ (int) ($misiWallet['streak'] ?? 0) }} hari</span>
+                                </div>
+                                <ul class="sf-stack sf-small" style="gap:8px;margin-top:12px;list-style:none;padding:0">
+                                    @foreach ($misiWallet['missions'] as $misi)
+                                        <li class="sf-row sf-row--between" style="gap:10px">
+                                            <span style="min-width:0">
+                                                <strong>{{ $misi['label'] }}</strong>
+                                                <span class="sf-muted" style="display:block">{{ $misi['deskripsi'] }}</span>
+                                            </span>
+                                            <span class="sf-nowrap">
+                                                @if ($misi['diklaim'])
+                                                    <span class="sf-badge sf-badge--success">Diklaim</span>
+                                                @elseif ($misi['selesai'])
+                                                    <span class="sf-badge sf-badge--brand">+{{ $misi['poin'] }} poin</span>
+                                                @else
+                                                    <span class="sf-badge">{{ $misi['progress'] }}/{{ $misi['target'] }}</span>
+                                                @endif
+                                            </span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                                <a href="{{ route('loyalty.index') }}" class="sf-btn sf-btn--outline sf-btn--sm" style="margin-top:8px">
+                                    <x-storefront.icon name="coins" :size="15" /> Klaim hadiah misi
+                                </a>
+                            </div>
+                        </section>
+                    @endif
+
+                    @if (! empty($afiliasiWallet['affiliate']))
+                        <section class="sf-card" aria-labelledby="sf-wallet-afiliasi">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-wallet-afiliasi">Komisi afiliasi → dompet</h2>
+                                <p class="sf-small sf-muted">
+                                    Tautan <strong>{{ $afiliasiWallet['affiliate']['link'] }}</strong><br>
+                                    {{ \App\Support\Currency::number($afiliasiWallet['affiliate']['clicks_30d']) }} klik 30 hari &middot;
+                                    {{ \App\Support\Currency::number($afiliasiWallet['affiliate']['conversions']) }} konversi &middot;
+                                    Komisi berjalan {{ \App\Support\Currency::format($afiliasiWallet['affiliate']['total_commission']) }}.
+                                    Komisi otomatis masuk dompet saat pesanan memakai kode referral Anda.
+                                </p>
+                                @if (! empty($afiliasiWallet['leaderboard']))
+                                    <p class="sf-small sf-muted sf-mb-0">
+                                        Papan peringkat: {{ collect($afiliasiWallet['leaderboard'])->take(3)->map(fn ($r) => $r['name'].' ('.\App\Support\Currency::format($r['total_revenue']).')')->implode(', ') }}
+                                    </p>
+                                @endif
+                            </div>
+                        </section>
+                    @endif
                 </div>
             </div>
         </div>

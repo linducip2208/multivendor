@@ -71,4 +71,42 @@
     <div class="mt-3">
         <x-admin.pagination :paginator="\App\Support\AdminPaginator::fromArray($pagination, $pagination['total'], $pagination['per_page'], $pagination['current_page'])" size="sm" />
     </div>
+
+    @isset($rows)
+        @php
+            $topReferrers = collect($rows)->sortByDesc(fn ($r) => (float) ($r['converted'] ?? 0))->take(5)->values();
+        @endphp
+        @if ($topReferrers->isNotEmpty())
+            <x-admin.card title="Papan Peringkat Referral" icon="trophy" class="mt-3" flush>
+                <div class="table-responsive">
+                    <table class="table admin-table mb-0 table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Pelanggan</th>
+                                <th scope="col" class="text-end">Mengundang</th>
+                                <th scope="col" class="text-end">Berhasil Beli</th>
+                                <th scope="col" class="text-end">Konversi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($topReferrers as $i => $top)
+                                <tr>
+                                    <td class="fw-semibold">{{ $i + 1 }}</td>
+                                    <td>{{ $top['name'] }} <small class="d-block text-secondary"><code>{{ $top['code'] }}</code></small></td>
+                                    <td class="text-end">{{ number_format($top['invited'] ?? 0, 0, ',', '.') }}</td>
+                                    <td class="text-end">{{ number_format($top['converted'] ?? 0, 0, ',', '.') }}</td>
+                                    <td class="text-end">{{ number_format($top['rate'] ?? 0, 1, ',', '.') }}%</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer text-secondary small">
+                    Tautan berbagi pelanggan memakai parameter <code>?ref=KODE</code>. Komisi afiliasi otomatis
+                    dihitung dari order lalu dibayarkan via dompet (lihat menu Afiliasi).
+                </div>
+            </x-admin.card>
+        @endif
+    @endisset
 @endsection

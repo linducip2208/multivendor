@@ -117,6 +117,44 @@
                     </table>
                 </div>
             </x-admin.card>
+
+            <x-admin.card title="Misi Harian + Check-in" icon="calendar-check" class="mt-3">
+                @php
+                    $daftarMisi = \App\Services\Loyalitas\MisiHarian::missions();
+                    try {
+                        $klaimMisiHariIni = \App\Models\LoyaltyTransaction::where('reference_type', 'like', 'misi_harian:%')
+                            ->whereDate('created_at', today())->count();
+                        $checkinHariIni = \App\Models\LoyaltyTransaction::where('reference_type', 'checkin')
+                            ->whereDate('created_at', today())->count();
+                    } catch (\Throwable $e) {
+                        $klaimMisiHariIni = 0;
+                        $checkinHariIni = 0;
+                    }
+                @endphp
+                <div class="table-responsive">
+                    <table class="table admin-table mb-0 table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">Misi</th>
+                                <th scope="col" class="text-end">Hadiah</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($daftarMisi as $kunci => $misi)
+                                <tr>
+                                    <td>{{ $misi['label'] }} <small class="d-block text-secondary">{{ $misi['deskripsi'] }}</small></td>
+                                    <td class="text-end fw-semibold">+{{ number_format($misi['poin'], 0, ',', '.') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                <div class="card-footer text-secondary small">
+                    Hari ini: {{ number_format($klaimMisiHariIni, 0, ',', '.') }} klaim misi &middot;
+                    {{ number_format($checkinHariIni, 0, ',', '.') }} check-in. Streak dihitung dari
+                    <code>loyalty_transactions</code> (<code>checkin</code>/Ymd, idempoten harian).
+                </div>
+            </x-admin.card>
         </div>
     </div>
 @endsection
