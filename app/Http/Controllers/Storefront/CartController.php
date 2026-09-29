@@ -100,6 +100,12 @@ class CartController extends Controller
         return back()->with('success', 'Item dihapus dari keranjang.');
     }
 
+    public function clear()
+    {
+        Cart::where('customer_id', auth()->id())->delete();
+        return back()->with('success', 'Keranjang dikosongkan.');
+    }
+
     private function assertCartable(Product $product, int $quantity, ?ProductVariant $variant = null): void
     {
         if ($product->status !== 'approved' || !$product->published || $product->shop->status !== 'active') abort(422, 'Produk tidak tersedia.');

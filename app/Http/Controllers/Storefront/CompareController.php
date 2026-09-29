@@ -35,8 +35,17 @@ class CompareController extends Controller
 
         $ordered = collect($ids)->map(fn (int $id) => $products->get($id))->filter()->values();
 
+        // Canonical list entries for the compare table view, which iterates
+        // `$items` as CompareList models exposing `->product` and `->id`.
+        $entries = CompareList::where('customer_id', auth()->id())
+            ->whereIn('product_id', $ordered->pluck('id')->all())
+            ->with(['product.shop', 'product.category', 'product.brand'])
+            ->get()
+            ->sortBy(fn (CompareList $e) => array_search((int) $e->product_id, $ids, true) === false ? 999 : array_search((int) $e->product_id, $ids, true))
+            ->values();
+
         return view('storefront.wishlist.compare', [
-            'items' => $ordered,
+            'items' => $entries,
             'products' => $ordered,
             'slots' => max(0, self::MAX_ITEMS - $ordered->count()),
         ]);

@@ -85,7 +85,7 @@ Route::get('/seller', [PageController::class, 'show'])->defaults('slug', 'seller
 
 /* ---- Guest-accessible customer actions ---- */
 Route::get('/track-order', [TrackOrderController::class, 'show'])->name('track-order');
-Route::post('/track-order', [TrackOrderController::class, 'lookup'])->name('track-order.lookup');
+Route::post('/track-order', [TrackOrderController::class, 'lookup'])->middleware('throttle:10,1')->name('track-order.lookup');
 
 /* ---- Authenticated customer area ---- */
 Route::middleware('customer')->group(function (): void {
@@ -273,8 +273,9 @@ Route::post('/landing/newsletter', function (Request $request) {
  * Declared last (before the PSEO catch-all) so a slug that matches both a
  * product and a PSEO pattern always resolves to the real product.
  */
-Route::get('/product/{slug}', [CatalogController::class, 'product'])->name('products.singular');
-Route::get('/products/{product:slug}', [CatalogController::class, 'product'])->name('products.show');
+Route::get('/products/{slug}', [CatalogController::class, 'product'])->name('products.show');
+/* Legacy singular alias: 301 to the canonical plural URL (no model binding). */
+Route::get('/product/{slug}', fn (string $slug) => redirect()->route('products.show', ['slug' => $slug], 301))->name('products.singular');
 Route::get('/category/{slug}', [CatalogController::class, 'category'])->name('categories.show');
 Route::get('/brand/{slug}', [CatalogController::class, 'brand'])->name('brands.show');
 Route::get('/store/{slug}', [StoreShopController::class, 'show'])->name('stores.show');

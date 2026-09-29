@@ -40,6 +40,36 @@
                 </button>
             </form>
 
+            @guest
+                <form method="POST" action="{{ route('track-order.lookup') }}" class="sf-panel sf-stack" style="gap:10px;margin:0 0 20px">
+                    @csrf
+                    <p class="sf-small sf-muted sf-mb-0">Belanja sebagai tamu? Verifikasi dengan nomor pesanan plus email atau nomor HP saat memesan.</p>
+                    <div class="sf-field">
+                        <label class="sf-label" for="sf-track-lookup-number">Nomor pesanan</label>
+                        <input class="sf-input" id="sf-track-lookup-number" type="text" name="order_number" required
+                               value="{{ old('order_number', request('order_number')) }}" autocomplete="off">
+                    </div>
+                    <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">
+                        <div class="sf-field">
+                            <label class="sf-label" for="sf-track-lookup-email">Email</label>
+                            <input class="sf-input" id="sf-track-lookup-email" type="email" name="email"
+                                   value="{{ old('email') }}" placeholder="email@contoh.id">
+                        </div>
+                        <div class="sf-field">
+                            <label class="sf-label" for="sf-track-lookup-phone">Nomor HP</label>
+                            <input class="sf-input" id="sf-track-lookup-phone" type="tel" name="phone"
+                                   value="{{ old('phone') }}" placeholder="08xxxxxxxxxx">
+                        </div>
+                    </div>
+                    @error('order_number')
+                        <p class="sf-small" style="color:var(--sf-danger)" role="alert">{{ $message }}</p>
+                    @enderror
+                    <div>
+                        <button type="submit" class="sf-btn sf-btn--outline">Verifikasi &amp; lacak</button>
+                    </div>
+                </form>
+            @endguest
+
             @if ($order)
                 <article class="sf-card">
                     <div class="sf-card__body">
@@ -110,9 +140,11 @@
                     @endif
 
                     <div class="sf-card__foot">
-                        <a href="{{ route('orders.show', $order) }}" class="sf-btn sf-btn--outline sf-btn--sm">
-                            Lihat detail lengkap
-                        </a>
+                        @auth
+                            <a href="{{ route('orders.show', $order) }}" class="sf-btn sf-btn--outline sf-btn--sm">
+                                Lihat detail lengkap
+                            </a>
+                        @endauth
                     </div>
                 </article>
             @elseif ($lookedUp)

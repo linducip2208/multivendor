@@ -24,25 +24,30 @@ class WishlistController extends Controller
         return back()->with('success', 'Ditambahkan ke wishlist.');
     }
 
-    public function compare()
+    /**
+     * Legacy compare page alias — delegates to the canonical
+     * CompareController::index so both URLs render identically.
+     */
+    public function compare(Request $request)
     {
-        $items = CompareList::where('customer_id', auth()->id())->with('product')->latest()->take(4)->get();
-        return view('storefront.wishlist.compare', compact('items'));
+        return app(CompareController::class)->index($request);
     }
 
+    /**
+     * Legacy compare.add alias — delegates to the canonical
+     * CompareController::add. Route kept for backwards compatibility.
+     */
     public function addCompare(Request $request)
     {
-        $request->validate(['product_id' => 'required|exists:products,id']);
-        $count = CompareList::where('customer_id', auth()->id())->count();
-        if ($count >= 4) CompareList::where('customer_id', auth()->id())->oldest()->first()->delete();
-        CompareList::firstOrCreate(['customer_id' => auth()->id(), 'product_id' => $request->product_id]);
-        return back()->with('success', 'Ditambahkan ke perbandingan.');
+        return app(CompareController::class)->add($request);
     }
 
-    public function removeCompare(CompareList $item)
+    /**
+     * Legacy compare.remove alias — delegates to the canonical
+     * CompareController::remove. Route kept for backwards compatibility.
+     */
+    public function removeCompare(Request $request, CompareList $item)
     {
-        if ($item->customer_id !== auth()->id()) abort(403);
-        $item->delete();
-        return back()->with('success', 'Dihapus dari perbandingan.');
+        return app(CompareController::class)->remove($request, $item);
     }
 }
