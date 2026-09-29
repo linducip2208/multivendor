@@ -16,5 +16,5 @@
         </table>
     </div>
 </div>
-<div class="mt-3">{{ $ratings->links('vendor.pagination.bootstrap') }}</div>
+<div class="mt-3"><x-admin.pagination :paginator="$ratings" size="sm" /></div>
 @endsection

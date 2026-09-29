@@ -336,6 +336,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::get('system/logs', [SystemHealthController::class, 'logs'])->name('system.logs');
         Route::post('system/logs/clear', [SystemHealthController::class, 'clearLogs'])->name('system.logs.clear');
         Route::get('system/queue', [SystemHealthController::class, 'queue'])->name('system.queue');
+        Route::get('audit-logs', [SystemHealthController::class, 'auditLogs'])->name('audit-logs');
         Route::get('system/error-logs', [SystemToolsController::class, 'errorLogs'])->name('system.error-logs');
         Route::post('system/error-logs/clear', [SystemToolsController::class, 'clearErrorLogs'])->name('system.error-logs-clear');
         Route::get('system/env-settings', [SystemToolsController::class, 'envSettings'])->name('system.env-settings');

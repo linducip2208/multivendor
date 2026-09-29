@@ -23,5 +23,5 @@
         </table>
     </div>
 </div>
-<div class="mt-3">{{ $subscriptions->links('vendor.pagination.bootstrap') }}</div>
+<div class="mt-3"><x-admin.pagination :paginator="$subscriptions" size="sm" /></div>
 @endsection

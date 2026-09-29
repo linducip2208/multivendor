@@ -40,6 +40,6 @@
             </tbody>
         </table>
     </div>
-    <div class="card-footer bg-transparent">{{ $transactions->links('vendor.pagination.bootstrap') }}</div>
+    <div class="card-footer bg-transparent"><x-admin.pagination :paginator="$transactions" size="sm" /></div>
 </div>
 @endsection

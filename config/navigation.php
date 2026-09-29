@@ -139,6 +139,8 @@ return [
             ['route' => 'admin.analytics.marketing', 'label' => 'Marketing', 'icon' => 'megaphone', 'permission' => 'analytics.view', 'match' => 'admin.analytics.marketing'],
             ['route' => 'admin.analytics.finance', 'label' => 'Keuangan', 'icon' => 'cash', 'permission' => 'finance.view', 'match' => 'admin.analytics.finance'],
             ['route' => 'admin.reports.index', 'label' => 'Laporan AI', 'icon' => 'file-bar', 'permission' => 'analytics.view', 'match' => 'admin.reports.*'],
+            ['route' => 'admin.stock-report.index', 'label' => 'Laporan Stok', 'icon' => 'box', 'permission' => 'analytics.view', 'match' => 'admin.stock-report.*'],
+            ['route' => 'admin.vendor-sale-report.index', 'label' => 'Penjualan Vendor', 'icon' => 'store', 'permission' => 'analytics.view', 'match' => 'admin.vendor-sale-report.*'],
         ],
     ],
 
@@ -153,6 +155,7 @@ return [
             ['route' => 'admin.seo.index', 'label' => 'SEO', 'icon' => 'search', 'permission' => 'seo.view', 'match' => 'admin.seo.index'],
             ['route' => 'admin.pseo.index', 'label' => 'PSEO', 'icon' => 'layers', 'permission' => 'seo.view', 'match' => 'admin.pseo.*'],
             ['route' => 'admin.seo.redirects', 'label' => 'Redirects', 'icon' => 'corner-up-right', 'permission' => 'seo.view', 'match' => 'admin.seo.redirects*'],
+            ['route' => 'admin.product-seo.index', 'label' => 'Product SEO', 'icon' => 'search', 'permission' => 'seo.view', 'match' => 'admin.product-seo.*'],
         ],
     ],
 

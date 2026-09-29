@@ -16,5 +16,5 @@
         </table>
     </div>
 </div>
-<div class="mt-3">{{ $wallets->links('vendor.pagination.bootstrap') }}</div>
+<div class="mt-3"><x-admin.pagination :paginator="$wallets" size="sm" /></div>
 @endsection
