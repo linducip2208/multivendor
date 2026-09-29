@@ -363,6 +363,73 @@ final class Customer360Service
     }
 
     /**
+     * RFM read-only dari riwayat pesanan berbayar (tanpa kolom baru).
+     *
+     * @return array<string, mixed>
+     */
+    public function rfm(int $customerId): array
+    {
+        $paid = $this->paidOrdersQuery($customerId)->orderByDesc('created_at')->get(['total', 'created_at']);
+        if ($paid->isEmpty()) {
+            return ['recency_days' => null, 'frequency' => 0, 'monetary' => 0.0, 'segment' => 'Belum berbelanja', 'score' => '000'];
+        }
+        $last = $paid->first()->created_at;
+        $recency = $last ? max(0, (int) $last->diffInDays(now())) : null;
+        $frequency = $paid->count();
+        $monetary = (float) $paid->sum('total');
+        $r = $recency === null ? 1 : ($recency <= 30 ? 5 : ($recency <= 90 ? 4 : ($recency <= 180 ? 3 : ($recency <= 365 ? 2 : 1))));
+        $f = $frequency >= 10 ? 5 : ($frequency >= 5 ? 4 : ($frequency >= 3 ? 3 : ($frequency >= 2 ? 2 : 1)));
+        $m = $monetary >= 10000000 ? 5 : ($monetary >= 5000000 ? 4 : ($monetary >= 1000000 ? 3 : ($monetary >= 250000 ? 2 : 1)));
+        $segment = match (true) {
+            $r >= 4 && $f >= 4 => 'Pelanggan juara',
+            $r >= 3 && $f >= 3 => 'Pelanggan setia',
+            $r <= 2 && $f >= 3 => 'Perlu perhatian kembali',
+            $r <= 2 => 'Berisiko pergi',
+            default => 'Pelanggan berkembang',
+        };
+
+        return ['recency_days' => $recency, 'frequency' => $frequency, 'monetary' => $monetary,
+            'monetary_formatted' => Currency::format($monetary), 'segment' => $segment, 'score' => $r.$f.$m];
+    }
+
+    /** Kohort bulanan read-only: pesanan per bulan daftar. */
+    public function cohort(int $customerId, int $months = 6): array
+    {
+        $driver = \DB::getDriverName();
+        $monthExpr = $driver === 'sqlite' ? "strftime('%Y-%m', created_at)" : "DATE_FORMAT(created_at, '%Y-%m')";
+        $rows = $this->paidOrdersQuery($customerId)
+            ->selectRaw($monthExpr.' as month, COUNT(*) as orders, SUM(total) as spend')
+            ->groupBy('month')->orderByDesc('month')->limit(max(1, min(24, $months)))->get();
+
+        return $rows->map(fn ($r) => ['month' => (string) $r->month, 'orders' => (int) $r->orders,
+            'spend' => (float) $r->spend, 'spend_formatted' => Currency::format((float) $r->spend)])->all();
+    }
+
+    /** Funnel read-only: keranjang -> checkout -> bayar -> ulasan. */
+    public function funnel(int $customerId): array
+    {
+        try {
+            $carts = (int) \App\Models\Cart::where('customer_id', $customerId)->count();
+        } catch (\Throwable) {
+            $carts = 0;
+        }
+        $orders = (int) $this->orders($customerId)->count();
+        $paid = (int) $this->paidOrdersQuery($customerId)->count();
+        try {
+            $reviews = (int) ProductReview::where('customer_id', $customerId)->count();
+        } catch (\Throwable) {
+            $reviews = 0;
+        }
+
+        return [
+            ['stage' => 'Keranjang', 'count' => $carts],
+            ['stage' => 'Pesanan dibuat', 'count' => $orders],
+            ['stage' => 'Pesanan dibayar', 'count' => $paid],
+            ['stage' => 'Ulasan ditulis', 'count' => $reviews],
+        ];
+    }
+
+    /**
      * @return list<array{name: string, quantity: int, spend: float}>
      */
     private function topCategories(int $customerId): array

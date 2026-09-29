@@ -33,31 +33,38 @@ class SupportController extends ApiController
 
     public function show(Request $request, int $ticket): JsonResponse
     {
-        return $this->ok(new SupportTicketResource($this->owned($request, $ticket)->load('replies')));
+        $model = $this->owned($request, $ticket)->load('replies');
+        $resource = (new SupportTicketResource($model))->resolve($request);
+
+        return $this->ok(array_merge(is_array($resource) ? $resource : ['ticket' => $resource], [
+            'sla' => $model->sla(), 'csat' => $model->csat(), 'macro_history' => $model->macroHistory(),
+        ]));
     }
 
     public function store(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'subject' => 'required|string|max:190',
-            'type' => 'nullable|in:order,payment,product,account,other',
-            // DB enum is low|medium|high|urgent; accept legacy `normal` and map it.
-            'priority' => 'nullable|in:low,medium,normal,high,urgent',
-            'description' => 'required|string|max:5000',
-        ]);
+        return $this->idempotent($request, function () use ($request): JsonResponse {
+            $data = $request->validate([
+                'subject' => 'required|string|max:190',
+                'type' => 'nullable|in:order,payment,product,account,other',
+                // DB enum is low|medium|high|urgent; accept legacy `normal` and map it.
+                'priority' => 'nullable|in:low,medium,normal,high,urgent',
+                'description' => 'required|string|max:5000',
+            ]);
 
-        if (($data['priority'] ?? null) === 'normal') {
-            $data['priority'] = 'medium';
-        }
+            if (($data['priority'] ?? null) === 'normal') {
+                $data['priority'] = 'medium';
+            }
 
-        $ticket = SupportTicket::create($data + [
-            'customer_id' => $request->user()->id,
-            'status' => 'open',
-        ]);
+            $ticket = SupportTicket::create($data + [
+                'customer_id' => $request->user()->id,
+                'status' => 'open',
+            ]);
 
-        $this->markResource($request, 'support_ticket', (int) $ticket->id);
+            $this->markResource($request, 'support_ticket', (int) $ticket->id);
 
-        return $this->created(new SupportTicketResource($ticket), 'Tiket dibuat');
+            return $this->created(new SupportTicketResource($ticket), 'Tiket dibuat');
+        });
     }
 
     public function reply(Request $request, int $ticket): JsonResponse

@@ -19,7 +19,7 @@ use Illuminate\Support\Str;
  */
 final class ApiKeyService
 {
-    public const SCOPES = ['read', 'write', 'vendor', 'admin'];
+    public const SCOPES = ['read', 'write', 'vendor', 'admin', 'loyalty:read', 'loyalty:write', 'wallet:read', 'wallet:write', 'orders:read', 'orders:write', 'wishlist:read', 'wishlist:write', 'support:read', 'support:write', 'notifications:read'];
 
     public function create(
         User $owner,

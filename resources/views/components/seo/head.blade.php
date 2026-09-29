@@ -9,6 +9,8 @@
     'price' => null,
     'productPrice' => null,
     'product' => null,
+    'faq' => [],
+    'relatedLinks' => [],
 ])
 @php
     /**
@@ -91,4 +93,9 @@
 <meta name="twitter:description" content="{{ $desc }}">
 @if ($imageUrl)
     <meta name="twitter:image" content="{{ $imageUrl }}">
+@endif
+@if (! empty($relatedLinks))
+    @foreach (collect($relatedLinks)->take(6) as $link)
+        <link rel="related" href="{{ is_array($link) ? ($link['url'] ?? '#') : $link }}">
+    @endforeach
 @endif

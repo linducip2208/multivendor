@@ -80,14 +80,17 @@ class PageController extends Controller
             ->where('slug', $slug)
             ->where('is_published', true)
             ->where('published_at', '<=', now())
-            ->with(['author', 'category'])
+            ->with(['author'])
             ->firstOrFail();
+        try {
+            $post->load('categories');
+        } catch (\Throwable) {
+        }
 
         $related = BlogPost::query()
             ->where('is_published', true)
             ->where('published_at', '<=', now())
             ->where('id', '!=', $post->id)
-            ->when($post->category_id, fn ($q) => $q->where('blog_category_id', $post->category_id))
             ->latest('published_at')
             ->limit(4)
             ->get();
@@ -114,6 +117,8 @@ class PageController extends Controller
             'post' => $post,
             'content' => $this->sanitizer->clean((string) $post->content),
             'related' => $related,
+            'shoppable' => $this->shoppableFor($post),
+            'moderation' => $this->commentModeration($post),
             'breadcrumbItems' => $breadcrumb,
             'metaTitle' => $post->meta_title ?: $post->title,
             'metaDescription' => $post->excerpt ? Str::limit(strip_tags($post->excerpt), 155) : Str::limit(strip_tags((string) $post->content), 155),
@@ -176,5 +181,46 @@ class PageController extends Controller
             'metaDescription' => 'Cara memesan, membayar, melacak dan mengembalikan barang di '.config('app.name').'.',
             'canonicalUrl' => route('docs'),
         ]);
+    }
+
+    /** Blog shoppable: produk terkait dari kata kunci judul + kategori, tanpa kolom baru. */
+    private function shoppableFor(BlogPost $post): array
+    {
+        try {
+            $words = collect(preg_split('/\s+/u', (string) $post->title))->map(fn ($w) => trim((string) $w, " \t\n\r\0\x0B.,!?\"'()"))
+                ->filter(fn ($w) => mb_strlen($w) >= 4)->take(5)->all();
+            $query = \App\Models\Product::query()->where('status', 'approved')->where('published', true)
+                ->with(['shop:id,name', 'category:id,name', 'brand:id,name']);
+            $query->where(function ($q) use ($words, $post): void {
+                foreach ($words as $word) {
+                    $q->orWhere('name', 'like', '%'.$word.'%');
+                }
+                $q->orWhere('description', 'like', '%'.mb_substr((string) $post->title, 0, 24).'%');
+            });
+
+            return $query->orderByDesc('sold_count')->limit(4)->get()
+                ->map(fn ($p) => ['id' => (int) $p->id, 'name' => (string) $p->name, 'slug' => (string) $p->slug,
+                    'price' => (float) $p->price, 'price_formatted' => \App\Support\Currency::format((float) $p->price),
+                    'shop' => (string) ($p->shop?->name ?? '-')])->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** Moderasi komentar blog bila tabel tersedia; selain itu kembalikan status dukungan. */
+    private function commentModeration(BlogPost $post): array
+    {
+        try {
+            if (\Schema::hasTable('blog_comments')) {
+                $pending = (int) \DB::table('blog_comments')->where('blog_post_id', $post->id)->where('status', 'pending')->count();
+                $approved = (int) \DB::table('blog_comments')->where('blog_post_id', $post->id)->where('status', 'approved')->count();
+
+                return ['supported' => true, 'pending' => $pending, 'approved' => $approved,
+                    'note' => $pending > 0 ? $pending.' komentar menunggu moderasi.' : 'Tidak ada komentar menunggu moderasi.'];
+            }
+        } catch (\Throwable) {
+        }
+
+        return ['supported' => false, 'pending' => 0, 'approved' => 0, 'note' => 'Moderasi komentar belum tersedia untuk blog ini.'];
     }
 }

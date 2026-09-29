@@ -14,6 +14,7 @@ use App\Models\SystemSetting;
 use App\Services\AuditLogger;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 
@@ -1034,5 +1035,113 @@ final class PseoService
     private function shopUrl(?string $slug): string
     {
         return $this->absoluteUrl('/shop/'.($slug ?? ''));
+    }
+
+    /**
+     * Saran template PSEO dari pola query nyata (search analytics bila ada,
+     * fallback ke kategori terlaris). Read-only, tanpa kolom baru.
+     *
+     * @return list<array{query: string, hits: int, template: string, note: string}>
+     */
+    public function suggestionsFromSearchAnalytics(int $limit = 20): array
+    {
+        $limit = max(1, min(50, $limit));
+        try {
+            if (Schema::hasTable('search_analytics')) {
+                $rows = DB::table('search_analytics')
+                    ->selectRaw('query, COUNT(*) as hits')
+                    ->whereNotNull('query')->where('query', '!=', '')
+                    ->groupBy('query')->orderByDesc('hits')->limit($limit)->get();
+
+                return $rows->map(fn ($r) => [
+                    'query' => (string) $r->query, 'hits' => (int) $r->hits,
+                    'template' => $this->guessTemplate((string) $r->query),
+                    'note' => 'Dari log pencarian pelanggan.',
+                ])->all();
+            }
+        } catch (\Throwable) {
+        }
+        // Fallback: kategori dengan produk terbanyak = pola query nyata.
+        try {
+            $rows = DB::table('products')->join('categories', 'categories.id', '=', 'products.category_id')
+                ->where('products.status', 'approved')->where('products.published', true)
+                ->groupBy('products.category_id', 'categories.name')
+                ->selectRaw('categories.name as name, COUNT(*) as hits')
+                ->orderByDesc('hits')->limit($limit)->get();
+
+            return $rows->map(fn ($r) => [
+                'query' => (string) $r->name, 'hits' => (int) $r->hits,
+                'template' => 'category_top_products', 'note' => 'Perkiraan dari katalog (log pencarian belum tersedia).',
+            ])->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function guessTemplate(string $query): string
+    {
+        $q = mb_strtolower($query);
+
+        return match (true) {
+            str_contains($q, 'toko') => 'category_store',
+            str_contains($q, 'brand') || str_contains($q, 'merk') => 'category_brand',
+            default => 'category_top_products',
+        };
+    }
+
+    /** FAQ kategori: pertanyaan turunan dari entitas halaman (read-only). */
+    public function faqForCategory(array $context): array
+    {
+        $entities = $context['entities'] ?? $context;
+        $category = (string) ($entities['category'] ?? 'kategori ini');
+        $brand = (string) ($entities['brand'] ?? '');
+        $shop = (string) ($entities['shop'] ?? '');
+
+        return [
+            ['q' => 'Di mana beli '.$category.($brand !== '' ? ' '.$brand : '').' yang asli?', 'a' => 'Pilih produk bertanda toko terverifikasi'.($shop !== '' ? ' seperti '.$shop : '').' lalu periksa rating dan ulasan pembeli sebelum checkout.'],
+            ['q' => 'Berapa kisaran harga '.$category.' terbaru?', 'a' => 'Harga mengikuti katalog penjual dan diperbarui otomatis. Bandingkan beberapa produk pada halaman ini untuk mendapat harga terbaik.'],
+            ['q' => 'Apakah '.$category.' bergaransi pengembalian?', 'a' => 'Pesanan dilindungi kebijakan retur toko. Simpan bukti unboxing bila barang datang rusak atau tidak sesuai.'],
+        ];
+    }
+
+    /** Audit alt image produk: daftar produk tanpa alt/teks deskriptif. */
+    public function auditImageAlts(int $limit = 50): array
+    {
+        try {
+            $rows = Product::query()->where('status', 'approved')->where('published', true)
+                ->orderByDesc('id')->limit(max(1, min(200, $limit)))
+                ->get(['id', 'name', 'slug', 'thumbnail', 'images']);
+
+            return $rows->map(function (Product $p): array {
+                $hasImage = (bool) ($p->thumbnail ?? $p->images);
+                $alt = trim((string) ($p->meta_title ?? ''));
+                $ok = $hasImage && mb_strlen($p->name) >= 10;
+
+                return ['id' => (int) $p->id, 'name' => (string) $p->name, 'slug' => (string) $p->slug,
+                    'has_image' => $hasImage, 'alt_ok' => $ok,
+                    'saran' => $ok ? 'Alt sudah cukup deskriptif.' : 'Tambahkan alt deskriptif: "'.$p->name.' tampak depan, latar putih".'];
+            })->filter(fn ($r) => ! $r['alt_ok'])->values()->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** Saran skor SEO agregat untuk satu halaman PSEO. */
+    public function seoSuggestions(PseoPage $page): array
+    {
+        $breakdown = is_array($page->quality_breakdown) ? $page->quality_breakdown : [];
+        $out = [];
+        foreach (self::RUBRIC as $key => $meta) {
+            $score = (int) (is_array($breakdown[$key] ?? null) ? ($breakdown[$key]['score'] ?? 0) : 0);
+            if ($score < (int) $meta['max']) {
+                $out[] = ['aspek' => (string) $meta['label'], 'skor' => $score, 'maks' => (int) $meta['max'],
+                    'saran' => 'Tingkatkan '.$meta['label'].': tambah konten unik, tautan internal, dan data terstruktur.'];
+            }
+        }
+        if ($out === []) {
+            $out[] = ['aspek' => 'Umum', 'skor' => (int) $page->quality_score, 'maks' => 100, 'saran' => 'Skor sudah baik. Jaga kesegaran dengan refresh katalog berkala.'];
+        }
+
+        return $out;
     }
 }

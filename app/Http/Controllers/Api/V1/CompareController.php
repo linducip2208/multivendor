@@ -37,31 +37,33 @@ class CompareController extends ApiController
 
     public function store(Request $request): JsonResponse
     {
-        $data = $request->validate(['product_id' => 'required|integer|exists:products,id']);
-        $productId = (int) $data['product_id'];
-        $customerId = (int) $request->user()->id;
+        return $this->idempotent($request, function () use ($request): JsonResponse {
+            $data = $request->validate(['product_id' => 'required|integer|exists:products,id']);
+            $productId = (int) $data['product_id'];
+            $customerId = (int) $request->user()->id;
 
-        $already = CompareList::where('customer_id', $customerId)->where('product_id', $productId)->exists();
+            $already = CompareList::where('customer_id', $customerId)->where('product_id', $productId)->exists();
 
-        if ($already) {
-            return $this->ok(['product_id' => $productId], 'Produk sudah ada di daftar perbandingan.');
-        }
+            if ($already) {
+                return $this->ok(['product_id' => $productId], 'Produk sudah ada di daftar perbandingan.');
+            }
 
-        $count = CompareList::where('customer_id', $customerId)->count();
+            $count = CompareList::where('customer_id', $customerId)->count();
 
-        if ($count >= self::MAX_ITEMS) {
-            return $this->ok(
-                ['limit' => self::MAX_ITEMS, 'count' => $count],
-                'Daftar perbandingan sudah penuh. Hapus salah satu item terlebih dahulu.',
-                [],
-                422
-            );
-        }
+            if ($count >= self::MAX_ITEMS) {
+                return $this->ok(
+                    ['limit' => self::MAX_ITEMS, 'count' => $count],
+                    'Daftar perbandingan sudah penuh. Hapus salah satu item terlebih dahulu.',
+                    [],
+                    422
+                );
+            }
 
-        CompareList::create(['customer_id' => $customerId, 'product_id' => $productId]);
-        $this->markResource($request, 'compare_list', $productId);
+            CompareList::create(['customer_id' => $customerId, 'product_id' => $productId]);
+            $this->markResource($request, 'compare_list', $productId);
 
-        return $this->created(['product_id' => $productId], 'Produk ditambahkan ke daftar perbandingan');
+            return $this->created(['product_id' => $productId], 'Produk ditambahkan ke daftar perbandingan');
+        });
     }
 
     public function destroy(Request $request, int $product): JsonResponse
@@ -99,6 +101,7 @@ class CompareController extends ApiController
         $fields = ['price', 'effective_price', 'stock_available', 'rating_average', 'weight', 'product_type'];
 
         $columns = [];
+        $specRows = [];
         foreach ($data['product_ids'] as $id) {
             $product = $products->get($id);
 
@@ -111,14 +114,38 @@ class CompareController extends ApiController
             foreach ($fields as $field) {
                 $row[$field] = $product->{$field};
             }
-
+            // Spek detail side-by-side dari relasi yang sudah ada (aditif).
+            $row['shop'] = (string) ($product->shop?->name ?? '-');
+            $row['brand'] = (string) ($product->brand?->name ?? '-');
+            $row['category'] = (string) ($product->category?->name ?? '-');
+            $row['attributes'] = $this->specFor($product);
             $columns[] = $row;
+        }
+        foreach ($fields as $field) {
+            $specRows[] = ['label' => \Str::headline(str_replace('_', ' ', $field)), 'values' => array_column($columns, $field)];
         }
 
         return $this->ok([
             'fields' => $fields,
             'columns' => $columns,
+            'spec_rows' => $specRows,
             'products' => ProductResource::collection($products->values())->resolve($request),
         ]);
+    }
+
+    /** Atribut spek dari relasi katalog existing; fallback aman bila tabel tak ada. */
+    private function specFor(\App\Models\Product $product): array
+    {
+        try {
+            if (method_exists($product, 'attributes')) {
+                return $product->attributes()->with('attribute')->get()->map(fn ($v) => [
+                    'name' => (string) ($v->attribute?->name ?? 'Spesifikasi'),
+                    'value' => (string) ($v->value ?? ''),
+                ])->all();
+            }
+        } catch (\Throwable) {
+        }
+
+        return [];
     }
 }

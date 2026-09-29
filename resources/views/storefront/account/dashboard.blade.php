@@ -182,6 +182,39 @@
                             </div>
                         </section>
                     @endif
+
+                    @if (! empty($analytics))
+                        <section class="sf-card" aria-labelledby="sf-dashboard-insight">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-dashboard-insight">Ringkasan belanja saya</h2>
+                                <p class="sf-small sf-muted sf-mb-0">
+                                    Tier loyalitas: <strong>{{ $analytics['tier']['label'] ?? '-' }}</strong>
+                                    @if (! empty($analytics['rfm']))
+                                        &middot; Segmen: <strong>{{ $analytics['rfm']['segment'] ?? '-' }}</strong>
+                                        &middot; Skor RFM {{ $analytics['rfm']['score'] ?? '-' }}
+                                    @endif
+                                </p>
+                                @if (! empty($analytics['funnel']))
+                                    <p class="sf-small sf-muted sf-mb-0" style="margin-top:6px">
+                                        Funnel: {{ collect($analytics['funnel'])->map(fn ($s) => $s['stage'].' '.$s['count'])->implode(' → ') }}
+                                    </p>
+                                @endif
+                            </div>
+                        </section>
+                    @endif
+
+                    @if (! empty($wishlistCollections))
+                        <section class="sf-card" aria-labelledby="sf-dashboard-collections">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-dashboard-collections">Koleksi wishlist saya</h2>
+                                <ul class="sf-stack sf-small" style="gap:6px;margin-top:10px;list-style:none;padding:0">
+                                    @foreach (collect($wishlistCollections)->take(5) as $folder)
+                                        <li><strong>{{ $folder['label'] }}</strong> &middot; {{ \App\Support\Currency::number($folder['count']) }} produk</li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </section>
+                    @endif
                 </div>
             </div>
         </div>

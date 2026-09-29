@@ -12,12 +12,21 @@ use Throwable;
 
 class WarmSitemap extends Command
 {
-    protected $signature = 'seo:sitemap-warm {--path=sitemap.xml}';
+    protected $signature = 'seo:sitemap-warm {--path=sitemap.xml} {--audit-alts : Audit alt image produk tanpa menulis sitemap}';
 
     protected $description = 'Warm the generated sitemap so crawlers always receive a fast, cached response';
 
     public function handle(): int
     {
+        if ($this->option('audit-alts')) {
+            $issues = app(\App\Services\Seo\PseoService::class)->auditImageAlts(50);
+            $this->info('Produk tanpa alt deskriptif: '.count($issues));
+            foreach (array_slice($issues, 0, 20) as $issue) {
+                $this->line('#'.$issue['id'].' '.$issue['name'].' — '.$issue['saran']);
+            }
+
+            return self::SUCCESS;
+        }
         $key = 'seo:sitemap:'.sha1((string) config('app.url'));
         $ttl = max(60, (int) config('seo.sitemap_cache_ttl', 3600));
         $url = rtrim((string) config('app.url'), '/').'/'.ltrim((string) $this->option('path'), '/');

@@ -41,12 +41,7 @@ class SendNotificationDigest extends Command
                 'type' => 'notification_digest',
                 'notifiable_type' => User::class,
                 'notifiable_id' => $user->id,
-                'data' => [
-                    'title' => 'Ringkasan Notifikasi',
-                    'message' => 'Anda memiliki '.count($unread).' notifikasi belum dibaca.',
-                    'unread_count' => count($unread),
-                    'types' => $unread->pluck('type')->unique()->values()->all(),
-                ],
+                'data' => self::digestTemplate($user, $unread),
             ]);
 
             $sent++;
@@ -85,5 +80,24 @@ class SendNotificationDigest extends Command
             static fn (Notification $notification): bool => $notification->type === 'notification_digest'
                 && $notification->created_at?->greaterThanOrEqualTo($since),
         );
+    }
+
+    /** Template digest granular Bahasa Indonesia (dipakai command + preview UI). */
+    public static function digestTemplate(User $user, Collection $unread): array
+    {
+        $byType = $unread->groupBy(fn ($n) => $n->type ?? 'info')->map->count()->sortDesc();
+        $lines = $byType->map(fn ($count, $type) => '• '.Str::headline((string) $type).': '.$count)->values()->all();
+
+        return [
+            'title' => 'Ringkasan Notifikasi',
+            'greeting' => 'Halo '.$user->name.',',
+            'message' => 'Anda memiliki '.$unread->count().' notifikasi belum dibaca.',
+            'unread_count' => $unread->count(),
+            'types' => $unread->pluck('type')->unique()->values()->all(),
+            'breakdown' => $byType->all(),
+            'lines' => $lines,
+            'cta_label' => 'Lihat semua notifikasi',
+            'cta_url' => route('account.notifications'),
+        ];
     }
 }

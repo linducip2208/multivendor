@@ -1,4 +1,4 @@
-@props(['data' => null, 'variants' => []])
+@props(['data' => null, 'variants' => [], 'faq' => []])
 @php
     /**
      * Renders a JSON-LD graph node. Use `@jsonschema` / `@json` escaping so a
@@ -78,3 +78,6 @@
     }
 @endphp
 <script type="application/ld+json">{!! json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+@if (! empty($faq))
+<script type="application/ld+json">{!! json_encode(['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => collect($faq)->take(8)->map(fn ($item) => ['@type' => 'Question', 'name' => is_array($item) ? ($item['q'] ?? $item['question'] ?? '') : (string) $item, 'acceptedAnswer' => ['@type' => 'Answer', 'text' => is_array($item) ? ($item['a'] ?? $item['answer'] ?? '') : '']])->values()->all()], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
+@endif

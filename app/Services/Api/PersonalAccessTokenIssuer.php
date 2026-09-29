@@ -19,7 +19,13 @@ use Illuminate\Support\Str;
  */
 final class PersonalAccessTokenIssuer
 {
-    public const SCOPES = ['read', 'write', 'vendor', 'admin'];
+    public const SCOPES = ['read', 'write', 'vendor', 'admin', 'loyalty:read', 'loyalty:write', 'wallet:read', 'wallet:write', 'orders:read', 'orders:write', 'wishlist:read', 'wishlist:write', 'support:read', 'support:write', 'notifications:read'];
+
+    /** Peta scope granular ke scope dasar agar kontrak lama tetap berlaku. */
+    public const SCOPE_ALIASES = [
+        'read' => ['loyalty:read', 'wallet:read', 'orders:read', 'wishlist:read', 'support:read', 'notifications:read'],
+        'write' => ['loyalty:write', 'wallet:write', 'orders:write', 'wishlist:write', 'support:write'],
+    ];
 
     public function issue(
         User $user,
@@ -93,6 +99,47 @@ final class PersonalAccessTokenIssuer
         $entropy = Str::random(40);
 
         return sprintf('%s%s%s', (string) config('sanctum.token_prefix', ''), $entropy, hash('crc32b', $entropy));
+    }
+
+    /** Rotasi token: terbitkan pengganti lalu cabut token lama (expiry ikut terbawa). */
+    public function rotate(User $user, string $oldTokenId, string $name, ?DateTimeInterface $expiresAt = null): array
+    {
+        $scopes = ['read'];
+        try {
+            $row = DB::table('personal_access_tokens')
+                ->where('tokenable_type', $user->getMorphClass())
+                ->where('tokenable_id', $user->getKey())
+                ->where('id', $oldTokenId)->first();
+            $decoded = $this->decodeScopes($row->abilities ?? null);
+            $scopes = $decoded === ['*'] ? ['read', 'write'] : $decoded;
+            $expiresAt ??= isset($row->expires_at) && $row->expires_at ? new \DateTimeImmutable((string) $row->expires_at) : now()->addDays(30)->toDateTimeImmutable();
+        } catch (\Throwable) {
+            $expiresAt ??= now()->addDays(30)->toDateTimeImmutable();
+        }
+        $issued = $this->issue($user, $name, $scopes, $expiresAt);
+        $this->revoke($user, (string) $oldTokenId);
+
+        return $issued + ['rotated_from' => (string) $oldTokenId];
+    }
+
+    /** Kedaluwarsa default 30 hari bila pemanggil tidak menyebutkannya. */
+    public function defaultExpiry(): \DateTimeImmutable
+    {
+        return now()->addDays(30)->toDateTimeImmutable();
+    }
+
+    /** Kembangkan scope dasar menjadi granular (read -> loyalty:read, …) tanpa merusak token lama. */
+    public function expandScopes(array $scopes): array
+    {
+        $out = [];
+        foreach ($scopes as $scope) {
+            $out[] = $scope;
+            foreach (self::SCOPE_ALIASES[$scope] ?? [] as $alias) {
+                $out[] = $alias;
+            }
+        }
+
+        return array_values(array_unique($out));
     }
 
     public function normaliseScopes(array $scopes): array

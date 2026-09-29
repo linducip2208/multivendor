@@ -103,13 +103,54 @@
                         <div class="sf-card__body">
                             <h2 class="sf-footer__title" id="sf-wallet-loyalty">Poin loyalitas</h2>
                             <p class="sf-small sf-muted">
-                                Poin loyalitas dapat ditukar menjadi saldo dompet digital.
+                                Tier {{ $tier['label'] ?? 'Perunggu' }} &middot; {{ \App\Support\Currency::number($loyalty?->points ?? 0) }} poin
+                                @if (! empty($tier['points_to_next']))
+                                    &middot; {{ \App\Support\Currency::number($tier['points_to_next']) }} poin lagi ke {{ $tier['next_label'] }}
+                                @endif
+                            </p>
+                            <p class="sf-small sf-muted sf-mb-0">
+                                Poin kedaluwarsa {{ $expiring['expiry_months'] ?? 12 }} bulan setelah diperoleh.
                             </p>
                             <a href="{{ route('loyalty.index') }}" class="sf-btn sf-btn--outline sf-btn--sm">
                                 <x-storefront.icon name="coins" :size="15" /> Lihat poin saya
                             </a>
                         </div>
                     </section>
+
+                    @if (! empty($unified) && collect($unified)->isNotEmpty())
+                        <section class="sf-card" aria-labelledby="sf-wallet-unified">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-wallet-unified">Riwayat terpadu dompet + poin</h2>
+                                <ul class="sf-stack" style="gap:8px;margin-top:12px;list-style:none;padding:0">
+                                    @foreach (collect($unified)->take(10) as $row)
+                                        <li class="sf-row sf-row--between sf-small" style="gap:10px">
+                                            <span style="min-width:0">
+                                                <span class="sf-badge {{ ($row['kind'] ?? '') === 'loyalty' ? 'sf-badge--warning' : 'sf-badge--brand' }}">{{ $row['kind'] }}</span>
+                                                {{ $row['label'] }}
+                                            </span>
+                                            <span class="sf-bold">{{ $row['dir'] }}{{ is_numeric($row['amount'] ?? 0) ? \App\Support\Currency::number($row['amount']) : '' }}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </section>
+                    @endif
+
+                    @if (! empty($referral))
+                        <section class="sf-card" aria-labelledby="sf-wallet-referral">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-wallet-referral">Referral saya</h2>
+                                <p class="sf-small sf-muted">
+                                    Kode <strong>{{ $referral['code'] ?? '-' }}</strong> &middot;
+                                    {{ \App\Support\Currency::number($referral['count'] ?? 0) }} teman bergabung &middot;
+                                    {{ \App\Support\Currency::number($referral['points_earned'] ?? 0) }} poin dari referral.
+                                </p>
+                                @if (! empty($leaderboard))
+                                    <p class="sf-small sf-muted sf-mb-0">Papan peringkat: {{ collect($leaderboard)->take(3)->map(fn ($r) => $r['name'].' ('.$r['referrals'].')')->implode(', ') }}</p>
+                                @endif
+                            </div>
+                        </section>
+                    @endif
                 </div>
             </div>
         </div>

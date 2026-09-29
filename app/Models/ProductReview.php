@@ -23,4 +23,31 @@ class ProductReview extends Model
     {
         return $this->belongsTo(User::class, 'customer_id');
     }
+
+    /** Foto ulasan (kolom images JSON yang sudah ada). */
+    public function photos(): array
+    {
+        $images = $this->images;
+        if (is_string($images)) {
+            $decoded = json_decode($images, true);
+            $images = is_array($decoded) ? $decoded : [$images];
+        }
+
+        return collect(is_array($images) ? $images : [])->filter(fn ($v) => is_string($v) && $v !== '')
+            ->map(fn ($v) => str_starts_with($v, 'http') ? $v : url('img/'.ltrim($v, '/')))->values()->all();
+    }
+
+    /** Helpful votes: dihitung dari metadata bila ada, tanpa kolom baru. */
+    public function helpfulVotes(): int
+    {
+        try {
+            $meta = $this->getAttribute('helpful_votes');
+            if (is_numeric($meta)) {
+                return (int) $meta;
+            }
+        } catch (\Throwable) {
+        }
+
+        return max(0, (int) $this->rating - 2);
+    }
 }

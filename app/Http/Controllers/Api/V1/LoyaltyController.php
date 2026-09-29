@@ -25,7 +25,15 @@ class LoyaltyController extends ApiController
             ['points' => 0]
         );
 
-        return $this->ok(new LoyaltyResource($points->load(['transactions' => fn ($q) => $q->latest('id')->limit(50)])));
+        return $this->ok(array_merge(
+            (new LoyaltyResource($points->load(['transactions' => fn ($q) => $q->latest('id')->limit(50)])))->resolve($request),
+            [
+                'tier' => $points->tier(),
+                'expiring' => $points->expiringSoon(),
+                'referral' => $points->referralHistory(),
+                'leaderboard' => LoyaltyPoint::referralLeaderboard(5),
+            ]
+        ));
     }
 
     public function transactions(Request $request): JsonResponse
@@ -47,28 +55,33 @@ class LoyaltyController extends ApiController
 
     public function redeem(Request $request): JsonResponse
     {
-        $data = $request->validate(['points' => 'required|integer|min:1|max:1000000']);
-        $points = (int) $data['points'];
-        $customer = $request->user();
+        return $this->idempotent($request, function () use ($request): JsonResponse {
+            $data = $request->validate(['points' => 'required|integer|min:1|max:1000000']);
+            $points = (int) $data['points'];
+            $customer = $request->user();
 
-        $balance = LoyaltyPoint::where('customer_id', $customer->id)->value('points');
+            $balance = LoyaltyPoint::where('customer_id', $customer->id)->value('points');
 
-        if ($balance === null || (int) $balance < $points) {
-            return ApiResponse::error(
-                ErrorCodes::INSUFFICIENT_WALLET_BALANCE,
-                'Poin loyalty tidak mencukupi.',
-                422,
-                ['points' => ['Poin yang diminta melebihi saldo Anda.']]
-            );
-        }
+            if ($balance === null || (int) $balance < $points) {
+                return ApiResponse::error(
+                    ErrorCodes::INSUFFICIENT_WALLET_BALANCE,
+                    'Poin loyalty tidak mencukupi.',
+                    422,
+                    ['points' => ['Poin yang diminta melebihi saldo Anda.']]
+                );
+            }
 
-        $redeemed = \App\Models\LoyaltyPoint::redeem($customer, $points);
-        $this->markResource($request, 'loyalty_redemption', $points);
+            $redeemed = \App\Models\LoyaltyPoint::redeem($customer, $points);
+            $this->markResource($request, 'loyalty_redemption', $points);
 
-        return $this->ok([
-            'points' => $points,
-            'redeemed_value' => ApiResponse::money($redeemed),
-            'remaining_points' => (int) LoyaltyPoint::where('customer_id', $customer->id)->value('points'),
-        ], 'Poin berhasil ditukar');
+            $fresh = LoyaltyPoint::where('customer_id', $customer->id)->first();
+
+            return $this->ok([
+                'points' => $points,
+                'redeemed_value' => ApiResponse::money($redeemed),
+                'remaining_points' => (int) LoyaltyPoint::where('customer_id', $customer->id)->value('points'),
+                'tier' => $fresh?->tier(),
+            ], 'Poin berhasil ditukar');
+        });
     }
 }

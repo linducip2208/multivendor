@@ -26,8 +26,8 @@ class ApiKeyController extends ApiController
     {
         $data = $request->validate([
             'name' => 'required|string|max:120',
-            'scopes' => 'nullable|array|max:8',
-            'scopes.*' => ['string', Rule::in(['read', 'write', 'vendor', 'admin'])],
+            'scopes' => 'nullable|array|max:16',
+            'scopes.*' => ['string', Rule::in(['read', 'write', 'vendor', 'admin', 'loyalty:read', 'loyalty:write', 'wallet:read', 'wallet:write', 'orders:read', 'orders:write', 'wishlist:read', 'wishlist:write', 'support:read', 'support:write', 'notifications:read'])],
             'expires_in_days' => 'nullable|integer|min:1|max:3650',
         ]);
 

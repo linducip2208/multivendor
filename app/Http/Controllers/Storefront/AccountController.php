@@ -63,7 +63,42 @@ class AccountController extends Controller
             ->limit(6)
             ->get();
 
-        return view('storefront.account.dashboard', compact('stats', 'recentOrders', 'recommendations'));
+        // Perdalaman analitik pelanggan (read-only, dari riwayat yang ada).
+        $loyalty = LoyaltyPoint::firstOrCreate(['customer_id' => $customer->id], ['points' => 0]);
+        $analytics = ['rfm' => null, 'funnel' => [], 'cohort' => [], 'tier' => $loyalty->tier(), 'expiring' => $loyalty->expiringSoon()];
+        try {
+            $crm = app(\App\Services\Crm\Customer360Service::class);
+            $analytics['rfm'] = $crm->rfm((int) $customer->id);
+            $analytics['funnel'] = $crm->funnel((int) $customer->id);
+            $analytics['cohort'] = $crm->cohort((int) $customer->id, 6);
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return view('storefront.account.dashboard', [
+            'stats' => $stats, 'recentOrders' => $recentOrders, 'recommendations' => $recommendations,
+            'analytics' => $analytics, 'wishlistCollections' => $this->wishlistCollections((int) $customer->id),
+        ]);
+    }
+
+    /** Koleksi wishlist virtual (folder kategori) + matriks compare spek untuk dasbor akun. */
+    private function wishlistCollections(int $customerId): array
+    {
+        try {
+            $rows = \App\Models\Wishlist::where('customer_id', $customerId)
+                ->with(['product.category:id,name', 'product.brand:id,name'])->latest('id')->limit(100)->get();
+            $groups = [];
+            foreach ($rows as $row) {
+                $key = (string) ($row->product?->category?->name ?? 'Lainnya');
+                $groups[$key]['label'] = $key;
+                $groups[$key]['count'] = ($groups[$key]['count'] ?? 0) + 1;
+                $groups[$key]['items'][] = ['product_id' => (int) $row->product_id, 'name' => (string) ($row->product?->name ?? 'Produk')];
+            }
+
+            return array_values($groups);
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     public function addresses()
@@ -73,7 +108,12 @@ class AccountController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        return view('storefront.account.addresses', compact('addresses'));
+        return view('storefront.account.addresses', [
+            'addresses' => $addresses,
+            'labels' => CustomerAddress::LABELS,
+            'grouped' => $addresses->groupBy(fn ($a) => $a->label ?: 'Lainnya'),
+            'primary' => $addresses->firstWhere('is_default', true) ?? $addresses->first(),
+        ]);
     }
 
     public function wallet(Request $request)
@@ -86,7 +126,21 @@ class AccountController extends Controller
             ->latest()
             ->paginate(20);
 
-        return view('storefront.account.wallet', compact('wallet', 'transactions'));
+        // Riwayat terpadu dompet + loyalty + referral ringkas (tanpa kolom baru).
+        $loyalty = LoyaltyPoint::firstOrCreate(['customer_id' => $customer], ['points' => 0]);
+        $loyaltyTx = \App\Models\LoyaltyTransaction::where('customer_id', $customer)
+            ->latest()->limit(20)->get();
+        $unified = $transactions->getCollection()
+            ->map(fn ($t) => ['kind' => 'wallet', 'at' => $t->created_at, 'label' => (string) ($t->description ?? $t->type), 'amount' => (float) $t->amount, 'dir' => $t->type === 'credit' ? '+' : '-'])
+            ->concat($loyaltyTx->map(fn ($t) => ['kind' => 'loyalty', 'at' => $t->created_at, 'label' => (string) ($t->description ?? 'Poin'), 'amount' => (int) $t->points, 'dir' => $t->type === 'earn' ? '+' : '-']))
+            ->sortByDesc('at')->values()->take(20);
+
+        return view('storefront.account.wallet', [
+            'wallet' => $wallet, 'transactions' => $transactions,
+            'loyalty' => $loyalty, 'tier' => $loyalty->tier(), 'expiring' => $loyalty->expiringSoon(),
+            'unified' => $unified, 'referral' => $loyalty->referralHistory(10),
+            'leaderboard' => LoyaltyPoint::referralLeaderboard(5),
+        ]);
     }
 
     public function notifications()
@@ -106,11 +160,25 @@ class AccountController extends Controller
         return view('storefront.account.notifications', [
             'notifications' => $rows,
             'legacy' => $legacy,
+            'unreadCount' => $this->unreadCount((int) auth()->id()),
+            'history' => UserNotification::query()
+                ->where('notifiable_type', User::class)->where('notifiable_id', auth()->id())
+                ->selectRaw('category, COUNT(*) as total, SUM(read_at IS NULL) as unread')
+                ->groupBy('category')->orderByDesc('total')->limit(12)->get(),
         ]);
     }
 
     public function markRead(int|string $notification)
     {
+        // 'all' menandai semua dibaca lewat route existing (aditif, tanpa route baru).
+        if (in_array($notification, ['all', 'semua'], true)) {
+            UserNotification::query()
+                ->where('notifiable_type', User::class)
+                ->where('notifiable_id', auth()->id())
+                ->whereNull('read_at')->update(['read_at' => now()]);
+
+            return back()->with('success', 'Semua notifikasi ditandai sudah dibaca.');
+        }
         $row = UserNotification::query()
             ->where('notifiable_type', User::class)
             ->where('notifiable_id', auth()->id())
@@ -168,7 +236,11 @@ class AccountController extends Controller
         $preferences = \App\Models\NotificationPreference::where('user_id', auth()->id())->get()
             ->keyBy(fn ($p) => $p->category.'|'.$p->channel);
 
-        return view('storefront.account.preferences', compact('preferences'));
+        // Matriks granular kategori × kanal untuk UI (tanpa kolom baru).
+        $categories = ['order' => 'Pesanan', 'promo' => 'Promo', 'stock' => 'Stok & harga', 'loyalty' => 'Loyalitas & dompet', 'support' => 'Bantuan', 'system' => 'Sistem'];
+        $channels = ['email' => 'Email', 'push' => 'Push', 'whatsapp' => 'WhatsApp', 'sms' => 'SMS'];
+
+        return view('storefront.account.preferences', compact('preferences', 'categories', 'channels'));
     }
 
     public function updatePreferences(Request $request)
@@ -180,7 +252,17 @@ class AccountController extends Controller
             'preferences.*.enabled' => ['nullable'],
         ]);
 
-        foreach ($validated['preferences'] ?? [] as $row) {
+        // Dukung dua bentuk form: preferences[field]=1 (view) dan preferences[][category…] (API lama).
+        $rows = [];
+        foreach ($validated['preferences'] ?? [] as $key => $row) {
+            if (is_array($row) && isset($row['category'])) {
+                $rows[] = $row;
+            } elseif (str_contains((string) $key, ':') || str_contains((string) $key, '|')) {
+                [$category, $channel] = preg_split('/[:|]/', (string) $key, 2);
+                $rows[] = ['category' => $category, 'channel' => $channel, 'enabled' => $row];
+            }
+        }
+        foreach ($rows as $row) {
             \App\Models\NotificationPreference::updateOrCreate(
                 ['user_id' => auth()->id(), 'category' => $row['category'], 'channel' => $row['channel']],
                 ['enabled' => (bool) ($row['enabled'] ?? false)],
@@ -196,6 +278,13 @@ class AccountController extends Controller
             ->with('product.shop')
             ->latest()
             ->paginate(15);
+        // Foto + helpful votes untuk tampilan akun (engine milik tim katalog tak disentuh).
+        $reviews->getCollection()->transform(function ($review) {
+            $review->setAttribute('photo_urls', $review->photos());
+            $review->setAttribute('helpful_count', $review->helpfulVotes());
+
+            return $review;
+        });
 
         return view('storefront.account.reviews', compact('reviews'));
     }

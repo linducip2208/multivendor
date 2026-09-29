@@ -52,6 +52,27 @@
 
             <footer style="margin-top:36px">
                 <hr class="sf-divider">
+                @if (! empty($shoppable))
+                    <section aria-labelledby="sf-blog-shoppable" style="margin:24px 0">
+                        <h2 id="sf-blog-shoppable" style="font-size:1.2rem;margin-bottom:12px">Belanja dari artikel ini</h2>
+                        <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+                            @foreach ($shoppable as $item)
+                                <article class="sf-card">
+                                    <div class="sf-card__body">
+                                        <h3 class="sf-clamp-2" style="font-size:.95rem">
+                                            <a href="{{ route('products.show', $item['slug']) }}" style="color:var(--sf-text)">{{ $item['name'] }}</a>
+                                        </h3>
+                                        <p class="sf-small sf-bold sf-mb-0">{{ $item['price_formatted'] }}</p>
+                                        <p class="sf-tiny sf-muted sf-mb-0">{{ $item['shop'] }}</p>
+                                    </div>
+                                </article>
+                            @endforeach
+                        </div>
+                    </section>
+                @endif
+                @if (! empty($moderation))
+                    <p class="sf-tiny sf-muted" style="margin-top:12px">{{ $moderation['note'] }}</p>
+                @endif
                 <div class="sf-row sf-row--wrap" style="gap:10px">
                     <a href="{{ route('blog.index') }}" class="sf-btn sf-btn--outline sf-btn--sm">
                         <x-storefront.icon name="chevron-left" :size="15" /> Semua artikel

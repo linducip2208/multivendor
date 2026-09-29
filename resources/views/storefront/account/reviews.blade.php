@@ -121,6 +121,18 @@
                                             @if ($review->comment)
                                                 <p class="sf-small sf-mb-0">{{ $review->comment }}</p>
                                             @endif
+                                            @if (! empty($review->photo_urls ?? $review->photos()))
+                                                <div class="sf-row sf-row--wrap" style="gap:8px;margin-top:8px">
+                                                    @foreach (array_slice((array) ($review->photo_urls ?? $review->photos()), 0, 4) as $photo)
+                                                        <img src="{{ $photo }}" alt="Foto ulasan {{ $review->product?->name ?? 'produk' }}" width="72" height="72"
+                                                             loading="lazy" decoding="async" style="width:72px;height:72px;border-radius:var(--sf-radius-xs);object-fit:cover">
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                            <p class="sf-tiny sf-muted sf-mb-0" style="margin-top:6px">
+                                                {{ \App\Support\Currency::number($review->helpful_count ?? $review->helpfulVotes()) }} orang merasa ulasan ini membantu
+                                                &middot; Status: {{ $review->status ? 'Disetujui' : 'Menunggu moderasi' }}
+                                            </p>
                                         </article>
                                     @endforeach
                                 </div>

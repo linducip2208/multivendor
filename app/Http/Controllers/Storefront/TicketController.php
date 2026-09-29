@@ -12,6 +12,12 @@ class TicketController extends Controller
     public function index()
     {
         $tickets = SupportTicket::where('customer_id', auth()->id())->latest()->paginate(10);
+        $tickets->getCollection()->transform(function (SupportTicket $ticket) {
+            $ticket->setAttribute('sla_summary', $ticket->sla());
+            $ticket->setAttribute('csat_summary', $ticket->csat());
+
+            return $ticket;
+        });
         return view('storefront.tickets.index', compact('tickets'));
     }
 
@@ -38,7 +44,12 @@ class TicketController extends Controller
     {
         if ($ticket->customer_id !== auth()->id()) abort(403);
         $ticket->load('replies.user');
-        return view('storefront.tickets.show', compact('ticket'));
+        return view('storefront.tickets.show', [
+            'ticket' => $ticket,
+            'sla' => $ticket->sla(),
+            'csat' => $ticket->csat(),
+            'macroHistory' => $ticket->macroHistory(),
+        ]);
     }
 
     public function reply(Request $request, SupportTicket $ticket)

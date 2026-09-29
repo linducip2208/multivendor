@@ -40,22 +40,24 @@ class AddressController extends ApiController
 
     public function store(Request $request): JsonResponse
     {
-        $data = $request->validate(self::RULES);
-        $customerId = (int) $request->user()->id;
+        return $this->idempotent($request, function () use ($request): JsonResponse {
+            $data = CustomerAddress::normalize($request->validate(self::RULES));
+            $customerId = (int) $request->user()->id;
 
-        $address = DB::transaction(function () use ($data, $customerId): CustomerAddress {
-            $isFirst = ! CustomerAddress::where('customer_id', $customerId)->exists();
+            $address = DB::transaction(function () use ($data, $customerId): CustomerAddress {
+                $isFirst = ! CustomerAddress::where('customer_id', $customerId)->exists();
 
-            if (($data['is_default'] ?? false) || $isFirst) {
-                CustomerAddress::where('customer_id', $customerId)->update(['is_default' => false]);
-            }
+                if (($data['is_default'] ?? false) || $isFirst) {
+                    CustomerAddress::where('customer_id', $customerId)->update(['is_default' => false]);
+                }
 
-            return CustomerAddress::create($data + ['customer_id' => $customerId, 'is_default' => (bool) ($data['is_default'] ?? $isFirst)]);
+                return CustomerAddress::create($data + ['customer_id' => $customerId, 'is_default' => (bool) ($data['is_default'] ?? $isFirst)]);
+            });
+
+            $this->markResource($request, 'customer_address', (int) $address->id);
+
+            return $this->created(new AddressResource($address->fresh()), 'Alamat ditambahkan');
         });
-
-        $this->markResource($request, 'customer_address', (int) $address->id);
-
-        return $this->created(new AddressResource($address), 'Alamat ditambahkan');
     }
 
     public function show(Request $request, int $address): JsonResponse
@@ -66,7 +68,7 @@ class AddressController extends ApiController
     public function update(Request $request, int $address): JsonResponse
     {
         $model = $this->owned($request, $address);
-        $data = $request->validate(self::RULES);
+        $data = CustomerAddress::normalize($request->validate(self::RULES));
 
         DB::transaction(function () use ($model, $data, $request): void {
             if ((bool) ($data['is_default'] ?? false)) {

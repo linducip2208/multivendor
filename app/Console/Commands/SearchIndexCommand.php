@@ -23,6 +23,7 @@ class SearchIndexCommand extends Command
         {--product= : Reindex a single product id}
         {--driver= : Override the configured search driver}
         {--stats : Print index statistics without writing}
+        {--suggest-pseo : Print PSEO template suggestions from real query patterns}
         {--dry-run : Build the documents but never call the remote engine}';
 
     protected $description = 'Build and push the denormalised search document index';
@@ -30,6 +31,16 @@ class SearchIndexCommand extends Command
     public function handle(SearchIndexer $indexer): int
     {
         $driver = strtolower((string) ($this->option('driver') ?: config('search.default', 'database')));
+
+        if ($this->option('suggest-pseo')) {
+            $suggestions = app(\App\Services\Seo\PseoService::class)->suggestionsFromSearchAnalytics(20);
+            $this->components->info(sprintf('%d saran template PSEO dari pola query nyata.', count($suggestions)));
+            foreach ($suggestions as $s) {
+                $this->line('• '.$s['query'].' ('.$s['hits'].' pencarian) → '.$s['template']);
+            }
+
+            return self::SUCCESS;
+        }
 
         if ($this->option('stats')) {
             return $this->stats($indexer);

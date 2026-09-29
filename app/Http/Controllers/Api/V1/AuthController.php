@@ -24,8 +24,9 @@ class AuthController extends ApiController
             'email' => 'required|email',
             'password' => 'required|string',
             'device_name' => 'nullable|string|max:120',
-            'scopes' => 'nullable|array|max:8',
-            'scopes.*' => 'string|in:read,write',
+            'scopes' => 'nullable|array|max:16',
+            'scopes.*' => 'string',
+            'expires_in_days' => 'nullable|integer|min:1|max:365',
         ]);
 
         $user = User::where('email', $data['email'])->first();
@@ -41,7 +42,8 @@ class AuthController extends ApiController
         $issued = $tokens->issue(
             $user,
             $data['device_name'] ?? 'api-client',
-            $this->scopesFor($user, $data['scopes'] ?? ['read', 'write'])
+            $this->scopesFor($user, $data['scopes'] ?? ['read', 'write']),
+            isset($data['expires_in_days']) ? now()->addDays((int) $data['expires_in_days'])->toDateTimeImmutable() : $tokens->defaultExpiry()
         );
 
         $this->markResource($request, 'personal_access_token', $issued['id']);
@@ -51,6 +53,7 @@ class AuthController extends ApiController
             'access_token' => $issued['token'],
             'token' => $issued['token'],
             'scopes' => $issued['scopes'],
+            'scopes_expanded' => $tokens->expandScopes($issued['scopes']),
             'expires_at' => $issued['expires_at'],
             'user' => new CustomerResource($user->load('wallet')),
         ], 'Login berhasil');
@@ -123,26 +126,43 @@ class AuthController extends ApiController
         return $this->ok(['revoked' => true], 'Token dicabut.');
     }
 
+    /** Rotasi token memakai endpoint revoke yang ada (aditif, tanpa route baru). */
+    public function rotateToken(Request $request, PersonalAccessTokenIssuer $tokens, string $token): JsonResponse
+    {
+        $data = $request->validate(['device_name' => 'nullable|string|max:120']);
+        $issued = $tokens->rotate($request->user(), $token, $data['device_name'] ?? 'api-client-rotated');
+        $this->markResource($request, 'personal_access_token', $issued['id']);
+
+        return $this->ok([
+            'token_type' => 'Bearer', 'access_token' => $issued['token'], 'token' => $issued['token'],
+            'scopes' => $issued['scopes'], 'scopes_expanded' => $tokens->expandScopes($issued['scopes']),
+            'expires_at' => $issued['expires_at'], 'rotated_from' => $issued['rotated_from'],
+        ], 'Token dirotasi. Token lama sudah dicabut.');
+    }
+
     private function scopesFor(User $user, array $requested): array
     {
+        $allowed = array_merge(['read', 'write'], PersonalAccessTokenIssuer::SCOPES);
         $requested = array_values(array_filter(
-            $requested,
-            static fn ($scope): bool => in_array($scope, ['read', 'write'], true)
+            array_map(static fn ($s): string => strtolower(trim((string) $s)), $requested),
+            static fn ($scope): bool => in_array($scope, $allowed, true)
         ));
 
         if ($requested === []) {
             $requested = ['read'];
         }
+        // Granular tanpa write dasar tidak diberi hak tulis.
+        $hasWrite = (bool) array_filter($requested, fn ($s) => $s === 'write' || str_ends_with($s, ':write'));
 
         if ($user->isAdmin()) {
-            return ['read', 'write', 'admin'];
+            return array_values(array_unique([...$requested, 'read', 'write', 'admin']));
         }
 
         if ($user->isVendor()) {
             return array_values(array_unique([...$requested, 'vendor']));
         }
 
-        return $requested;
+        return array_values(array_unique($hasWrite ? $requested : array_filter($requested, fn ($s) => ! str_ends_with($s, ':write') || $s === 'write')));
     }
 
     private function uniqueReferralCode(): string

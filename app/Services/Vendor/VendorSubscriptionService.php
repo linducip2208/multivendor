@@ -75,6 +75,8 @@ final class VendorSubscriptionService
             'consumption' => $this->consumption($usage, $entitlements),
             'plans' => $this->catalogue(),
             'current_plan_id' => $plan !== null ? (int) $plan->getKey() : null,
+            'grace_reminder' => $this->graceReminder($subscription),
+            'downgrade_suggestion' => $this->downgradeSuggestion($usage, $plan ? (int) $plan->getKey() : null),
         ];
     }
 
@@ -421,6 +423,71 @@ final class VendorSubscriptionService
         } catch (\Throwable) {
             return 0;
         }
+    }
+
+    /**
+     * Pengingat masa tenggang: sisa hari + urgensi, murni dari subscription aktif.
+     *
+     * @return array{active: bool, days_left: int|null, ends_at: string|null, message: string|null, urgent: bool}
+     */
+    public function graceReminder(?VendorSubscription $subscription): array
+    {
+        if ($subscription === null || $subscription->ends_at === null) {
+            return ['active' => false, 'days_left' => null, 'ends_at' => null, 'message' => null, 'urgent' => false];
+        }
+        $now = CarbonImmutable::now();
+        $endsAt = CarbonImmutable::instance($subscription->ends_at);
+        $daysLeft = $now->lessThan($endsAt) ? $now->diffInDays($endsAt) : 0;
+        $inGrace = (string) $subscription->status === 'grace';
+        $expiringSoon = ! $inGrace && $daysLeft <= 7;
+        if (! $inGrace && ! $expiringSoon) {
+            return ['active' => false, 'days_left' => $daysLeft, 'ends_at' => $endsAt->toDateTimeString(), 'message' => null, 'urgent' => false];
+        }
+        $graceEnds = $subscription->grace_ends_at ? CarbonImmutable::instance($subscription->grace_ends_at) : null;
+        $message = $inGrace
+            ? 'Masa tenggang berakhir '.($graceEnds?->format('d M Y') ?? '-').'. Perpanjang agar toko tidak terkunci.'
+            : 'Paket berakhir dalam '.$daysLeft.' hari ('.$endsAt->format('d M Y').'). Aktifkan perpanjangan otomatis atau perpanjang manual.';
+
+        return [
+            'active' => true,
+            'days_left' => $inGrace && $graceEnds !== null ? max(0, (int) CarbonImmutable::now()->diffInDays($graceEnds, false)) : $daysLeft,
+            'ends_at' => ($graceEnds ?? $endsAt)->toDateTimeString(),
+            'message' => $message,
+            'urgent' => $inGrace || $daysLeft <= 3,
+        ];
+    }
+
+    /**
+     * Usulan downgrade otomatis: paket termurah yang masih memuat pemakaian saat ini.
+     *
+     * @param  array<string, int>  $usage
+     * @return array{available: bool, plan_id: int|null, plan_name: string|null, reason: string}
+     */
+    public function downgradeSuggestion(array $usage, ?int $currentPlanId): array
+    {
+        $plans = SubscriptionPlan::query()->where('is_active', true)->orderBy('price')->get();
+        if ($plans->isEmpty()) {
+            return ['available' => false, 'plan_id' => null, 'plan_name' => null, 'reason' => 'Belum ada paket aktif.'];
+        }
+        $current = $currentPlanId !== null ? $plans->firstWhere('id', $currentPlanId) : null;
+        foreach ($plans as $plan) {
+            if ($current !== null && Money::of($plan->price)->compare(Money::of($current->price)) >= 0) {
+                continue;
+            }
+            $ent = $this->entitlements($plan);
+            $fits = true;
+            foreach ($ent as $key => $limit) {
+                if ($limit > 0 && ($usage[$key] ?? 0) > $limit) {
+                    $fits = false;
+                    break;
+                }
+            }
+            if ($fits) {
+                return ['available' => true, 'plan_id' => (int) $plan->getKey(), 'plan_name' => (string) $plan->name, 'reason' => 'Pemakaian saat ini masih muat di paket '.$plan->name.'.'];
+            }
+        }
+
+        return ['available' => false, 'plan_id' => null, 'plan_name' => null, 'reason' => 'Pemakaian saat ini membutuhkan paket setara atau lebih tinggi.'];
     }
 
     private function statusLabel(?VendorSubscription $subscription): array
