@@ -1,69 +1,101 @@
 @extends('layouts.storefront')
-@section('title', 'Produk')
 
 @section('content')
-<div class="container">
-    <div class="row g-4">
-        <div class="col-lg-3">
-            <div class="card border-0 shadow-sm rounded-4 p-3 mb-3">
-                <h6 class="fw-bold mb-3"><i class="fas fa-filter me-2"></i>Kategori</h6>
-                <div class="list-group list-group-flush">
-                    <a href="{{ route('products.index') }}" class="list-group-item list-group-item-action border-0 {{ !request('category') ? 'active' : '' }}">Semua</a>
-                    @foreach($categories as $cat)
-                    <a href="?category={{ $cat->slug }}" class="list-group-item list-group-item-action border-0 {{ request('category') === $cat->slug ? 'active' : '' }}">
-                        {{ $cat->name }}
-                    </a>
-                    @endforeach
+    @php
+        $shopFacet = collect($result->facets['shops'] ?? [])
+            ->map(fn (array $facet, $id) => (object) [
+                'id' => (int) $id,
+                'name' => $facet['name'] ?? '',
+                'slug' => $facet['slug'] ?? null,
+                'count' => $facet['count'] ?? null,
+            ])
+            ->filter(fn ($shop) => $shop->name !== '')
+            ->values();
+    @endphp
+
+    <div class="sf-container">
+        <nav aria-label="Breadcrumb" class="sf-breadcrumb">
+            <a href="{{ route('home') }}">Beranda</a>
+            <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
+            <span aria-current="page">Semua Produk</span>
+        </nav>
+    </div>
+
+    <section class="sf-section sf-section--tight" aria-labelledby="sf-catalog-title">
+        <div class="sf-container">
+            <div class="sf-section-head">
+                <div>
+                    <h1 class="sf-section-head__title" id="sf-catalog-title" style="font-size:clamp(1.4rem,1.1rem+1.2vw,2rem)">
+                        @if ($query->hasTerm())
+                            Hasil untuk &ldquo;{{ $query->term }}&rdquo;
+                        @else
+                            Semua Produk
+                        @endif
+                    </h1>
+                    <p class="sf-muted sf-small sf-mt-0">
+                        Telusuri katalog lengkap dari seluruh toko di platform.
+                    </p>
                 </div>
+                <button type="button" class="sf-btn sf-btn--outline sf-btn--sm" data-sf-drawer-open="filters"
+                        aria-label="Buka filter produk">
+                    <x-storefront.icon name="filter" :size="16" /> Filter
+                </button>
             </div>
-            <div class="card border-0 shadow-sm rounded-4 p-3">
-                <h6 class="fw-bold mb-3"><i class="fas fa-tag me-2"></i>Harga</h6>
-                <form method="GET">
-                    @if(request('category'))<input type="hidden" name="category" value="{{ request('category') }}">@endif
-                    <div class="mb-2"><input type="number" name="min_price" class="form-control form-control-sm" placeholder="Min Rp" value="{{ request('min_price') }}"></div>
-                    <div class="mb-2"><input type="number" name="max_price" class="form-control form-control-sm" placeholder="Max Rp" value="{{ request('max_price') }}"></div>
-                    <button class="btn btn-primary btn-sm w-100">Terapkan</button>
-                </form>
+
+            <div class="sf-layout">
+                <aside class="sf-filters" aria-label="Filter produk">
+                    <x-storefront.filters
+                        :categories="$categories"
+                        :brands="$brands"
+                        :shops="$shopFacet"
+                        :query="$query"
+                        :action="route('products.index')"
+                    />
+                </aside>
+
+                <div>
+                    <x-storefront.sort-bar :result="$result" :query="$query" :base-url="route('products.index')" />
+
+                    @if ($result->total === 0)
+                        <x-storefront.empty
+                            title="Produk tidak ditemukan"
+                            text="Tidak ada produk yang cocok dengan filter ini. Coba longgarkan filter atau gunakan kata kunci lain."
+                            :href="route('products.index')"
+                            label="Hapus semua filter"
+                            icon="box"
+                        />
+                    @else
+                        <div class="sf-products">
+                            @foreach ($products as $product)
+                                <x-storefront.product-card :product="$product" />
+                            @endforeach
+                        </div>
+
+                        <x-storefront.pagination :paginator="$products" />
+                    @endif
+                </div>
             </div>
         </div>
+    </section>
 
-        <div class="col-lg-9">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <h5 class="fw-bold mb-0">{{ request('category') ? ucfirst(request('category')) : 'Semua Produk' }}</h5>
-                    <small class="text-muted">{{ $products->total() }} produk ditemukan</small>
-                </div>
-                <div>
-                    <form method="GET" class="d-flex gap-2">
-                        @foreach(request()->except('search', 'sort') as $k => $v)
-                            <input type="hidden" name="{{ $k }}" value="{{ $v }}">
-                        @endforeach
-                        <input type="text" name="search" class="form-control form-control-sm" placeholder="Cari produk..." value="{{ request('search') }}" style="width:200px;">
-                        <select name="sort" class="form-select form-select-sm" onchange="this.form.submit()">
-                            <option value="latest" {{ request('sort') === 'latest' ? 'selected' : '' }}>Terbaru</option>
-                            <option value="price_low" {{ request('sort') === 'price_low' ? 'selected' : '' }}>Harga Rendah</option>
-                            <option value="price_high" {{ request('sort') === 'price_high' ? 'selected' : '' }}>Harga Tinggi</option>
-                        </select>
-                    </form>
-                </div>
+    <div id="drawer-filters" class="sf-drawer" data-sf-drawer="filters" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Filter produk">
+        <div class="sf-drawer__scrim" data-sf-drawer-close="filters"></div>
+        <div class="sf-drawer__panel" data-sf-drawer-panel>
+            <div class="sf-drawer__head">
+                <span class="sf-bold">Filter</span>
+                <button type="button" class="sf-iconbtn" data-sf-drawer-close="filters" aria-label="Tutup filter">
+                    <x-storefront.icon name="close" :size="20" />
+                </button>
             </div>
-
-            <div class="row g-3">
-                @forelse($products as $product)
-                <div class="col-6 col-md-4 col-lg-3">@include('storefront.products._card', ['product' => $product])</div>
-                @empty
-                <div class="col-12 text-center py-5">
-                    <i class="fas fa-box-open fa-4x text-muted mb-3 opacity-25"></i>
-                    <h5>Belum ada produk</h5>
-                    <p class="text-muted">Produk akan muncul setelah vendor menambahkan dan admin menyetujui.</p>
-                </div>
-                @endforelse
+            <div class="sf-drawer__body">
+                <x-storefront.filters
+                    :categories="$categories"
+                    :brands="$brands"
+                    :shops="$shopFacet"
+                    :query="$query"
+                    :action="route('products.index')"
+                />
             </div>
-
-            @if($products->hasPages())
-            <div class="mt-4">{{ $products->links() }}</div>
-            @endif
         </div>
     </div>
-</div>
 @endsection

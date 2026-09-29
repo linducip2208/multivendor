@@ -1,14 +1,93 @@
 @extends('layouts.admin')
-@section('title','Translation DB')
+
+@section('title', 'Translation Database')
+
+@section('breadcrumb')
+    <x-admin.breadcrumb :items="['System', ['label' => 'Translation']]" />
+@endsection
+
 @section('content')
-<h4 class="fw-bold mb-3"><i class="fas fa-language me-2 text-primary"></i> Translation Database</h4>
-<div class="card border-0 rounded-4 shadow-sm"><div class="card-body p-4"><form action="{{ route('admin.translation.update') }}" method="POST">@csrf @method('PUT')
-<div class="row g-2 mb-3"><div class="col-md-3"><input type="text" name="key" class="form-control form-control-sm" placeholder="Key (contoh: welcome_message)"></div><div class="col-md-3"><input type="text" name="group" class="form-control form-control-sm" placeholder="Group (contoh: frontend)" value="frontend"></div><div class="col-md-3"><input type="text" name="value_id" class="form-control form-control-sm" placeholder="Bahasa Indonesia"></div><div class="col-md-3"><input type="text" name="value_en" class="form-control form-control-sm" placeholder="English"></div></div>
-<button class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>Tambah</button>
-</form></div></div>
-<div class="card border-0 rounded-4 shadow-sm mt-3"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Key</th><th>Group</th><th>ID</th><th>EN</th></tr></thead><tbody>
-@foreach(\App\Models\Translation::orderBy('group')->orderBy('key')->get() as $t)
-<tr><td><code>{{ $t->key }}</code></td><td>{{ $t->group }}</td><td>{{ \App\Models\Translation::get('id',$t->group,$t->key) }}</td><td>{{ \App\Models\Translation::get('en',$t->group,$t->key) }}</td></tr>
-@endforeach
-</tbody></table></div></div>
+    <x-admin.page-header title="Database Terjemahan" subtitle="Kunci teks yang dipakai di seluruh aplikasi." />
+
+    <x-admin.card class="mb-3" title="Tambah Terjemahan" icon="plus">
+        <form method="POST" action="{{ route('admin.translation.update') }}">
+            @csrf
+            @method('PUT')
+            <div class="row g-3">
+                <div class="col-12 col-md-3">
+                    <x-admin.form-field
+                        name="key"
+                        label="Kunci"
+                        required
+                        :maxlength="160"
+                        placeholder="welcome_message"
+                        help="Hanya huruf, angka, titik, garis."
+                    />
+                </div>
+                <div class="col-12 col-md-2">
+                    <label class="form-label" for="translation-group">Grup</label>
+                    <select class="form-select" id="translation-group" name="group" required>
+                        @foreach ($groups as $group)
+                            <option value="{{ $group['value'] }}">{{ $group['label'] }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                @foreach ($locales as $locale)
+                    <div class="col-12 col-md-3">
+                        <x-admin.form-field
+                            :name="'values.'.$locale"
+                            :label="'Nilai ('.$locale.')'"
+                            required
+                            :maxlength="1000"
+                        />
+                    </div>
+                @endforeach
+            </div>
+            <div class="d-flex justify-content-end mt-3">
+                <button type="submit" class="btn btn-primary">Simpan Terjemahan</button>
+            </div>
+        </form>
+    </x-admin.card>
+
+    <x-admin.card class="mb-3" title="Filter" icon="filter">
+        <x-admin.filters
+            :action="route('admin.translation.index')"
+            :filters="[['name' => 'search', 'label' => 'Cari', 'placeholder' => 'Kunci atau nilai']]"
+        />
+    </x-admin.card>
+
+    <x-admin.card title="Daftar Terjemahan" icon="language" flush>
+        <div class="table-responsive">
+            <table class="table admin-table mb-0 table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col">Kunci</th>
+                        <th scope="col">Grup</th>
+                        <th scope="col">Locale</th>
+                        <th scope="col">Nilai</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($rows as $row)
+                        <tr>
+                            <td><code class="small">{{ $row['key'] }}</code></td>
+                            <td>{{ $row['group'] }}</td>
+                            <td><x-admin.badge :text="$row['locale']" color="info" pill /></td>
+                            <td>{{ $row['value'] }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="4">
+                                <x-admin.empty-state icon="language" title="Belum ada terjemahan" text="Tambahkan kunci pertama di atas." />
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-admin.card>
+
+    <div class="mt-3">
+        <x-admin.pagination :paginator="\App\Support\AdminPaginator::fromArray($pagination, $pagination['total'], $pagination['per_page'], $pagination['current_page'])" size="sm" />
+    </div>
 @endsection

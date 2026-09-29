@@ -1,54 +1,51 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers\Vendor;
 
 use App\Http\Controllers\Controller;
 use App\Models\DeliveryCashCollect;
-use App\Models\Order;
+use App\Services\Vendor\VendorCashCollectService;
+use App\Support\Currency;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
+/**
+ * Vendor view of cash-on-delivery custody.
+ *
+ * A COD collect is a record that a courier is holding the customer's cash, not
+ * a settlement event: the vendor's share is credited by the order workflow when
+ * the order is delivered. This controller therefore only flips the custody flag
+ * and posts to a vendor-guarded route, never to the delivery-guarded courier
+ * endpoint that rejected the vendor with a 403.
+ */
 class CashCollectController extends Controller
 {
-    public function index(Request $request)
+    public function __construct(private readonly VendorCashCollectService $cod) {}
+
+    public function index(Request $request): View
     {
-        $shop = auth('vendor')->user()->shop;
-        $deliveryManId = auth('vendor')->id();
+        $data = $this->cod->index(VendorScopeRequest::enum($request, 'status', ['pending', 'collected']));
 
-        $query = DeliveryCashCollect::where('delivery_man_id', $deliveryManId)
-            ->with(['order.shop']);
-
-        if ($request->filled('status')) {
-            if ($request->status === 'collected') {
-                $query->where('collected', true);
-            } elseif ($request->status === 'pending') {
-                $query->where('collected', false);
-            }
-        }
-
-        $collects = $query->latest()->paginate(20);
-        $totalPending = DeliveryCashCollect::where('delivery_man_id', $deliveryManId)
-            ->where('collected', false)
-            ->sum('amount');
-        $totalCollected = DeliveryCashCollect::where('delivery_man_id', $deliveryManId)
-            ->where('collected', true)
-            ->sum('amount');
-
-        return view('vendor.cash-collect.index', compact('collects', 'totalPending', 'totalCollected'));
+        return view('vendor.cash-collect.index', [
+            'collects' => $data['collects'],
+            'totalPending' => $data['pending'],
+            'totalCollected' => $data['collected'],
+            'total' => $data['total'],
+            'status' => VendorScopeRequest::enum($request, 'status', ['pending', 'collected']),
+            'currency' => Currency::config(),
+        ]);
     }
 
-    public function markCollected(DeliveryCashCollect $collect)
+    public function markCollected(Request $request, DeliveryCashCollect $collect): RedirectResponse
     {
-        if ($collect->delivery_man_id !== auth('vendor')->id()) {
-            abort(403);
-        }
+        $this->cod->markCollected($collect);
 
-        $collect->markCollected();
-
-        $dm = auth('vendor')->user();
-        if ($dm->wallet) {
-            $dm->wallet->credit($collect->amount, 'Cash collected from order #' . $collect->order->order_number);
-        }
-
-        return back()->with('success', 'Pembayaran COD #' . $collect->order->order_number . ' ditandai lunas.');
+        return back()->with(
+            'success',
+            'Serah terima COD untuk pesanan #'.$collect->order?->order_number.' dicatat. Saldo toko mengikuti settlement pesanan.'
+        );
     }
 }

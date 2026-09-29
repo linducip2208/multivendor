@@ -35,7 +35,17 @@ class PseoController extends Controller
     public function sourceCode(Request $request, $slug = null)
     {
         $label = $slug ? 'Source Code ' . ucwords(str_replace('-', ' ', $slug)) : 'Source Code Marketplace Indonesia';
-        return $this->renderPseo($request, $label, url('source-code' . ($slug ? "-{$slug}" : '')), $slug ?? 'marketplace');
+        $keyword = $slug ?? 'marketplace';
+
+        $seo = [
+            'title' => "{$label} — Source Code Marketplace Multi Vendor Indonesia",
+            'description' => "Butuh {$keyword}? Platform marketplace lengkap: multi vendor, payment gateway BYOK, kurir otomatis, POS, dompet digital, mesin promo, dan REST API. Source code siap pakai.",
+            'canonical' => url('source-code'.($slug ? "-{$slug}" : '')),
+            'label' => $label,
+            'keyword' => $keyword,
+        ];
+
+        return view('storefront.landing', $seo);
     }
 
     public function pengganti(Request $request, $slug)

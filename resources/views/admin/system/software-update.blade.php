@@ -1,16 +1,42 @@
 @extends('layouts.admin')
-@section('title', 'Software Update')
+
+@section('title', 'Pembaruan Software')
+
+@section('breadcrumb')
+    <x-admin.breadcrumb :items="['System', ['label' => 'Pembaruan']]" />
+@endsection
+
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><i class="fas fa-sync-alt me-2"></i>Software Update</h4></div>
-<div class="card border-0 rounded-4 shadow-sm" style="max-width:500px">
-    <div class="card-body">
-        <div class="mb-3"><label class="fw-medium">Versi Saat Ini</label><div class="fs-4 fw-bold">{{ $currentVersion }}</div></div>
-        <div class="mb-3"><label class="fw-medium">Terakhir Cek Update</label><div>{{ $lastUpdate }}</div></div>
-        <form method="POST" action="{{ route('admin.system.check-update') }}">
-            @csrf
-            <button type="submit" class="btn btn-primary"><i class="fas fa-sync-alt me-2"></i>Cek Update Sekarang</button>
-        </form>
-        <div class="mt-3 small text-muted">Update manual: git pull origin main && composer install && php artisan migrate && php artisan optimize</div>
+    <x-admin.page-header title="Pembaruan Software" subtitle="Versi terpasang dan hasil pemeriksaan terakhir." />
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-7">
+            <x-admin.card title="Versi Terpasang" icon="package" class="mb-3">
+                <dl class="row small mb-0">
+                    <dt class="col-6 text-secondary">Versi aplikasi</dt>
+                    <dd class="col-6 text-end fw-semibold">{{ $currentVersion }}</dd>
+                    <dt class="col-6 text-secondary">Laravel</dt>
+                    <dd class="col-6 text-end">{{ $laravel }}</dd>
+                    <dt class="col-6 text-secondary">PHP</dt>
+                    <dd class="col-6 text-end">{{ $php }}</dd>
+                    <dt class="col-6 text-secondary">Pemeriksaan terakhir</dt>
+                    <dd class="col-6 text-end">{{ $lastUpdate }}</dd>
+                </dl>
+            </x-admin.card>
+
+            <x-admin.alert type="info" :dismissible="false" title="Cara memperbarui" icon="info">
+                Jalankan <code>composer update</code> lalu <code>php artisan migrate --force</code> di server. Halaman ini hanya mencatat waktu pemeriksaan, bukan mengunduh apa pun.
+            </x-admin.alert>
+        </div>
+
+        <div class="col-12 col-lg-5">
+            <x-admin.card title="Periksa Pembaruan" icon="refresh" class="h-100">
+                <p class="small text-secondary">Mencatat waktu pemeriksaan terakhir pada pengaturan sistem.</p>
+                <form method="POST" action="{{ route('admin.system.software-update') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-primary w-100">Periksa Sekarang</button>
+                </form>
+            </x-admin.card>
+        </div>
     </div>
-</div>
 @endsection

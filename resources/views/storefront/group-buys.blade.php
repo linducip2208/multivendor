@@ -1,56 +1,115 @@
 @extends('layouts.storefront')
-@section('title', 'Group Buy — Beli Bareng Diskon Besar')
+
 @section('content')
-<div class="container">
-    <h4 class="fw-bold mb-4"><i class="fas fa-users me-2 text-success"></i> Group Buy — Beli Bareng, Diskon Lebih Besar</h4>
-    <div class="row g-4">
-        @forelse($groups as $g)
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm rounded-4 h-100">
-                <div class="card-body p-4">
-                    <div class="d-flex gap-3 align-items-start">
-                        <div class="bg-light rounded-3 d-flex align-items-center justify-content-center flex-shrink-0" style="width:80px;height:80px;">
-                            @if($g->product->thumbnail)
-                                @php $img = str_starts_with($g->product->thumbnail,'http') ? $g->product->thumbnail : url('img/'.$g->product->thumbnail); @endphp
-                                <img src="{{ $img }}" style="width:80px;height:80px;object-fit:contain;" class="rounded-3">
-                            @else
-                                <i class="fas fa-box fa-2x text-muted opacity-25"></i>
-                            @endif
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="fw-bold">{{ $g->product->name }}</h6>
-                            <small class="text-muted">{{ $g->product->shop->name ?? '' }}</small>
-                            <div class="mt-2">
-                                <span class="text-muted text-decoration-line-through">Rp {{ number_format($g->product->price,0,',','.') }}</span>
-                                <span class="fw-bold text-success fs-5 ms-2">Rp {{ number_format($g->special_price,0,',','.') }}</span>
-                                <span class="badge bg-danger ms-2">-{{ $g->discount_percentage }}%</span>
-                            </div>
-                            <div class="mt-2">
-                                <small class="text-muted">Terkumpul: {{ $g->current_count }} / {{ $g->target_count }} peserta</small>
-                                <div class="progress mt-1" style="height:8px;">
-                                    <div class="progress-bar bg-success" style="width:{{ min(100, ($g->current_count / $g->target_count) * 100) }}%"></div>
+    <div class="sf-container">
+        <nav aria-label="Breadcrumb" class="sf-breadcrumb">
+            <a href="{{ route('home') }}">Beranda</a>
+            <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
+            <span aria-current="page">Group Buy</span>
+        </nav>
+    </div>
+
+    <section class="sf-section" aria-labelledby="sf-groupbuy-title">
+        <div class="sf-container">
+            <div class="sf-section-head">
+                <div>
+                    <h1 class="sf-section-head__title" id="sf-groupbuy-title">Group Buy</h1>
+                    <p class="sf-muted sf-small sf-mt-0" style="max-width:60ch">
+                        Gabung dengan pembeli lain untuk mendapat harga khusus saat target peserta tercapai.
+                    </p>
+                </div>
+                <a href="{{ route('products.index') }}" class="sf-section-head__link">
+                    Semua produk <x-storefront.icon name="arrow-right" :size="16" />
+                </a>
+            </div>
+
+            @if ($groups->isNotEmpty())
+                <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+                    @foreach ($groups as $group)
+                        @php
+                            $target = max(1, (int) $group->target_count);
+                            $current = (int) $group->current_count;
+                            $progress = min(100, (int) round($current / $target * 100));
+                            $price = (float) ($group->special_price ?: 0);
+                        @endphp
+                        <article class="sf-card">
+                            <div class="sf-card__body">
+                                <a href="{{ $group->product?->storefront_url ?? route('products.index') }}" tabindex="-1" aria-hidden="true">
+                                    @if ($group->product?->thumbnail_url)
+                                        <img src="{{ $group->product->thumbnail_url }}" alt="" width="560" height="420" loading="lazy" decoding="async"
+                                             style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--sf-radius-sm);background:var(--sf-bg-muted)">
+                                    @else
+                                        <span class="sf-row" style="aspect-ratio:4/3;border-radius:var(--sf-radius-sm);background:var(--sf-bg-muted);justify-content:center;color:var(--sf-text-subtle)">
+                                            <x-storefront.icon name="image" :size="30" />
+                                        </span>
+                                    @endif
+                                </a>
+
+                                <h2 class="sf-mb-0" style="font-size:1rem;margin-top:12px">
+                                    <a href="{{ $group->product?->storefront_url ?? route('products.index') }}" style="color:var(--sf-text)">
+                                        {{ $group->product?->name ?? 'Produk grup' }}
+                                    </a>
+                                </h2>
+
+                                @if ($group->product?->shop)
+                                    <p class="sf-small sf-muted sf-mb-0">
+                                        <x-storefront.icon name="store" :size="13" /> {{ $group->product->shop->name }}
+                                    </p>
+                                @endif
+
+                                <div class="sf-row sf-row--wrap" style="gap:10px;margin-top:10px">
+                                    <x-storefront.price
+                                        :amount="$price > 0 ? $price : (float) ($group->product?->price ?? 0)"
+                                        :compare-at="$price > 0 ? (float) ($group->product?->price ?? 0) : null"
+                                    />
+                                    @if ((float) $group->discount_percentage > 0)
+                                        <span class="sf-badge sf-badge--solid-danger">-{{ \App\Support\Currency::number($group->discount_percentage) }}%</span>
+                                    @endif
                                 </div>
+
+                                <div style="margin-top:14px">
+                                    <div class="sf-row sf-row--between sf-small sf-muted" style="gap:8px;margin-bottom:6px">
+                                        <span>{{ \App\Support\Currency::number($current) }} dari {{ \App\Support\Currency::number($target) }} peserta</span>
+                                        <span>{{ \App\Support\Currency::number($progress) }}%</span>
+                                    </div>
+                                    <span class="sf-rating-bar__track" style="display:block" role="img"
+                                          aria-label="Partisipasi grup {{ $current }} dari {{ $target }} peserta">
+                                        <span class="sf-rating-bar__fill" style="display:block;width:{{ $progress }}%"></span>
+                                    </span>
+                                </div>
+
+                                @if ($group->end_date)
+                                    <p class="sf-small sf-muted sf-row sf-mb-0" style="gap:6px;margin-top:12px">
+                                        <x-storefront.icon name="clock" :size="14" /> Berakhir
+                                        <time datetime="{{ $group->end_date->toAtomString() }}">{{ $group->end_date->translatedFormat('d M Y H:i') }}</time>
+                                    </p>
+                                @endif
                             </div>
-                            <div class="mt-2 d-flex justify-content-between align-items-center">
-                                <small class="text-muted">Berakhir: {{ $g->end_date->format('d M Y H:i') }}</small>
+
+                            <div class="sf-card__foot">
                                 @auth
-                                <form action="{{ route('group-buys.join', $g) }}" method="POST">@csrf<button class="btn btn-success btn-sm"><i class="fas fa-user-plus me-1"></i>Ikut</button></form>
+                                    <form method="POST" action="{{ route('group-buys.join', $group) }}">
+                                        @csrf
+                                        <button type="submit" class="sf-btn sf-btn--primary sf-btn--block">
+                                            <x-storefront.icon name="user" :size="16" /> Gabung group buy
+                                        </button>
+                                    </form>
+                                @else
+                                    <a href="{{ route('login') }}" class="sf-btn sf-btn--primary sf-btn--block">Masuk untuk bergabung</a>
                                 @endauth
                             </div>
-                        </div>
-                    </div>
+                        </article>
+                    @endforeach
                 </div>
-            </div>
+            @else
+                <x-storefront.empty
+                    title="Belum ada group buy aktif"
+                    text="Belum ada grup yang sedang berjalan. Silakan cek kembali nanti atau jelajahi katalog kami."
+                    :href="route('products.index')"
+                    label="Jelajahi katalog"
+                    icon="user"
+                />
+            @endif
         </div>
-        @empty
-        <div class="col-12 empty-state">
-            <i class="fas fa-users"></i>
-            <h5>Belum ada Group Buy</h5>
-            <p class="text-muted">Group buy akan muncul saat admin membuat campaign beli bareng.</p>
-            <a href="{{ route('products.index') }}" class="btn btn-primary">Lihat Produk</a>
-        </div>
-        @endforelse
-    </div>
-    {{ $groups->links() }}
-</div>
+    </section>
 @endsection

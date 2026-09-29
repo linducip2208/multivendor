@@ -13,6 +13,13 @@
       0 => 'Laravel\\Pao\\Laravel\\ServiceProvider',
     ),
   ),
+  'laravel/sanctum' => 
+  array (
+    'providers' => 
+    array (
+      0 => 'Laravel\\Sanctum\\SanctumServiceProvider',
+    ),
+  ),
   'laravel/socialite' => 
   array (
     'aliases' => 

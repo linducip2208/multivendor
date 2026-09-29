@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -7,6 +9,9 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Throwable;
 
 #[Fillable([
     'shop_id', 'category_id', 'brand_id', 'name', 'slug', 'description',
@@ -16,14 +21,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
     'discount_start', 'discount_end', 'tax', 'tax_type', 'shipping_cost',
     'shipping_cost_type', 'multiply_qty', 'meta_title', 'meta_description',
     'meta_image', 'video_url', 'digital_file', 'request_status', 'approved_by',
-    'approved_at', 'status'
+    'approved_at', 'status',
+    'rating_average', 'rating_count', 'sold_count', 'view_count', 'search_keywords',
+    'warranty', 'warranty_unit', 'condition', 'low_stock_threshold', 'seo_score'
 ])]
 class Product extends Model
 {
     protected function casts(): array
     {
         return [
-            'images' => 'json',
+            'images' => 'array',
             'refundable' => 'boolean',
             'featured' => 'boolean',
             'published' => 'boolean',
@@ -32,6 +39,12 @@ class Product extends Model
             'special_price' => 'decimal:2',
             'tax' => 'decimal:2',
             'shipping_cost' => 'decimal:2',
+            'rating_average' => 'decimal:2',
+            'rating_count' => 'integer',
+            'sold_count' => 'integer',
+            'view_count' => 'integer',
+            'low_stock_threshold' => 'integer',
+            'seo_score' => 'integer',
             'discount_start' => 'datetime',
             'discount_end' => 'datetime',
             'approved_at' => 'datetime',
@@ -68,6 +81,21 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
+    public function attributes(): HasMany
+    {
+        return $this->hasMany(ProductAttribute::class);
+    }
+
+    public function stocks(): HasMany
+    {
+        return $this->hasMany(ProductStock::class);
+    }
+
+    public function movementHistory(): HasMany
+    {
+        return $this->hasMany(StockMovement::class);
+    }
+
     public function coupons(): BelongsToMany
     {
         return $this->belongsToMany(Coupon::class, 'coupon_product');
@@ -83,17 +111,149 @@ class Product extends Model
         return $this->belongsToMany(ProductTag::class, 'product_tag_pivot', 'product_id', 'product_tag_id');
     }
 
+    public function getThumbnailUrlAttribute(): ?string
+    {
+        if (empty($this->thumbnail)) {
+            return null;
+        }
+
+        return url('img/'.ltrim((string) $this->thumbnail, '/'));
+    }
+
+    public function getStorefrontUrlAttribute(): string
+    {
+        try {
+            return route('products.show', $this->slug);
+        } catch (Throwable) {
+            return url('products/'.$this->slug);
+        }
+    }
+
+    public function getIsOutOfStockAttribute(): bool
+    {
+        return (int) $this->current_stock <= 0;
+    }
+
+    public function getIsLowStockAttribute(): bool
+    {
+        $stock = (int) $this->current_stock;
+
+        return $stock > 0 && $stock <= (int) $this->low_stock_threshold;
+    }
+
+    public function hasActiveSpecialPrice(): bool
+    {
+        if ($this->special_price === null) {
+            return false;
+        }
+
+        if ($this->discount_start !== null && $this->discount_start > now()) {
+            return false;
+        }
+
+        if ($this->discount_end !== null && $this->discount_end < now()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public function isOnSale(): bool
+    {
+        return $this->hasActiveSpecialPrice() && (float) $this->special_price < (float) $this->price;
+    }
+
+    public function flashDealPrice(): ?float
+    {
+        if ($this->id === null) {
+            return null;
+        }
+
+        $base = $this->hasActiveSpecialPrice() ? (float) $this->special_price : (float) $this->price;
+
+        try {
+            $query = DB::table('flash_deal_products as fdp')
+                ->join('flash_deals as fd', 'fd.id', '=', 'fdp.flash_deal_id')
+                ->where('fdp.product_id', $this->id)
+                ->where('fd.status', true)
+                ->where('fd.start_date', '<=', now())
+                ->where('fd.end_date', '>=', now());
+
+            if (static::hasDiscountedPriceColumn()) {
+                $value = (float) $query->min('fdp.discounted_price');
+
+                return $value > 0 ? min($value, $base) : null;
+            }
+
+            $best = null;
+
+            foreach ($query->get(['fdp.discount_type', 'fdp.discount_value']) as $row) {
+                $price = $this->priceFromFlashDealRow($row, $base);
+
+                if ($price !== null && $price > 0 && ($best === null || $price < $best)) {
+                    $best = $price;
+                }
+            }
+
+            return $best === null ? null : min($best, $base);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     public function getEffectivePrice(): float
     {
-        if ($this->special_price && (!$this->discount_start || $this->discount_start <= now()) && (!$this->discount_end || $this->discount_end >= now())) {
-            return (float) $this->special_price;
+        $base = $this->hasActiveSpecialPrice() ? (float) $this->special_price : (float) $this->price;
+
+        $flash = $this->flashDealPrice();
+
+        if ($flash !== null && $flash > 0 && $flash < $base) {
+            return $flash;
         }
-        return (float) $this->price;
+
+        return $base;
     }
 
     public function getDiscountPercentage(): ?int
     {
-        if (!$this->special_price || $this->price <= 0) return null;
-        return (int) round((($this->price - $this->special_price) / $this->price) * 100);
+        if (! $this->hasActiveSpecialPrice()) {
+            return null;
+        }
+
+        if ((float) $this->price <= 0) {
+            return null;
+        }
+
+        return (int) round(((float) $this->price - (float) $this->special_price) / (float) $this->price * 100);
+    }
+
+    private function priceFromFlashDealRow(object $row, float $base): ?float
+    {
+        $value = (float) ($row->discount_value ?? 0);
+
+        if ($value <= 0) {
+            return null;
+        }
+
+        if (($row->discount_type ?? null) === 'flat') {
+            return max(0.0, $base - $value);
+        }
+
+        return max(0.0, $base - ($base * $value / 100));
+    }
+
+    private static function hasDiscountedPriceColumn(): bool
+    {
+        static $exists = null;
+
+        if ($exists === null) {
+            try {
+                $exists = Schema::hasColumn('flash_deal_products', 'discounted_price');
+            } catch (Throwable) {
+                $exists = false;
+            }
+        }
+
+        return $exists;
     }
 }

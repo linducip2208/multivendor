@@ -9,6 +9,11 @@ use App\Models\Product;
 use App\Models\ProductTag;
 use App\Models\ProductVariant;
 use App\Services\HtmlSanitizer;
+use App\Services\Vendor\VendorInventoryService;
+use App\Services\Vendor\VendorProductPricingService;
+use App\Support\Currency;
+use Illuminate\Contracts\View\View;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -188,5 +193,41 @@ class ProductController extends Controller
         $product->delete();
 
         return redirect()->route('vendor.products.index')->with('success', 'Produk berhasil dihapus.');
+    }
+
+    public function lowStock(Request $request, VendorInventoryService $inventory): View
+    {
+        $data = $inventory->overview(VendorScopeRequest::search($request), 'low');
+
+        return view('vendor.products.low-stock', [
+            'products' => $data['products'],
+            'stats' => $data['stats'],
+            'search' => $data['search'],
+        ]);
+    }
+
+    public function bulkPriceUpdate(Request $request, VendorProductPricingService $pricing): RedirectResponse
+    {
+        $validated = $request->validate([
+            'products' => ['required', 'array', 'min:1'],
+            'products.*' => ['integer'],
+            'mode' => ['required', 'in:increase,decrease,set,margin'],
+            'value' => ['required', 'numeric', 'min:0', 'max:1000000000000'],
+            'status' => ['nullable', 'in:pending,approved,suspended'],
+        ], [
+            'products.required' => 'Pilih minimal satu produk untuk diperbarui.',
+        ]);
+
+        $result = $pricing->bulkReprice(
+            $validated['products'],
+            $validated['mode'],
+            $validated['value'],
+            ['status' => $validated['status'] ?? null],
+        );
+
+        return back()->with(
+            'success',
+            $result['updated'].' produk diperbarui. Total nilai katalog '.Currency::format($result['after']->toFloat()).'.'
+        );
     }
 }

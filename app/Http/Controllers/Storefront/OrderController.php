@@ -27,7 +27,7 @@ class OrderController extends Controller
             abort(403);
         }
 
-        $order->load(['shop', 'items.product', 'items.variant', 'statusHistory', 'transaction']);
+        $order->load(['shop', 'items.product', 'items.variant', 'statusHistory', 'transaction', 'refunds', 'returns']);
 
         return view('storefront.orders.show', compact('order'));
     }

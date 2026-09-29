@@ -1,13 +1,76 @@
 @extends('layouts.vendor')
+@include('vendor.partials.helpers')
+
 @section('title', 'Refund')
+@section('subtitle', 'Pengajuan refund pada pesanan toko Anda')
+
+@section('breadcrumb', [
+    ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
+    ['label' => 'Refund'],
+])
+
+@section('actions')
+    <a href="{{ route('vendor.returns.index') }}" class="btn btn-outline-secondary">
+        <x-admin.icon name="rotate-ccw" :size="16" class="me-1" />
+        <span>Retur</span>
+    </a>
+@endsection
+
 @section('content')
-<h4 class="fw-bold mb-1"><i class="fas fa-undo me-2 text-warning"></i> Refund</h4>
-<p class="text-muted small mb-3">Permintaan refund dari customer</p>
-<div class="card border-0 rounded-4 shadow-sm"><div class="p-3 border-bottom"><form method="GET" class="row g-2"><div class="col-md-2"><select name="status" class="form-select form-select-sm"><option value="">Semua</option><option value="requested" {{ request('status')==='requested'?'selected' : '' }}>Requested</option><option value="approved" {{ request('status')==='approved'?'selected' : '' }}>Approved</option><option value="rejected" {{ request('status')==='rejected'?'selected' : '' }}>Rejected</option></select></div><div class="col-md-2"><button class="btn btn-outline-primary btn-sm w-100"><i class="fas fa-filter me-1"></i>Filter</button></div></form></div>
-<div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Order</th><th>Produk</th><th>Qty</th><th>Harga</th><th>Alasan</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
-@forelse($refunds as $r)
-<tr><td><small>{{ $r->order->order_number ?? '-' }}</small></td><td>{{ $r->product->name ?? '-' }}</td><td>{{ $r->quantity }}</td><td>Rp {{ number_format($r->price,0,',','.') }}</td><td><small>{{ $r->refund_reason ?? '-' }}</small></td><td><span class="badge bg-{{ $r->refund_status==='requested'?'warning':($r->refund_status==='approved'?'success' : 'danger') }}-subtle">{{ $r->refund_status }}</span></td>
-<td>@if($r->refund_status==='requested')<div class="d-flex gap-1"><form action="{{ route('vendor.refund.update', $r) }}" method="POST">@csrf @method('PUT')<input type="hidden" name="status" value="approved"><button class="btn btn-sm btn-success">Setuju</button></form><form action="{{ route('vendor.refund.update', $r) }}" method="POST">@csrf @method('PUT')<input type="hidden" name="status" value="rejected"><button class="btn btn-sm btn-danger">Tolak</button></form></div>@endif</td></tr>
-@empty<tr><td colspan="7" class="text-center py-5 text-muted">Belum ada refund</td></tr>@endforelse
-</tbody></table></div>@if($refunds->hasPages())<div class="p-3">{{ $refunds->links() }}</div>@endif</div>
+    @php
+        $statusOptions = ['' => 'Semua status'] + collect([
+            'none' => 'Tidak diminta',
+            'requested' => ['Diajukan', 'warning'],
+            'approved' => ['Disetujui', 'info'],
+            'rejected' => ['Ditolak', 'danger'],
+            'refunded' => ['Selesai', 'success'],
+        ])->map(fn ($row, $key) => $key.' ('.Currency::number((int) ($counts[$key] ?? 0)).')')->all();
+    @endphp
+
+    <x-admin.filters
+        :action="route('vendor.refund.index')"
+        :filters="[
+            ['name' => 'status', 'label' => 'Status', 'type' => 'select', 'value' => $status, 'options' => $statusOptions],
+            ['name' => 'search', 'label' => 'Nomor pesanan', 'placeholder' => 'Cari pesanan'],
+        ]"
+    />
+
+    <x-admin.card :padding="false">
+        <x-admin.table>
+            <x-slot:table>
+                \App\Support\TableBuilder::make()
+                    ->columns([
+                        'item' => ['label' => 'Produk', 'width' => '28%'],
+                        'order' => ['label' => 'Pesanan'],
+                        'amount' => ['label' => 'Nominal', 'align' => 'end'],
+                        'reason' => ['label' => 'Alasan'],
+                        'status' => ['label' => 'Status'],
+                        'date' => ['label' => 'Diminta', 'align' => 'end'],
+                        'actions' => ['label' => '', 'align' => 'end', 'width' => '200px'],
+                    ])
+                    ->rows(
+                        $refunds->map(fn ($item) => [
+                            'item' => '<span class="fw-medium d-block text-truncate">'.e($item->product?->name ?? 'Produk dihapus').'</span><span class="text-secondary small">'.e($item->quantity).' unit</span>',
+                            'order' => '<a href="'.route('vendor.orders.show', $item->order_id).'" class="fw-medium">'.e($item->order?->order_number ?? '—').'</a>',
+                            'amount' => '<span class="fw-medium">'.e(Currency::format($item->refund_amount ?: $item->sub_total)).'</span>',
+                            'reason' => '<span class="text-secondary small">'.e(\Illuminate\Support\Str::limit((string) $item->refund_reason, 60) ?: '—').'</span>',
+                            'status' => $__status($item->refund_status),
+                            'date' => '<span class="text-secondary small">'.e($item->refund_requested_at ? \Carbon\Carbon::parse($item->refund_requested_at)->format('d/m/Y') : '—').'</span>',
+                            'actions' => in_array($item->refund_status, $decisions, true)
+                                ? '<form method="POST" action="'.route('vendor.refund.update', $item->id).'" class="row g-1 justify-content-end" data-confirm="Kirim keputusan refund untuk produk ini?">'
+                                    .csrf().'@method("PUT")'
+                                    .'<div class="col-auto"><input type="hidden" name="status" value="approved">'
+                                    .'<button type="submit" class="btn btn-sm btn-success">Setujui</button></div>'
+                                    .'<div class="col-auto"><input type="hidden" name="status" value="rejected">'
+                                    .'<button type="submit" class="btn btn-sm btn-outline-danger">Tolak</button></div>'
+                                    .'</form>'
+                                : '<span class="text-secondary small">Menunggu keputusan</span>',
+                        ])->all()
+                    )
+                    ->empty('Belum ada pengajuan refund.')
+            </x-slot:table>
+        </x-admin.table>
+    </x-admin.card>
+
+    <x-admin.pagination :paginator="$refunds" class="mt-3" />
 @endsection

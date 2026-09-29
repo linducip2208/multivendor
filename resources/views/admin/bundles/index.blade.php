@@ -1,7 +1,103 @@
 @extends('layouts.admin')
-@section('title','Product Bundles')
+
+@section('title', 'Product Bundles')
+
+@section('breadcrumb')
+    <x-admin.breadcrumb :items="['Commerce', ['label' => 'Bundling']]" />
+@endsection
+
 @section('content')
-<div class="d-flex justify-content-between mb-4"><h4 class="fw-bold"><i class="fas fa-cubes me-2 text-primary"></i>Product Bundles</h4><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#bundleModal"><i class="fas fa-plus me-2"></i>Buat Bundle</button></div>
-<div class="row g-4">@forelse($bundles as $b)<div class="col-md-4"><div class="card border-0 rounded-4 shadow-sm h-100"><div class="card-body p-4"><h6 class="fw-bold">{{ $b->title }}</h6><span class="badge bg-success mb-2">Diskon {{ $b->discount_percentage }}%</span><div class="small">@foreach($b->products as $p)<div class="border-bottom py-1">{{ $p->name }} <small class="text-muted">Rp {{ number_format($p->price,0,',','.') }}</small></div>@endforeach</div><div class="mt-2"><form action="{{ route('admin.bundles.destroy',$b) }}" method="POST">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger">Hapus</button></form></div></div></div></div>@empty<div class="col-12 text-center py-5 text-muted">Belum ada bundle</div>@endforelse</div>
-<div class="modal fade" id="bundleModal"><div class="modal-dialog"><div class="modal-content"><form action="{{ route('admin.bundles.store') }}" method="POST">@csrf<div class="modal-header"><h6>Buat Bundle Baru</h6></div><div class="modal-body"><input type="text" name="title" class="form-control mb-2" placeholder="Nama bundle" required><input type="number" name="discount_percentage" class="form-control mb-2" value="10" placeholder="Diskon %"><select name="product_ids[]" class="form-select" multiple size="10" required>@foreach(\App\Models\Product::where('status','approved')->get() as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach</select></div><div class="modal-footer"><button class="btn btn-primary">Simpan</button></div></form></div></div></div>
+    <x-admin.page-header title="Product Bundles" subtitle="Grup produk yang dijual bersama dengan potongan harga.">
+        <x-slot:actions>
+            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#bundle-modal" aria-haspopup="dialog">
+                <x-admin.icon name="plus" :size="14" /> Buat Bundle
+            </button>
+        </x-slot:actions>
+    </x-admin.page-header>
+
+    <x-admin.card title="Daftar Bundle" icon="boxes" flush>
+        <div class="table-responsive">
+            <table class="table admin-table mb-0 table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col">Judul</th>
+                        <th scope="col" class="text-end">Diskon</th>
+                        <th scope="col" class="text-end">Produk</th>
+                        <th scope="col">Dibuat</th>
+                        <th scope="col" class="text-center">Status</th>
+                        <th scope="col" class="text-end">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($bundles as $bundle)
+                        <tr>
+                            <td class="fw-semibold">{{ $bundle['title'] }}</td>
+                            <td class="text-end">
+                                <x-admin.badge :text="number_format($bundle['discount_percentage'], 1, ',', '.').'%" color="success" pill />
+                            </td>
+                            <td class="text-end">{{ number_format($bundle['product_count'], 0, ',', '.') }}</td>
+                            <td class="text-nowrap">{{ $bundle['created_at'] }}</td>
+                            <td class="text-center">
+                                <x-admin.badge :text="$bundle['is_active'] ? 'Aktif' : 'Nonaktif'" :color="$bundle['is_active'] ? 'success' : 'secondary'" pill />
+                            </td>
+                            <td class="text-end">
+                                <x-admin.confirmation-form
+                                    :action="route('admin.bundles.destroy', $bundle['id'])"
+                                    message="Bundle beserta seluruh produknya akan dihapus. Lanjutkan?"
+                                    label="Hapus"
+                                    variant="outline-danger"
+                                    icon="trash"
+                                    size="btn-sm"
+                                />
+                            </td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="6">
+                                <x-admin.empty-state
+                                    icon="boxes"
+                                    title="Belum ada bundle"
+                                    text="Buat bundling pertama untuk menawarkan beberapa produk sekaligus."
+                                />
+                            </td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </x-admin.card>
+
+    <x-admin.modal id="bundle-modal" title="Buat Bundle" icon="plus" size="sm">
+        <form method="POST" action="{{ route('admin.bundles.store') }}">
+            @csrf
+            <div class="row g-3">
+                <div class="col-12">
+                    <x-admin.form-field name="title" label="Judul Bundle" required :maxlength="160" />
+                </div>
+                <div class="col-6">
+                    <x-admin.form-field name="discount_percentage" label="Diskon (%)" type="number" value="10" :min="0" :max="100" :step="0.01" />
+                </div>
+                <div class="col-6 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input type="hidden" name="is_active" value="0">
+                        <input class="form-check-input" type="checkbox" name="is_active" value="1" id="bundle-active" checked>
+                        <label class="form-check-label" for="bundle-active">Aktif</label>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="bundle-products">Produk</label>
+                    <select class="form-select" id="bundle-products" name="product_ids[]" multiple size="8" required data-multi-select>
+                        @foreach ($productOptions as $product)
+                            <option value="{{ $product['id'] }}">{{ $product['name'] }} — {{ $product['price_formatted'] }}</option>
+                        @endforeach
+                    </select>
+                    <small class="text-secondary">Tahan Ctrl/Cmd untuk memilih beberapa produk.</small>
+                </div>
+            </div>
+            <div class="d-flex justify-content-end gap-2 mt-3">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" class="btn btn-primary">Simpan Bundle</button>
+            </div>
+        </form>
+    </x-admin.modal>
 @endsection

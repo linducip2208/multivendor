@@ -1,71 +1,316 @@
 @extends('layouts.vendor')
-@section('title', 'POS')
+@include('vendor.partials.helpers')
+
+@section('title', 'Kasir (POS)')
+@section('subtitle', $shop->name)
+
+@section('breadcrumb', [
+    ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
+    ['label' => 'POS'],
+])
+
+@section('actions')
+    <a href="{{ route('vendor.pos.held') }}" class="btn btn-outline-secondary">
+        <x-admin.icon name="clock" :size="16" class="me-1" />
+        <span>Hold order</span>
+    </a>
+@endsection
+
 @push('head')
-<style>.pos-body{background:#f1f5f9;min-height:calc(100vh - 60px)}.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}.pos-card{cursor:pointer;background:#fff;border-radius:12px;padding:10px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.04);transition:all .15s}.pos-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.08);transform:translateY(-2px)}.pos-card.selected{border:2px solid #059669;background:#ecfdf5}</style>
+<style>
+    .pos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: .75rem; }
+    .pos-tile { cursor: pointer; border-radius: .75rem; padding: .625rem; text-align: center; background: var(--tblr-bg-surface); border: 1px solid var(--tblr-border-color); transition: transform .12s ease, box-shadow .12s ease; height: 100%; }
+    .pos-tile:hover { transform: translateY(-2px); box-shadow: var(--tblr-box-shadow-sm); }
+    .pos-tile.is-picked { border-color: var(--tblr-primary); background: var(--tblr-primary-lt); }
+    .pos-tile.is-out { opacity: .5; cursor: not-allowed; }
+</style>
 @endpush
+
 @section('content')
-<div class="pos-body">
-    <div class="row g-0 h-100">
-        <div class="col-lg-8 p-3">
-            <div class="mb-3"><input type="text" id="posSearch" class="form-control form-control-lg" placeholder="ðŸ” Cari produk..."></div>
-            <div class="product-grid" id="productGrid">
-                @foreach($products as $p)
-                <div class="pos-card" data-id="{{ $p->id }}" data-name="{{ $p->name }}" data-price="{{ $p->getEffectivePrice() }}" data-stock="{{ $p->current_stock }}" onclick="addToCart(this)">
-                    @php $posImg = $p->thumbnail ? (str_starts_with($p->thumbnail,'http') ? $p->thumbnail : url('img/'.$p->thumbnail)) : null; @endphp
-                    @if($posImg)<img src="{{ $posImg }}" style="width:100%;height:80px;object-fit:contain;border-radius:8px;margin-bottom:4px;" loading="lazy">@endif
-                    <div class="fw-semibold small text-truncate">{{ $p->name }}</div>
-                    <div class="fw-bold text-success">Rp {{ number_format($p->getEffectivePrice(),0,',','.') }}</div>
-                    <small class="text-muted">Stok: {{ $p->current_stock }}</small>
-                </div>
-                @endforeach
-            </div>
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <x-admin.card title="Pilih produk" icon="package" :padding="false">
+                <x-slot:actions>
+                    <label class="form-label small mb-1" for="pos-search">Cari</label>
+                    <input class="form-control form-control-sm" type="search" id="pos-search" value="{{ $search }}" placeholder="Nama produk" style="min-width: 200px;">
+                </x-slot:actions>
+
+                <x-slot:footer>
+                    {{ $products->links() }}
+                </x-slot:footer>
+
+                @if ($products->isEmpty())
+                    <x-admin.empty-state icon="package" title="Belum ada produk" text="Tambahkan produk yang sudah disetujui sebelum membuka kasir." compact />
+                @else
+                    <div class="pos-grid" data-pos-grid>
+                        @foreach ($products as $product)
+                            @php
+                                $image = $product->thumbnail
+                                    ? (str_starts_with($product->thumbnail, 'http') ? $product->thumbnail : url('img/'.ltrim($product->thumbnail, '/')))
+                                    : null;
+                            @endphp
+                            <button
+                                type="button"
+                                class="pos-tile {{ (int) $product->current_stock <= 0 ? 'is-out' : '' }}"
+                                data-pos-product
+                                data-id="{{ $product->id }}"
+                                data-name="{{ $product->name }}"
+                                data-price="{{ (float) $product->effective_price }}"
+                                data-stock="{{ (int) $product->current_stock }}"
+                                @disabled((int) $product->current_stock <= 0)
+                            >
+                                <span class="d-block mb-1" style="height: 64px;">
+                                    @if ($image)
+                                        <img src="{{ $image }}" alt="" loading="lazy" style="width: 100%; height: 100%; object-fit: contain;">
+                                    @else
+                                        <x-admin.icon name="package" :size="26" class="text-secondary" />
+                                    @endif
+                                </span>
+                                <span class="d-block fw-semibold small text-truncate mb-1">{{ $product->name }}</span>
+                                <span class="d-block fw-bold text-primary">{{ Currency::format($product->effective_price) }}</span>
+                                <span class="d-block text-secondary small">Stok {{ Currency::number($product->current_stock) }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                @endif
+            </x-admin.card>
         </div>
-        <div class="col-lg-4 bg-white border-start p-3 d-flex flex-column">
-            <h5 class="fw-bold mb-3"><i class="fas fa-shopping-cart me-2"></i>Keranjang POS</h5>
-            <div id="posCart" class="flex-grow-1 overflow-auto mb-3" style="max-height:50vh;">
-                <div class="text-center text-muted py-5" id="cartEmpty">Klik produk untuk menambah</div>
-            </div>
-            <div class="border-top pt-2"><div class="mb-2"><label class="small fw-medium">Nama Customer</label><input type="text" id="customerName" class="form-control form-control-sm" placeholder="Walk-in Customer"></div>
-            <div class="mb-2"><label class="small fw-medium">No HP</label><input type="text" id="customerPhone" class="form-control form-control-sm" placeholder="08xxx"></div>
-            <div class="mb-2"><label class="small fw-medium">Diskon (Rp)</label><input type="number" id="discountInput" class="form-control form-control-sm" value="0" min="0"></div>
-            <div class="mb-2"><label class="small fw-medium">Pembayaran</label><select id="paymentMethod" class="form-select form-select-sm"><option value="cash">Cash</option><option value="qris">QRIS</option><option value="transfer">Transfer</option></select></div></div>
-            <div id="cartSummary" class="border-top pt-2 d-none"><div class="d-flex justify-content-between small"><span>Subtotal</span><span id="subtotalDisplay">Rp 0</span></div><div class="d-flex justify-content-between fw-bold fs-5 mt-2"><span>TOTAL</span><span id="totalDisplay">Rp 0</span></div></div>
-            <button id="checkoutBtn" class="btn btn-success w-100 btn-lg mt-2" disabled><i class="fas fa-cash-register me-2"></i>Bayar (F8)</button>
+
+        <div class="col-12 col-xl-4">
+            <x-admin.card title="Keranjang" icon="shopping-cart" class="mb-3">
+                <div data-pos-cart style="max-height: 46vh; overflow-y: auto;">
+                    <x-admin.empty-state icon="shopping-cart" text="Klik produk untuk menambahkan ke keranjang." compact />
+                </div>
+            </x-admin.card>
+
+            <x-admin.card title="Pembayaran" icon="cash-coin">
+                <x-admin.form-field name="customer_name" label="Nama pelanggan" placeholder="Pelanggan walk-in" />
+                <x-admin.form-field name="customer_phone" label="Telepon" type="tel" placeholder="08xx" />
+                <x-admin.form-field name="discount" label="Diskon" type="number" :min="0" :step="1" :prefix="Currency::config()['symbol']" />
+                <x-admin.form-field name="payment_method" label="Metode pembayaran" type="select" :options="[
+                    'cash' => 'Tunai',
+                    'qris' => 'QRIS',
+                    'transfer' => 'Transfer',
+                ]" />
+
+                <dl class="row mb-2 small">
+                    <dt class="col-6 text-secondary fw-normal">Subtotal</dt>
+                    <dd class="col-6 text-end" data-pos-subtotal>{{ Currency::format(0) }}</dd>
+                    <dt class="col-6 fw-semibold border-top pt-2">Total</dt>
+                    <dd class="col-6 text-end fw-semibold border-top pt-2 fs-5" data-pos-total>{{ Currency::format(0) }}</dd>
+                </dl>
+
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-success" data-pos-checkout disabled>
+                        <x-admin.icon name="cash-coin" :size="16" class="me-1" />
+                        <span>Bayar (F8)</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" data-pos-hold disabled>
+                        <x-admin.icon name="clock" :size="16" class="me-1" />
+                        <span>Simpan sebagai hold</span>
+                    </button>
+                </div>
+
+                <div class="alert alert-danger mt-3 mb-0 py-2 small d-none" data-pos-error role="alert"></div>
+            </x-admin.card>
         </div>
     </div>
-</div>
 @endsection
+
 @push('scripts')
-<script>
-let cart = [];
-function addToCart(card) {
-    let id = card.dataset.id, existing = cart.find(i=>i.id==id);
-    if(existing){existing.qty++;}else{cart.push({id, name:card.dataset.name, price:parseFloat(card.dataset.price), qty:1});}
-    card.classList.add('selected'); setTimeout(()=>card.classList.remove('selected'),200);
-    renderCart();
-}
-function renderCart(){
-    let el=document.getElementById('posCart'), sum=0; el.innerHTML='';
-    if(cart.length==0){el.innerHTML='<div class="text-center text-muted py-5"><i class="fas fa-shopping-cart fa-2x mb-2 opacity-25"></i><p>Klik produk untuk menambah</p></div>'; document.getElementById('checkoutBtn').disabled=true; document.getElementById('cartSummary').classList.add('d-none');}
-    else{cart.forEach((i,j)=>{sum+=i.price*i.qty; el.innerHTML+=`<div class="d-flex align-items-center gap-2 mb-2 pb-2 border-bottom"><div class="flex-grow-1"><div class="fw-medium small">${i.name}</div><small class="text-muted">qty:</small><input type="number" class="form-control form-control-sm d-inline" value="${i.qty}" min="1" style="width:60px" onchange="cart[${j}].qty=parseInt(this.value)||1;renderCart()"></div><div class="fw-bold small">Rp ${(i.price*i.qty).toLocaleString('id')}</div><button class="btn btn-sm text-danger" onclick="cart.splice(${j},1);renderCart()"><i class="fas fa-times"></i></button></div>`});}
-    let disc=parseFloat(document.getElementById('discountInput').value)||0, total=Math.max(0,sum-disc);
-    document.getElementById('subtotalDisplay').textContent='Rp '+sum.toLocaleString('id');
-    document.getElementById('totalDisplay').textContent='Rp '+total.toLocaleString('id');
-    document.getElementById('checkoutBtn').disabled=cart.length==0;
-    document.getElementById('cartSummary').classList.toggle('d-none',cart.length==0);
-}
-document.getElementById('posSearch').addEventListener('input', e => {
-    document.querySelectorAll('.pos-card').forEach(c => c.style.display = c.dataset.name.toLowerCase().includes(e.target.value.toLowerCase())?'':'none');
-});
-document.getElementById('discountInput').addEventListener('input',renderCart);
-document.getElementById('checkoutBtn').addEventListener('click',async()=>{
-    if(cart.length==0)return;
-    let items=cart.map(i=>({product_id:i.id,quantity:i.qty,price:i.price}));
-    let res=await fetch('{{ route("vendor.pos.store") }}',{method:'POST',headers:{'Content-Type':'application/json','X-CSRF-TOKEN':'{{ csrf_token() }}'},body:JSON.stringify({items,discount:document.getElementById('discountInput').value||0,customer_name:document.getElementById('customerName').value,customer_phone:document.getElementById('customerPhone').value,payment_method:document.getElementById('paymentMethod').value})});
-    let data=await res.json();
-    if(data.success){alert('Order #'+data.order_number+' berhasil! Total: Rp '+data.total.toLocaleString('id')); cart=[]; renderCart();}
-    else{alert('Gagal: '+(data.message||'Unknown error'));}
-});
-document.addEventListener('keydown',e=>{if(e.key==='F8'){e.preventDefault(); document.getElementById('checkoutBtn').click();}});
-</script>
+    <script data-pos-app>
+        (function () {
+            const currency = @json(\App\Support\Currency::config());
+            const storeUrl = @json(route('vendor.pos.store'));
+            const csrf = @json(csrf_token());
+
+            const cartNode = document.querySelector('[data-pos-cart]');
+            const subtotalNode = document.querySelector('[data-pos-subtotal]');
+            const totalNode = document.querySelector('[data-pos-total]');
+            const errorNode = document.querySelector('[data-pos-error]');
+            const discountInput = document.getElementById('field-discount');
+            const nameInput = document.getElementById('field-customer_name');
+            const phoneInput = document.getElementById('field-customer_phone');
+            const methodInput = document.getElementById('field-payment_method');
+            const checkoutButton = document.querySelector('[data-pos-checkout]');
+            const holdButton = document.querySelector('[data-pos-hold]');
+            const searchInput = document.getElementById('pos-search');
+
+            if (!cartNode || !checkoutButton) {
+                return;
+            }
+
+            let cart = [];
+
+            function format(amount) {
+                return currency.symbol + ' ' + new Intl.NumberFormat('id-ID').format(amount);
+            }
+
+            function showError(message) {
+                errorNode.textContent = message;
+                errorNode.classList.remove('d-none');
+            }
+
+            function clearError() {
+                errorNode.textContent = '';
+                errorNode.classList.add('d-none');
+            }
+
+            function render() {
+                const discount = Math.max(0, parseFloat(discountInput.value) || 0);
+                const subtotal = cart.reduce(function (sum, line) { return sum + (line.price * line.qty); }, 0);
+                const total = Math.max(0, subtotal - discount);
+
+                subtotalNode.textContent = format(subtotal);
+                totalNode.textContent = format(total);
+
+                checkoutButton.disabled = holdButton.disabled = cart.length === 0;
+                cartNode.innerHTML = '';
+
+                if (cart.length === 0) {
+                    const empty = document.createElement('p');
+                    empty.className = 'text-center text-secondary py-4 mb-0 small';
+                    empty.textContent = 'Keranjang masih kosong.';
+                    cartNode.appendChild(empty);
+                    return;
+                }
+
+                cart.forEach(function (line, index) {
+                    const row = document.createElement('div');
+                    row.className = 'd-flex align-items-start gap-2 py-2 border-bottom';
+
+                    const info = document.createElement('div');
+                    info.className = 'flex-grow-1 min-w-0';
+
+                    const label = document.createElement('div');
+                    label.className = 'fw-medium small text-truncate';
+                    label.textContent = line.name;
+
+                    const qty = document.createElement('input');
+                    qty.type = 'number';
+                    qty.className = 'form-control form-control-sm mt-1';
+                    qty.style.maxWidth = '90px';
+                    qty.min = 1;
+                    qty.max = line.stock;
+                    qty.value = line.qty;
+                    qty.addEventListener('change', function () {
+                        line.qty = Math.max(1, Math.min(line.stock, parseInt(qty.value, 10) || 1));
+                        render();
+                    });
+
+                    info.appendChild(label);
+                    info.appendChild(qty);
+
+                    const amount = document.createElement('div');
+                    amount.className = 'fw-semibold small text-nowrap';
+                    amount.textContent = format(line.price * line.qty);
+
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'btn btn-sm btn-ghost-light';
+                    remove.setAttribute('aria-label', 'Hapus ' + line.name);
+                    remove.textContent = '×';
+                    remove.addEventListener('click', function () {
+                        cart.splice(index, 1);
+                        render();
+                    });
+
+                    row.appendChild(info);
+                    row.appendChild(amount);
+                    row.appendChild(remove);
+                    cartNode.appendChild(row);
+                });
+            }
+
+            Array.prototype.forEach.call(document.querySelectorAll('[data-pos-product]'), function (tile) {
+                tile.addEventListener('click', function () {
+                    const id = tile.dataset.id;
+                    const stock = Number(tile.dataset.stock);
+                    const existing = cart.find(function (line) { return line.id === id; });
+
+                    if (existing) {
+                        if (existing.qty >= stock) {
+                            showError('Stok ' + tile.dataset.name + ' tidak mencukupi.');
+                            return;
+                        }
+                        existing.qty += 1;
+                    } else {
+                        cart.push({
+                            id: id,
+                            name: tile.dataset.name,
+                            price: Number(tile.dataset.price),
+                            qty: 1,
+                            stock: stock
+                        });
+                    }
+
+                    clearError();
+                    tile.classList.add('is-picked');
+                    window.setTimeout(function () { tile.classList.remove('is-picked'); }, 160);
+                    render();
+                });
+            });
+
+            async function submit(hold) {
+                if (cart.length === 0) {
+                    return;
+                }
+
+                checkoutButton.disabled = holdButton.disabled = true;
+
+                try {
+                    const response = await fetch(storeUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                        body: JSON.stringify({
+                            items: cart.map(function (line) { return { product_id: line.id, quantity: line.qty }; }),
+                            discount: discountInput.value || 0,
+                            customer_name: nameInput.value,
+                            customer_phone: phoneInput.value,
+                            payment_method: methodInput.value,
+                            hold: hold
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        const payload = data.errors || {};
+                        const first = Object.keys(payload).map(function (key) { return payload[key][0]; })[0];
+                        showError(first || data.message || 'Transaksi gagal diproses.');
+                        render();
+                        return;
+                    }
+
+                    window.alert('Pesanan ' + data.order_number + ' berhasil disimpan. Total: ' + (data.total_formatted || data.total));
+                    window.location.reload();
+                } catch (error) {
+                    showError('Tidak dapat terhubung ke server.');
+                    render();
+                }
+            }
+
+            checkoutButton.addEventListener('click', function () { submit(false); });
+            holdButton.addEventListener('click', function () { submit(true); });
+            discountInput.addEventListener('input', render);
+
+            if (searchInput) {
+                searchInput.addEventListener('input', function (event) {
+                    const needle = event.target.value.toLowerCase();
+                    Array.prototype.forEach.call(document.querySelectorAll('[data-pos-product]'), function (tile) {
+                        tile.style.display = tile.dataset.name.toLowerCase().includes(needle) ? '' : 'none';
+                    });
+                });
+            }
+
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'F8') {
+                    event.preventDefault();
+                    submit(false);
+                }
+            });
+
+            render();
+        })();
+    </script>
 @endpush

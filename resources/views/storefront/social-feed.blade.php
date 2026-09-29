@@ -1,21 +1,94 @@
 @extends('layouts.storefront')
-@section('title','Social Feed')
+
 @section('content')
-<div class="container" style="max-width:500px;">
-<h4 class="fw-bold mb-4 text-center"><i class="fas fa-fire me-2 text-danger"></i>Feed</h4>
-@foreach($feeds as $f)
-<div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
-    @if($f->video_url)<video src="{{ $f->video_url }}" class="w-100" controls style="max-height:400px;object-fit:cover;"></video>@elseif($f->product->thumbnail)<img src="{{ url('img/'.$f->product->thumbnail) }}" class="w-100" style="max-height:400px;object-fit:cover;">@endif
-    <div class="card-body p-3">
-        <div class="d-flex align-items-center gap-2 mb-2"><i class="fas fa-store text-muted"></i><span class="fw-semibold small">{{ $f->shop->name }}</span></div>
-        <p class="small mb-2">{{ $f->caption }}</p>
-        <div class="d-flex justify-content-between align-items-center">
-            <a href="{{ route('products.show',$f->product->slug) }}" class="btn btn-primary btn-sm"><i class="fas fa-shopping-cart me-1"></i>Beli Rp {{ number_format($f->product->getEffectivePrice(),0,',','.') }}</a>
-            <small class="text-muted"><i class="fas fa-eye me-1"></i>{{ $f->views }} <i class="fas fa-heart ms-2 me-1"></i>{{ $f->likes }}</small>
-        </div>
+    <div class="sf-container">
+        <nav aria-label="Breadcrumb" class="sf-breadcrumb">
+            <a href="{{ route('home') }}">Beranda</a>
+            <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
+            <span aria-current="page">Feed</span>
+        </nav>
     </div>
-</div>
-@endforeach
-{{ $feeds->links() }}
-</div>
+
+    <section class="sf-section" aria-labelledby="sf-feed-title">
+        <div class="sf-container">
+            <div class="sf-section-head">
+                <div>
+                    <h1 class="sf-section-head__title" id="sf-feed-title">Feed Produk</h1>
+                    <p class="sf-muted sf-small sf-mt-0" style="max-width:60ch">
+                        Rekomendasi produk yang dibagikan toko dan penjual pilihan.
+                    </p>
+                </div>
+                <a href="{{ route('products.index') }}" class="sf-section-head__link">
+                    Semua produk <x-storefront.icon name="arrow-right" :size="16" />
+                </a>
+            </div>
+
+            @if ($feeds->total() > 0)
+                <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+                    @foreach ($feeds as $feed)
+                        <article class="sf-card">
+                            @if ($feed->video_url)
+                                <video
+                                    controls
+                                    playsinline
+                                    preload="none"
+                                    poster="{{ $feed->product?->thumbnail_url }}"
+                                    aria-label="Video produk {{ $feed->product?->name ?? '' }}">
+                                    <source src="{{ str_starts_with((string) $feed->video_url, 'http') ? $feed->video_url : url('img/'.ltrim((string) $feed->video_url, '/')) }}"
+                                            type="video/mp4">
+                                    Browser Anda tidak mendukung pemutaran video.
+                                </video>
+                            @elseif ($feed->product?->thumbnail_url)
+                                <img src="{{ $feed->product->thumbnail_url }}" alt="{{ $feed->product->name }}"
+                                     loading="lazy" width="560" height="700" decoding="async"
+                                     style="width:100%;aspect-ratio:4/5;object-fit:cover;background:var(--sf-bg-muted)">
+                            @endif
+
+                            <div class="sf-card__body">
+                                @if ($feed->shop)
+                                    <p class="sf-small sf-muted sf-mb-0 sf-row" style="gap:6px">
+                                        <x-storefront.icon name="store" :size="14" /> {{ $feed->shop->name }}
+                                    </p>
+                                @endif
+
+                                @if ($feed->caption)
+                                    <p class="sf-small sf-clamp-3" style="margin:8px 0 0">{{ $feed->caption }}</p>
+                                @endif
+
+                                <div class="sf-row sf-row--wrap sf-tiny sf-muted" style="gap:14px;margin-top:10px">
+                                    <span class="sf-row" style="gap:5px">
+                                        <x-storefront.icon name="eye" :size="14" /> {{ \App\Support\Currency::number($feed->views ?? 0) }}
+                                    </span>
+                                    <span class="sf-row" style="gap:5px">
+                                        <x-storefront.icon name="heart" :size="14" /> {{ \App\Support\Currency::number($feed->likes ?? 0) }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            @if ($feed->product)
+                                <div class="sf-card__foot">
+                                    <a href="{{ $feed->product->storefront_url }}" class="sf-row sf-row--between" style="gap:10px">
+                                        <span class="sf-clamp-2 sf-small sf-bold" style="color:var(--sf-text);min-width:0">
+                                            {{ $feed->product->name }}
+                                        </span>
+                                        <x-storefront.price :amount="$feed->product->getEffectivePrice()" class="sf-nowrap" />
+                                    </a>
+                                </div>
+                            @endif
+                        </article>
+                    @endforeach
+                </div>
+
+                <x-storefront.pagination :paginator="$feeds" />
+            @else
+                <x-storefront.empty
+                    title="Feed masih kosong"
+                    text="Belum ada toko yang membagikan produk ke feed. Katalog produk tetap bisa dijelajahi sekarang."
+                    :href="route('products.index')"
+                    label="Jelajahi katalog"
+                    icon="video"
+                />
+            @endif
+        </div>
+    </section>
 @endsection

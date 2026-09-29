@@ -1,51 +1,146 @@
 @extends('layouts.vendor')
-@section('title', 'Wallet & Payout')
-@section('content')
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="fw-bold mb-0"><i class="fas fa-wallet me-2 text-success"></i> Wallet & Payout</h4>
-</div>
-<div class="row g-4">
-    <div class="col-lg-4">
-        <div class="card border-0 rounded-4 shadow-sm"><div class="card-body text-center p-4">
-            <div class="rounded-circle bg-success bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width:72px;height:72px;"><i class="fas fa-wallet fa-2x text-success"></i></div>
-            <h2 class="fw-bold">Rp {{ number_format($wallet->balance ?? 0, 0, ',', '.') }}</h2>
-            <p class="text-muted small">Saldo tersedia</p>
-            <hr>
-            <small class="text-muted">Pending: Rp {{ number_format($wallet->pending_balance ?? 0, 0, ',', '.') }}</small>
-        </div></div>
+@include('vendor.partials.helpers')
 
-        <div class="card border-0 rounded-4 shadow-sm mt-3"><div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><i class="fas fa-hand-holding-usd me-2"></i> Pencairan Dana</h6></div><div class="card-body">
-            <form action="{{ route('vendor.wallet.withdraw') }}" method="POST">@csrf
-                <div class="mb-2"><label class="small fw-medium">Jumlah (Rp)</label><input type="number" name="amount" class="form-control" min="10000" max="{{ $wallet->balance ?? 0 }}" required></div>
-                <div class="mb-2"><label class="small fw-medium">Bank</label><input type="text" name="bank_name" class="form-control" value="{{ $savedBank['bank_name'] }}" placeholder="BCA / BRI / Mandiri" required></div>
-                <div class="mb-2"><label class="small fw-medium">No. Rekening</label><input type="text" name="bank_account_number" class="form-control" value="{{ $savedBank['bank_account_number'] }}" required></div>
-                <div class="mb-2"><label class="small fw-medium">Atas Nama</label><input type="text" name="bank_account_name" class="form-control" value="{{ $savedBank['bank_account_name'] }}" required></div>
-                @if(!$savedBank['bank_name'])<small class="text-muted">Simpan info bank dulu di <a href="{{ route('vendor.shop.settings') }}">Pengaturan Toko</a>.</small>@endif
-                <button class="btn btn-success w-100"><i class="fas fa-paper-plane me-1"></i> Ajukan Pencairan</button>
-            </form>
-        </div></div>
-    </div>
-    <div class="col-lg-8">
-        <ul class="nav nav-tabs border-0 mb-3" role="tablist">
-            <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#history">Riwayat Transaksi</button></li>
-            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#withdrawals">Riwayat Pencairan</button></li>
-        </ul>
-        <div class="tab-content">
-            <div class="tab-pane fade show active" id="history"><div class="card border-0 rounded-4 shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Tgl</th><th>Deskripsi</th><th>Tipe</th><th>Jumlah</th><th>Saldo</th></tr></thead><tbody>
-                @forelse($transactions as $t)
-                <tr><td class="small">{{ $t->created_at->format('d/m/Y H:i') }}</td><td>{{ $t->description ?? '-' }}</td><td><span class="badge bg-{{ $t->type==='credit' ? 'success' : 'danger' }}-subtle">{{ $t->type }}</span></td><td class="fw-medium">Rp {{ number_format($t->amount,0,',','.') }}</td><td>Rp {{ number_format($t->balance_after,0,',','.') }}</td></tr>
-                @empty
-                <tr><td colspan="5" class="text-center py-4 text-muted">Belum ada transaksi</td></tr>
-                @endforelse
-            </tbody></table></div>@if($transactions->hasPages())<div class="p-3">{{ $transactions->links() }}</div>@endif</div></div>
-            <div class="tab-pane fade" id="withdrawals"><div class="card border-0 rounded-4 shadow-sm"><div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Tgl</th><th>Jumlah</th><th>Bank</th><th>Status</th></tr></thead><tbody>
-                @forelse($withdrawRequests as $w)
-                <tr><td class="small">{{ $w->created_at->format('d/m/Y') }}</td><td class="fw-medium">Rp {{ number_format($w->amount,0,',','.') }}</td><td>{{ $w->bank_name }} ({{ $w->bank_account_number }})</td><td><span class="badge bg-{{ ['pending'=>'warning','approved'=>'success','rejected'=>'danger','completed'=>'info'][$w->status] }}-subtle">{{ $w->status }}</span></td></tr>
-                @empty
-                <tr><td colspan="4" class="text-center py-4 text-muted">Belum ada pencairan</td></tr>
-                @endforelse
-            </tbody></table></div>@if($withdrawRequests->hasPages())<div class="p-3">{{ $withdrawRequests->links() }}</div>@endif</div></div>
+@section('title', 'Dompet')
+@section('subtitle', 'Saldo, mutasi, dan pencairan dana')
+
+@section('breadcrumb', [
+    ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
+    ['label' => 'Dompet'],
+])
+
+@section('actions')
+    <a href="{{ route('vendor.finance.payouts') }}" class="btn btn-primary">
+        <x-admin.icon name="cash-coin" :size="16" class="me-1" />
+        <span>Ajukan pencairan</span>
+    </a>
+@endsection
+
+@section('content')
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-xl">
+            <x-admin.stat label="Saldo tersedia" :value="($wallet?->balance ?? 0)" icon="wallet" color="success" />
+        </div>
+        <div class="col-6 col-xl">
+            <x-admin.stat label="Saldo tertahan" :value="($wallet?->pending_balance ?? 0)" icon="clock" color="warning" hint="Sedang dalam proses pencairan" />
+        </div>
+        <div class="col-6 col-xl">
+            <x-admin.stat label="Total produk" :value="app('request')->user()?->shop?->products()->count() ?? 0" icon="package" color="primary" />
+        </div>
+        <div class="col-6 col-xl">
+            <x-admin.stat label="Rekening tujuan" :value="$savedBank['bank_account_number'] ?: '—'" icon="credit-card" color="secondary" />
         </div>
     </div>
-</div>
+
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <x-admin.card title="Mutasi dompet" icon="activity" :padding="false">
+                <x-admin.table dense>
+                    <x-slot:table>
+                        \App\Support\TableBuilder::make()
+                            ->columns([
+                                'description' => ['label' => 'Keterangan'],
+                                'type' => ['label' => 'Jenis'],
+                                'amount' => ['label' => 'Nominal', 'align' => 'end'],
+                                'balance' => ['label' => 'Saldo', 'align' => 'end'],
+                                'date' => ['label' => 'Tanggal', 'align' => 'end'],
+                            ])
+                            ->rows(
+                                $transactions->getCollection()->map(fn ($transaction) => [
+                                    'description' => '<span class="text-truncate d-block">'.e($transaction->description ?? '—').'</span>',
+                                    'type' => $__status($transaction->type, [
+                                        'credit' => ['Masuk', 'success'],
+                                        'debit' => ['Keluar', 'danger'],
+                                    ]),
+                                    'amount' => $transaction->type === 'credit'
+                                        ? '<span class="text-success fw-medium">+'.e(Currency::format($transaction->amount)).'</span>'
+                                        : '<span class="text-danger fw-medium">-'.e(Currency::format($transaction->amount)).'</span>',
+                                    'balance' => e(Currency::format($transaction->balance_after)),
+                                    'date' => '<span class="text-secondary small">'.e($transaction->created_at->format('d/m/Y H:i')).'</span>',
+                                ])->all()
+                            )
+                            ->empty('Belum ada mutasi dompet.')
+                    </x-slot:table>
+                </x-admin.table>
+            </x-admin.card>
+
+            <x-admin.card title="Riwayat pencairan" icon="cash-coin" class="mt-3" :padding="false">
+                <x-admin.table dense>
+                    <x-slot:table>
+                        \App\Support\TableBuilder::make()
+                            ->columns([
+                                'amount' => ['label' => 'Nominal'],
+                                'bank' => ['label' => 'Rekening'],
+                                'status' => ['label' => 'Status'],
+                                'date' => ['label' => 'Diajukan', 'align' => 'end'],
+                            ])
+                            ->rows(
+                                $withdrawRequests->getCollection()->map(fn ($request) => [
+                                    'amount' => '<span class="fw-medium">'.e(Currency::format($request->amount)).'</span>',
+                                    'bank' => '<span class="text-secondary small font-monospace">'.e($__maskAccount($request->bank_account_number)).'</span>',
+                                    'status' => $__status($request->status),
+                                    'date' => '<span class="text-secondary small">'.e($request->created_at->format('d/m/Y')).'</span>',
+                                ])->all()
+                            )
+                            ->empty('Belum ada permintaan pencairan.')
+                    </x-slot:table>
+                </x-admin.table>
+            </x-admin.card>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <x-admin.card title="Ajukan pencairan" icon="wallet-2">
+                <x-admin.alert type="info">
+                    Nomor rekening tujuan hanya ditampilkan empat digit terakhir. Data lengkap disimpan
+                    di server dan tidak pernah ditampilkan kembali.
+                </x-admin.alert>
+
+                <form method="POST" action="{{ route('vendor.wallet.withdraw') }}">
+                    @csrf
+
+                    <x-admin.form-field
+                        name="amount"
+                        label="Nominal"
+                        type="number"
+                        :min="$minimum->toFloat()"
+                        :step="1"
+                        required
+                        :prefix="Currency::config()['symbol']"
+                        help="Minimal pencairan {{ Currency::format($minimum->toFloat()) }}."
+                    />
+
+                    <x-admin.form-field name="bank_name" label="Bank" required :value="$savedBank['bank_name']" />
+                    <x-admin.form-field name="bank_account_name" label="Atas nama" required :value="$savedBank['bank_account_name']" />
+                    <x-admin.form-field
+                        name="bank_account_number"
+                        label="Nomor rekening"
+                        required
+                        :value="$savedBank['bank_account_number']"
+                        help="Tersimpan: {{ $savedBank['bank_account_number'] ?: 'belum diisi' }}"
+                    />
+                    <x-admin.form-field name="note" label="Catatan" type="textarea" :rows="2" />
+
+                    <button type="submit" class="btn btn-primary w-100" data-confirm="Ajukan pencairan dana sekarang?">
+                        <x-admin.icon name="cash-coin" :size="16" class="me-1" />
+                        <span>Ajukan pencairan</span>
+                    </button>
+                </form>
+            </x-admin.card>
+
+            <x-admin.card title="Rincian rekening" icon="credit-card" class="mt-3">
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-secondary fw-normal">Bank</dt>
+                    <dd class="col-7 text-end">{{ $savedBank['bank_name'] ?: '—' }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Atas nama</dt>
+                    <dd class="col-7 text-end text-truncate">{{ $savedBank['bank_account_name'] ?: '—' }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Nomor</dt>
+                    <dd class="col-7 text-end font-monospace">{{ $savedBank['bank_account_number'] ?: '—' }}</dd>
+                </dl>
+                <a href="{{ route('vendor.settings.index') }}" class="btn btn-outline-secondary w-100 mt-3">
+                    <x-admin.icon name="edit" :size="16" class="me-1" />
+                    <span>Perbarui rekening</span>
+                </a>
+            </x-admin.card>
+        </div>
+    </div>
 @endsection

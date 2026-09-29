@@ -1,14 +1,81 @@
 @extends('layouts.admin')
+
 @section('title', 'SMS Gateway')
+
+@section('breadcrumb')
+    <x-admin.breadcrumb :items="['System', ['label' => 'SMS']]" />
+@endsection
+
 @section('content')
-<h4 class="fw-bold mb-3"><i class="fas fa-sms me-2 text-info"></i> SMS Gateway</h4>
-<div class="card border-0 rounded-4 shadow-sm"><div class="card-body p-4">
-<form action="{{ route('admin.sms-gateway.update') }}" method="POST">@csrf @method('PUT')
-<div class="row g-3">
-    <div class="col-md-4"><label class="fw-medium">Provider</label><select name="provider" class="form-select"><option value="twilio" {{ \App\Models\SystemSetting::get('sms_provider')==='twilio'?'selected' : '' }}>Twilio</option><option value="nexmo" {{ \App\Models\SystemSetting::get('sms_provider')==='nexmo'?'selected' : '' }}>Vonage/Nexmo</option><option value="zenziva" {{ \App\Models\SystemSetting::get('sms_provider')==='zenziva'?'selected' : '' }}>Zenziva</option><option value="none" {{ \App\Models\SystemSetting::get('sms_provider','none')==='none'?'selected' : '' }}>Off</option></select></div>
-    <div class="col-md-4"><label class="fw-medium">API Key / SID</label><input type="text" name="api_key" class="form-control" value="{{ \App\Models\SystemSetting::get('sms_api_key') }}"></div>
-    <div class="col-md-4"><label class="fw-medium">API Secret / Token</label><input type="text" name="api_secret" class="form-control" value="{{ \App\Models\SystemSetting::get('sms_api_secret') }}"></div>
-    <div class="col-md-4"><label class="fw-medium">Sender ID</label><input type="text" name="sender_id" class="form-control" value="{{ \App\Models\SystemSetting::get('sms_sender_id') }}"></div>
-    <div class="col-12"><button class="btn btn-primary"><i class="fas fa-save me-2"></i>Simpan</button></div>
-</div></form></div></div>
+    <x-admin.page-header title="SMS Gateway" subtitle="Kanal SMS untuk OTP dan pemberitahuan pesanan." />
+
+    <x-admin.alert type="info" :dismissible="false" title="Kredensial bersifat tulis-saja" icon="lock">
+        Nilai API key dan secret tidak pernah dikirim kembali ke peramban. Kolom kosong berarti kredensial lama dipertahankan.
+    </x-admin.alert>
+
+    <form method="POST" action="{{ route('admin.sms-gateway.update') }}">
+        @csrf
+        @method('PUT')
+        <x-admin.card title="Konfigurasi" icon="message-square">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="sms-provider">Provider</label>
+                    <select class="form-select" id="sms-provider" name="sms_provider" required>
+                        @foreach ($providers as $value => $label)
+                            <option value="{{ $value }}" @selected($settings['sms_provider'] === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="col-12 col-md-4">
+                    <x-admin.form-field name="sms_sender_id" label="Sender ID" :value="$settings['sms_sender_id']" :maxlength="40" />
+                </div>
+                <div class="col-12 col-md-4">
+                    <x-admin.form-field
+                        name="sms_api_key"
+                        label="API Key / SID"
+                        type="password"
+                        autocomplete="off"
+                        :maxlength="200"
+                        :placeholder="$settings['sms_has_api_key'] ? 'Tersimpan — tulis untuk mengganti' : 'Belum diisi'"
+                    />
+                </div>
+                <div class="col-12 col-md-4">
+                    <x-admin.form-field
+                        name="sms_api_secret"
+                        label="API Secret / Token"
+                        type="password"
+                        autocomplete="off"
+                        :maxlength="200"
+                        :placeholder="$settings['sms_has_api_secret'] ? 'Tersimpan — tulis untuk mengganti' : 'Belum diisi'"
+                    />
+                </div>
+                <div class="col-12 col-md-6">
+                    <x-admin.form-field
+                        name="sms_template_order"
+                        label="Template SMS Pesanan"
+                        type="textarea"
+                        :rows="2"
+                        :value="$settings['sms_template_order']"
+                        :maxlength="500"
+                    />
+                </div>
+                <div class="col-12 col-md-6">
+                    <x-admin.form-field
+                        name="sms_template_otp"
+                        label="Template SMS OTP"
+                        type="textarea"
+                        :rows="2"
+                        :value="$settings['sms_template_otp']"
+                        :maxlength="500"
+                    />
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end mt-3">
+                <button type="submit" class="btn btn-primary">
+                    <x-admin.icon name="save" :size="14" /> Simpan Gateway
+                </button>
+            </div>
+        </x-admin.card>
+    </form>
 @endsection

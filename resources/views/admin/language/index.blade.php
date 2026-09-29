@@ -1,18 +1,70 @@
 @extends('layouts.admin')
+
 @section('title', 'Bahasa')
+
+@section('breadcrumb')
+    <x-admin.breadcrumb :items="['System', ['label' => 'Bahasa']]" />
+@endsection
+
 @section('content')
-<h4 class="fw-bold mb-3"><i class="fas fa-language me-2 text-info"></i> Bahasa</h4>
-<div class="card border-0 rounded-4 shadow-sm"><div class="card-body p-4">
-<form action="{{ route('admin.language.update') }}" method="POST">@csrf @method('PUT')
-<div class="table-responsive"><table class="table table-bordered"><thead><tr><th>Key</th><th>Indonesia</th><th>English</th></tr></thead><tbody>
-@php $keys = ['Dashboard','Products','Categories','Brands','Cart','Checkout','Orders','Login','Register','Logout','Vendors','Customers','Coupons','Flash Deals','Settings','Reports','Profile','Save','Cancel','Delete','Edit','Create','Search','Filter','Status','Actions','Total','Price','Stock','Quantity','Add to Cart','Buy Now','Wishlist','Compare','Support Tickets','Language','Currency']; @endphp
-@foreach($keys as $k)
-<tr><td class="fw-medium">{{ $k }}</td>
-<td><input type="text" name="id[{{ $k }}]" class="form-control form-control-sm" value="{{ old('id.'.$k, __('messages.'.$k, [], 'id') ?: $k) }}"></td>
-<td><input type="text" name="en[{{ $k }}]" class="form-control form-control-sm" value="{{ old('en.'.$k, __('messages.'.$k, [], 'en') ?: $k) }}"></td>
-</tr>
-@endforeach
-</tbody></table></div>
-<button class="btn btn-primary"><i class="fas fa-save me-2"></i>Simpan Semua</button>
-</form></div></div>
+    <x-admin.page-header title="Bahasa" subtitle="Label antarmuka untuk setiap locale yang didukung." />
+
+    <form method="POST" action="{{ route('admin.language.update') }}">
+        @csrf
+        @method('PUT')
+
+        <x-admin.card class="mb-3" title="Locale Default" icon="globe">
+            <div class="row g-3">
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="default-locale">Locale Default</label>
+                    <select class="form-select" id="default-locale" name="default_locale" required>
+                        @foreach ($locales as $code => $label)
+                            <option value="{{ $code }}" @selected($default_locale === $code)>{{ $label }} ({{ $code }})</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+        </x-admin.card>
+
+        <x-admin.card title="Label Antarmuka" icon="language" flush>
+            <div class="table-responsive">
+                <table class="table admin-table mb-0 table-hover">
+                    <thead>
+                        <tr>
+                            <th scope="col">Kunci</th>
+                            @foreach ($locales as $code => $label)
+                                <th scope="col">{{ $label }} ({{ $code }})</th>
+                            @endforeach
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($rows as $row)
+                            <tr>
+                                <td class="fw-semibold">{{ $row['key'] }}</td>
+                                @foreach ($locales as $code => $_)
+                                    <td>
+                                        <input
+                                            type="text"
+                                            class="form-control form-control-sm"
+                                            name="locales.{{ $code }}[{{ $row['key'] }}]"
+                                            value="{{ $code === 'id' ? $row['id'] : $row['en'] }}"
+                                            maxlength="200"
+                                            required
+                                            aria-label="{{ $row['key'] }} ({{ $code }})"
+                                        >
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="card-footer d-flex justify-content-end">
+                <button type="submit" class="btn btn-primary">
+                    <x-admin.icon name="save" :size="14" /> Simpan Terjemahan
+                </button>
+            </div>
+        </x-admin.card>
+    </form>
 @endsection

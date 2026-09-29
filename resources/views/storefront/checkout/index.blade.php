@@ -1,131 +1,454 @@
 @extends('layouts.storefront')
-@section('title', 'Checkout')
 
 @section('content')
-<div class="container">
-    <h4 class="fw-bold mb-4"><i class="fas fa-credit-card me-2 text-success"></i> Checkout</h4>
+    @php
+        $groups = collect($shops);
+        $itemCount = (int) $groups->sum(fn ($group) => $group['items']->sum('quantity'));
+        $courierSetting = (string) \App\Models\SystemSetting::get('shipping_couriers', '');
+        $couriers = $courierSetting !== ''
+            ? array_values(array_filter(array_map('trim', explode(',', $courierSetting))))
+            : ['jne', 'jnt', 'sicepat', 'tiki', 'anteraja', 'pos'];
+        $checkoutUrl = route('checkout.process');
+        $steps = [
+            ['label' => 'Alamat', 'state' => 'is-done'],
+            ['label' => 'Pengiriman', 'state' => 'is-active'],
+            ['label' => 'Pembayaran', 'state' => ''],
+        ];
+    @endphp
 
-    <form action="{{ route('checkout.process') }}" method="POST">
-        @csrf
-        <div class="row g-4">
-            <div class="col-lg-8">
-                @if($addresses->count() > 0)
-                <div class="card border-0 shadow-sm rounded-4 mb-3">
-                    <div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><i class="fas fa-map-marker-alt me-2"></i>Alamat Pengiriman</h6></div>
-                    <div class="card-body">
-                        @foreach($addresses as $addr)
-                        <div class="form-check mb-2">
-                            <input class="form-check-input" type="radio" name="address_id" value="{{ $addr->id }}" id="addr{{ $addr->id }}" {{ $addr->is_default ? 'checked' : '' }} required>
-                            <label class="form-check-label" for="addr{{ $addr->id }}">
-                                <span class="fw-semibold">{{ $addr->label }}</span> — {{ $addr->receiver_name }} ({{ $addr->receiver_phone }})<br>
-                                <small class="text-muted">{{ $addr->address }}, {{ $addr->city }}, {{ $addr->province }} {{ $addr->postal_code }}</small>
-                            </label>
-                        </div>
-                        @endforeach
-                    </div>
-                </div>
-                @else
-                <div class="card border-0 shadow-sm rounded-4 mb-3">
-                    <div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><i class="fas fa-map-marker-alt me-2"></i>Alamat Baru</h6></div>
-                    <div class="card-body">
-                        <div class="row g-2">
-                            <div class="col-md-4"><input type="text" name="new_label" class="form-control form-control-sm" placeholder="Label (Rumah/Kantor)" value="Rumah"></div>
-                            <div class="col-md-4"><input type="text" name="new_receiver_name" class="form-control form-control-sm" placeholder="Nama penerima" required></div>
-                            <div class="col-md-4"><input type="text" name="new_receiver_phone" class="form-control form-control-sm" placeholder="No HP" required></div>
-                            <div class="col-12"><input type="text" name="new_address" class="form-control form-control-sm" placeholder="Alamat lengkap" required></div>
-                            <div class="col-md-4"><input type="text" name="new_city" class="form-control form-control-sm" placeholder="Kota" required></div>
-                            <div class="col-md-4"><input type="text" name="new_province" class="form-control form-control-sm" placeholder="Provinsi" required></div>
-                            <div class="col-md-4"><input type="text" name="new_postal_code" class="form-control form-control-sm" placeholder="Kode pos"></div>
-                            <div class="col-md-4"><input type="text" name="new_shipping_destination_id" class="form-control form-control-sm" placeholder="ID tujuan dari provider ongkir" required></div>
-                        </div>
-                    </div>
-                </div>
+    <div class="sf-container">
+        <nav aria-label="Breadcrumb" class="sf-breadcrumb">
+            <a href="{{ route('home') }}">Beranda</a>
+            <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
+            <a href="{{ route('cart.index') }}">Keranjang</a>
+            <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
+            <span aria-current="page">Checkout</span>
+        </nav>
+    </div>
+
+    <section class="sf-section sf-section--tight" aria-labelledby="sf-checkout-title">
+        <div class="sf-container">
+            <h1 class="sf-section-head__title" id="sf-checkout-title" style="font-size:clamp(1.5rem,1.2rem+1.4vw,2.25rem)">Checkout</h1>
+
+            <ol class="sf-steps" style="margin-top:18px" aria-label="Tahapan checkout">
+                @foreach ($steps as $index => $step)
+                    <li class="sf-step {{ $step['state'] }}">
+                        <span class="sf-step__num" aria-hidden="true">{{ $index + 1 }}</span>
+                        <span>{{ $step['label'] }}</span>
+                    </li>
+                    @if (! $loop->last)
+                        <span class="sf-step__line {{ $step['state'] === 'is-done' ? 'is-done' : '' }}" aria-hidden="true"></span>
+                    @endif
+                @endforeach
+            </ol>
+
+            @if ($groups->isEmpty())
+                <x-storefront.empty
+                    title="Keranjang Anda kosong"
+                    text="Tambahkan produk ke keranjang sebelum melanjutkan ke checkout."
+                    :href="route('products.index')"
+                    label="Mulai belanja"
+                    icon="cart"
+                />
+            @else
+                @if ($paymentGateways->isEmpty())
+                    <x-storefront.alert type="warning" title="Metode pembayaran belum tersedia">
+                        Administrator belum mengaktifkan payment gateway, jadi pesanan belum dapat diproses. Hubungi tim dukungan untuk bantuan lebih lanjut.
+                    </x-storefront.alert>
                 @endif
 
-                <div class="card border-0 shadow-sm rounded-4 mb-3">
-                    <div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><i class="fas fa-box me-2"></i>Pesanan</h6></div>
-                    <div class="card-body p-0">
-                        @foreach($shops as $shopData)
-                        <div class="p-3 border-bottom">
-                            <div class="fw-semibold small mb-2"><i class="fas fa-store text-muted me-1"></i> {{ $shopData['shop']->name }}</div>
-                            @foreach($shopData['items'] as $item)
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span>{{ $item->product->name }} ×{{ $item->quantity }}</span>
-                                <span>Rp {{ number_format($item->price * $item->quantity, 0, ',', '.') }}</span>
-                            </div>
-                            @endforeach
-                        </div>
-                        @endforeach
-                    </div>
-                    <div class="card-footer bg-transparent text-end fw-bold">Total: Rp {{ number_format($total, 0, ',', '.') }}</div>
-                </div>
+                <form method="POST" action="{{ $checkoutUrl }}" class="sf-cartlayout" novalidate>
+                    @csrf
 
-                @if($shippingProviders->count() > 0)
-                <div class="card border-0 shadow-sm rounded-4 mb-3">
-                    <div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><i class="fas fa-truck me-2"></i>Pengiriman</h6></div>
-                    <div class="card-body">
-                        @foreach($shops as $shopId => $shopData)
-                        <div class="mb-2">
-                            <label class="small fw-semibold">{{ $shopData['shop']->name }}</label>
-                            <div class="row g-2">
-                                <div class="col-md-4"><select name="shipping_methods[{{ $shopId }}][provider_id]" class="form-select form-select-sm" required><option value="">Provider ongkir</option>@foreach($shippingProviders as $sp)<option value="{{ $sp->id }}">{{ $sp->name }}</option>@endforeach</select></div>
-                                <div class="col-md-3"><input name="shipping_methods[{{ $shopId }}][courier]" class="form-control form-control-sm" placeholder="Kurir, contoh JNE" required></div>
-                                <div class="col-md-3"><input name="shipping_methods[{{ $shopId }}][service]" class="form-control form-control-sm" placeholder="Layanan, contoh REG" required></div>
-                                <div class="col-md-2"><input name="shipping_methods[{{ $shopId }}][destination]" class="form-control form-control-sm" placeholder="ID tujuan" required></div>
-                            </div>
-                            <div class="form-text">Tarif dihitung ulang dari provider saat checkout. Nominal dari browser tidak digunakan.</div>
-                        </div>
-                        @endforeach
-                    </div>
-                </div>
-                @endif
+                    <div class="sf-stack" style="gap:20px">
+                        <section class="sf-card" aria-labelledby="sf-checkout-address">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-checkout-address">1. Alamat pengiriman</h2>
 
-                <div class="card border-0 shadow-sm rounded-4 mb-3">
-                    <div class="card-header bg-transparent border-0 pt-3"><h6 class="fw-bold mb-0"><i class="fas fa-ticket-alt me-2"></i>Kupon</h6></div>
-                    <div class="card-body">
-                        <div class="input-group"><input type="text" name="coupon_code" class="form-control" placeholder="Masukkan kode kupon"><button type="button" class="btn btn-outline-primary">Pakai</button></div>
-                    </div>
-                </div>
-            </div>
+                                @if ($addresses->isNotEmpty())
+                                    <div class="sf-stack" style="gap:10px;margin-bottom:18px">
+                                        @foreach ($addresses as $address)
+                                            <label class="sf-shipbox" for="sf-address-{{ $address->id }}">
+                                                <span class="sf-row" style="gap:10px;align-items:flex-start;flex-wrap:wrap">
+                                                    <input class="sf-radio" type="radio" name="address_id" id="sf-address-{{ $address->id }}"
+                                                           value="{{ $address->id }}"
+                                                           data-destination="{{ $address->shipping_destination_id }}"
+                                                           @checked(old('address_id', $address->id) == $address->id)>
+                                                    <span style="min-width:0;flex:1">
+                                                        <span class="sf-bold sf-row sf-row--wrap" style="gap:8px">
+                                                            {{ $address->label ?: 'Alamat' }}
+                                                            @if ($address->is_default)
+                                                                <span class="sf-badge sf-badge--brand">Utama</span>
+                                                            @endif
+                                                        </span>
+                                                        <span class="sf-small sf-muted" style="display:block">
+                                                            {{ $address->receiver_name }} &middot; {{ $address->receiver_phone }}
+                                                        </span>
+                                                        <span class="sf-small sf-muted" style="display:block">
+                                                            {{ $address->address }},
+                                                            {{ collect([$address->city, $address->province, $address->postal_code])->filter()->implode(', ') }}
+                                                        </span>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        @endforeach
+                                    </div>
 
-            <div class="col-lg-4">
-                <div class="card border-0 shadow-sm rounded-4">
-                    <div class="card-body p-4">
-                        <h6 class="fw-bold mb-3"><i class="fas fa-credit-card me-2"></i>Pembayaran</h6>
-                        @if($paymentGateways->count() > 0)
-                            @foreach($paymentGateways as $pg)
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="radio" name="payment_provider_id" value="{{ $pg->id }}" id="pay{{ $pg->id }}" onclick="document.getElementById('channel{{ $pg->id }}').style.display='block'" required>
-                                <label class="form-check-label" for="pay{{ $pg->id }}">{{ $pg->name }} <small class="text-muted">({{ $pg->api_format }})</small></label>
+                                    <p class="sf-small sf-muted">Atau gunakan alamat baru di bawah ini.</p>
+                                    <hr class="sf-divider">
+                                @endif
+
+                                <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-new-receiver">Nama penerima <span class="sf-required">*</span></label>
+                                        <input class="sf-input" id="sf-new-receiver" type="text" name="new_receiver_name"
+                                               value="{{ old('new_receiver_name') }}" autocomplete="name"
+                                               @error('new_receiver_name') aria-invalid="true" @enderror>
+                                        @error('new_receiver_name')<span class="sf-error">{{ $message }}</span>@enderror
+                                    </div>
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-new-phone">Nomor telepon <span class="sf-required">*</span></label>
+                                        <input class="sf-input" id="sf-new-phone" type="tel" name="new_receiver_phone"
+                                               value="{{ old('new_receiver_phone') }}" autocomplete="tel"
+                                               @error('new_receiver_phone') aria-invalid="true" @enderror>
+                                        @error('new_receiver_phone')<span class="sf-error">{{ $message }}</span>@enderror
+                                    </div>
+                                    <div class="sf-field" style="grid-column:1/-1">
+                                        <label class="sf-label" for="sf-new-address">Alamat lengkap <span class="sf-required">*</span></label>
+                                        <textarea class="sf-textarea" id="sf-new-address" name="new_address" rows="2"
+                                                  autocomplete="street-address" style="min-height:80px"
+                                                  @error('new_address') aria-invalid="true" @enderror>{{ old('new_address') }}</textarea>
+                                        @error('new_address')<span class="sf-error">{{ $message }}</span>@enderror
+                                    </div>
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-new-city">Kota <span class="sf-required">*</span></label>
+                                        <input class="sf-input" id="sf-new-city" type="text" name="new_city"
+                                               value="{{ old('new_city') }}" autocomplete="address-level2"
+                                               @error('new_city') aria-invalid="true" @enderror>
+                                        @error('new_city')<span class="sf-error">{{ $message }}</span>@enderror
+                                    </div>
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-new-province">Provinsi <span class="sf-required">*</span></label>
+                                        <input class="sf-input" id="sf-new-province" type="text" name="new_province"
+                                               value="{{ old('new_province') }}" autocomplete="address-level1"
+                                               @error('new_province') aria-invalid="true" @enderror>
+                                        @error('new_province')<span class="sf-error">{{ $message }}</span>@enderror
+                                    </div>
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-new-postal">Kode pos</label>
+                                        <input class="sf-input" id="sf-new-postal" type="text" name="new_postal_code"
+                                               value="{{ old('new_postal_code') }}" autocomplete="postal-code">
+                                    </div>
+                                    <div class="sf-field" style="grid-column:1/-1">
+                                        <label class="sf-label" for="sf-new-destination">ID tujuan pengiriman</label>
+                                        <input class="sf-input" id="sf-new-destination" type="text" name="new_shipping_destination_id"
+                                               value="{{ old('new_shipping_destination_id') }}"
+                                               placeholder="Diisi dari kode wilayah alamat" autocomplete="off">
+                                        <span class="sf-hint">
+                                            Diperlukan bila penyedia pengiriman memakai kode wilayah. Kosongkan bila tidak diperlukan.
+                                        </span>
+                                        @error('new_shipping_destination_id')<span class="sf-error">{{ $message }}</span>@enderror
+                                    </div>
+                                </div>
                             </div>
-                            <div class="ps-4 mb-2" id="channel{{ $pg->id }}" style="display:none">
-                                <select name="payment_channel[{{ $pg->id }}]" class="form-select form-select-sm">
-                                    @php $channels = match($pg->api_format) {
-                                        'tripay-closed' => ['BRIVA'=>'BRI Virtual Account','BCAVA'=>'BCA Virtual Account','BNIVA'=>'BNI Virtual Account','MANDIRIVA'=>'Mandiri Virtual Account','QRIS'=>'QRIS','GOPAY'=>'GoPay','OVO'=>'OVO','DANA'=>'DANA','SHOPEEPAY'=>'ShopeePay'],
-                                        'midtrans-snap' => ['bank_transfer'=>'Transfer Bank','gopay'=>'GoPay','shopeepay'=>'ShopeePay','qris'=>'QRIS','credit_card'=>'Kartu Kredit'],
-                                        'midtrans-core' => ['bank_transfer'=>'Transfer Bank (VA)','gopay'=>'GoPay','qris'=>'QRIS'],
-                                        'xendit-invoice' => ['BCA'=>'BCA','BNI'=>'BNI','BRI'=>'BRI','MANDIRI'=>'Mandiri','QRIS'=>'QRIS','OVO'=>'OVO','DANA'=>'DANA','LINKAJA'=>'LinkAja'],
-                                        default => ['default'=>'Pembayaran Online']
-                                    }; @endphp
-                                    @foreach($channels as $code => $label)
-                                    <option value="{{ $code }}">{{ $label }}</option>
+                        </section>
+
+                        <section class="sf-card" aria-labelledby="sf-checkout-shipping">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-checkout-shipping">2. Pengiriman per toko</h2>
+                                <p class="sf-small sf-muted">
+                                    Setiap toko dikirim terpisah, jadi metode pengiriman dipilih per toko.
+                                </p>
+
+                                <div class="sf-stack" style="gap:16px;margin-top:14px">
+                                    @foreach ($groups as $group)
+                                        @php
+                                            $shopId = $group['shop']?->id;
+                                            $shopKey = $shopId ?? $loop->index;
+                                            $shopError = $errors->first("shipping_methods.{$shopId}.destination");
+                                        @endphp
+                                        <div class="sf-shipbox" data-shipping-shop="{{ $shopId }}" style="cursor:default">
+                                            <div class="sf-row sf-row--between sf-row--wrap" style="gap:8px;margin-bottom:12px">
+                                                <span class="sf-bold sf-row" style="gap:7px;min-width:0">
+                                                    <x-storefront.icon name="store" :size="16" />
+                                                    <span class="sf-clamp-2">{{ $group['shop']?->name ?? 'Toko' }}</span>
+                                                </span>
+                                                <span class="sf-small sf-muted sf-nowrap">
+                                                    {{ \App\Support\Currency::format($group['subtotal']) }}
+                                                </span>
+                                            </div>
+
+                                            <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+                                                <div class="sf-field">
+                                                    <label class="sf-label" for="sf-ship-provider-{{ $shopKey }}">Penyedia</label>
+                                                    <select class="sf-select" id="sf-ship-provider-{{ $shopKey }}"
+                                                            name="shipping_methods[{{ $shopKey }}][provider_id]"
+                                                            data-shipping-field="provider_id">
+                                                        <option value="">Pilih penyedia</option>
+                                                        @foreach ($shippingProviders as $provider)
+                                                            <option value="{{ $provider->id }}"
+                                                                    @selected((string) old("shipping_methods.{$shopKey}.provider_id") === (string) $provider->id)>
+                                                                {{ $provider->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+
+                                                <div class="sf-field">
+                                                    <label class="sf-label" for="sf-ship-courier-{{ $shopKey }}">Kurir</label>
+                                                    <select class="sf-select" id="sf-ship-courier-{{ $shopKey }}"
+                                                            name="shipping_methods[{{ $shopKey }}][courier]"
+                                                            data-shipping-field="courier">
+                                                        @foreach ($couriers as $courier)
+                                                            <option value="{{ $courier }}"
+                                                                    @selected(strtolower($courier) === strtolower(\App\Models\SystemSetting::get('shipping_default_courier', 'jne')))>
+                                                                {{ strtoupper($courier) }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+
+                                                <div class="sf-field">
+                                                    <label class="sf-label" for="sf-ship-service-{{ $shopKey }}">Layanan</label>
+                                                    <input class="sf-input" id="sf-ship-service-{{ $shopKey }}" type="text"
+                                                            name="shipping_methods[{{ $shopKey }}][service]"
+                                                           value="{{ old("shipping_methods.{$shopKey}.service", 'Reguler') }}"
+                                                           data-shipping-field="service"
+                                                           list="sf-ship-services-{{ $shopKey }}">
+                                                    <datalist id="sf-ship-services-{{ $shopKey }}">
+                                                        <option value="Reguler"></option>
+                                                        <option value="Kargo"></option>
+                                                        <option value="Ekspres"></option>
+                                                        <option value="Same Day"></option>
+                                                        <option value="Next Day"></option>
+                                                    </datalist>
+                                                </div>
+                                            </div>
+
+                                            <div class="sf-row sf-row--wrap" style="gap:8px;margin-top:12px">
+                                                <button type="button" class="sf-btn sf-btn--outline sf-btn--sm" data-shipping-check>
+                                                    <x-storefront.icon name="truck" :size="15" /> Cek ongkos kirim
+                                                </button>
+                                                <span class="sf-small sf-muted" data-shipping-status role="status" aria-live="polite"></span>
+                                            </div>
+
+                                            <ul class="sf-stack" data-shipping-rates style="gap:8px;margin-top:12px;list-style:none;padding:0"></ul>
+
+                                            @if ($shopError)
+                                                <span class="sf-error" style="display:block;margin-top:8px">{{ $shopError }}</span>
+                                            @endif
+                                        </div>
                                     @endforeach
-                                </select>
+                                </div>
                             </div>
-                            @endforeach
-                        @else
-                            <div class="alert alert-info small">Belum ada payment gateway. Admin harus menambahkan provider di menu Integrasi.</div>
-                        @endif
-                        <hr>
-                        <div class="mb-3">
-                            <label class="small fw-medium">Catatan</label>
-                            <textarea name="note" class="form-control form-control-sm" rows="2"></textarea>
-                        </div>
-                        <button type="submit" class="btn btn-success w-100 btn-lg"><i class="fas fa-lock me-2"></i> Bayar Sekarang</button>
+                        </section>
+
+                        <section class="sf-card" aria-labelledby="sf-checkout-payment">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-checkout-payment">3. Metode pembayaran</h2>
+
+                                @error('payment_provider_id')
+                                    <x-storefront.alert type="error">{{ $message }}</x-storefront.alert>
+                                @enderror
+
+                                @if ($paymentGateways->isNotEmpty())
+                                    <div class="sf-stack" style="gap:10px;margin-top:12px">
+                                        @foreach ($paymentGateways as $gateway)
+                                            <label class="sf-shipbox" for="sf-pay-{{ $gateway->id }}">
+                                                <span class="sf-row" style="gap:10px;align-items:flex-start">
+                                                    <input class="sf-radio" type="radio" name="payment_provider_id" id="sf-pay-{{ $gateway->id }}"
+                                                           value="{{ $gateway->id }}" required
+                                                           @checked((string) old('payment_provider_id', $paymentGateways->firstWhere('is_default', true)?->id ?? $paymentGateways->first()?->id) === (string) $gateway->id)>
+                                                    <span style="min-width:0;flex:1">
+                                                        <span class="sf-bold" style="display:block">{{ $gateway->name }}</span>
+                                                        @if ($gateway->description)
+                                                            <span class="sf-small sf-muted">{{ $gateway->description }}</span>
+                                                        @endif
+                                                    </span>
+                                                    @if ($gateway->is_default)
+                                                        <span class="sf-badge sf-badge--brand">Utama</span>
+                                                    @endif
+                                                </span>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                @else
+                                    <p class="sf-small sf-muted sf-mb-0">Belum ada metode pembayaran yang aktif.</p>
+                                @endif
+
+                                <div class="sf-field" style="margin-top:16px">
+                                    <label class="sf-label" for="sf-coupon">Kode kupon</label>
+                                    <input class="sf-input" id="sf-coupon" type="text" name="coupon_code"
+                                           value="{{ old('coupon_code') }}" placeholder="Punya kode promo?">
+                                    @error('coupon_code')<span class="sf-error">{{ $message }}</span>@enderror
+                                </div>
+
+                                <div class="sf-field" style="margin-top:12px">
+                                    <label class="sf-label" for="sf-note">Catatan untuk penjual</label>
+                                    <textarea class="sf-textarea" id="sf-note" name="note" rows="3" maxlength="2000"
+                                              placeholder="Contoh: titip ke satpam bila rumah kosong">{{ old('note') }}</textarea>
+                                    @error('note')<span class="sf-error">{{ $message }}</span>@enderror
+                                </div>
+                            </div>
+                        </section>
                     </div>
-                </div>
-            </div>
+
+                    <aside class="sf-panel" style="position:sticky;top:calc(var(--sf-header-h) + 12px)" aria-labelledby="sf-checkout-summary">
+                        <h2 class="sf-footer__title" id="sf-checkout-summary">Ringkasan Pesanan</h2>
+
+                        <div class="sf-stack" style="gap:14px">
+                            @foreach ($groups as $group)
+                                <div>
+                                    <p class="sf-small sf-bold sf-mb-0">{{ $group['shop']?->name ?? 'Toko' }}</p>
+                                    @foreach ($group['items'] as $item)
+                                        <p class="sf-small sf-muted sf-mb-0 sf-row sf-row--between" style="gap:10px">
+                                            <span class="sf-clamp-2">{{ $item->product?->name ?? 'Produk' }} &times; {{ (int) $item->quantity }}</span>
+                                            <span class="sf-nowrap">{{ \App\Support\Currency::format((float) $item->price * (int) $item->quantity) }}</span>
+                                        </p>
+                                    @endforeach
+                                    <p class="sf-small sf-mb-0 sf-row sf-row--between" style="gap:10px">
+                                        <span>Subtotal toko</span>
+                                        <span class="sf-bold">{{ \App\Support\Currency::format($group['subtotal']) }}</span>
+                                    </p>
+                                </div>
+                            @endforeach
+                        </div>
+
+                        <hr class="sf-divider">
+
+                        <div class="sf-summary">
+                            <div class="sf-summary__row">
+                                <span class="sf-summary__label">Total item</span>
+                                <span>{{ \App\Support\Currency::number($itemCount) }}</span>
+                            </div>
+                            <div class="sf-summary__row">
+                                <span class="sf-summary__label">Jumlah toko</span>
+                                <span>{{ \App\Support\Currency::number($groups->count()) }}</span>
+                            </div>
+                            <div class="sf-summary__row">
+                                <span class="sf-summary__label">Ongkos kirim &amp; pajak</span>
+                                <span class="sf-muted">Dihitung setelah konfirmasi</span>
+                            </div>
+                            <div class="sf-summary__row sf-summary__row--total">
+                                <span>Subtotal</span>
+                                <span>{{ \App\Support\Currency::format($total) }}</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="sf-btn sf-btn--primary sf-btn--block sf-btn--lg" style="margin-top:18px"
+                                @disabled($paymentGateways->isEmpty())>
+                            <x-storefront.icon name="wallet" :size="18" /> Bayar sekarang
+                        </button>
+
+                        <a href="{{ route('cart.index') }}" class="sf-btn sf-btn--ghost sf-btn--block" style="margin-top:8px">
+                            Kembali ke keranjang
+                        </a>
+
+                        <p class="sf-tiny sf-muted sf-mb-0" style="margin-top:14px">
+                            Dengan menekan tombol bayar, Anda menyetujui
+                            <a href="{{ route('page.terms') }}">syarat &amp; ketentuan</a> yang berlaku.
+                        </p>
+                    </aside>
+                </form>
+            @endif
         </div>
-    </form>
-</div>
+    </section>
 @endsection
+
+@push('scripts')
+    <script>
+        (function () {
+            var endpoint = @json(route('checkout.shipping-cost'));
+            var csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+            function destination() {
+                var checked = document.querySelector('input[name="address_id"]:checked');
+                if (checked) return checked.dataset.destination || '';
+                var field = document.getElementById('sf-new-destination');
+                return field ? field.value.trim() : '';
+            }
+
+            document.querySelectorAll('[data-shipping-check]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var box = button.closest('[data-shipping-shop]');
+                    if (!box) return;
+
+                    var shopId = box.dataset.shippingShop;
+                    var provider = box.querySelector('[data-shipping-field="provider_id"]');
+                    var courier = box.querySelector('[data-shipping-field="courier"]');
+                    var status = box.querySelector('[data-shipping-status]');
+                    var list = box.querySelector('[data-shipping-rates]');
+
+                    if (!provider || !provider.value) {
+                        status.textContent = 'Pilih penyedia pengiriman terlebih dahulu.';
+                        return;
+                    }
+
+                    var target = destination();
+                    if (!target) {
+                        status.textContent = 'Lengkapi ID tujuan pengiriman terlebih dahulu.';
+                        return;
+                    }
+
+                    button.disabled = true;
+                    status.textContent = 'Menghitung ongkos kirim…';
+
+                    fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify({ shop_id: shopId, destination: target, courier: courier ? courier.value : '', provider_id: provider.value })
+                    })
+                        .then(function (response) { return response.json(); })
+                        .then(function (json) {
+                            list.innerHTML = '';
+                            if (!json.success) {
+                                status.textContent = json.message || 'Layanan ongkos kirim sedang tidak tersedia.';
+                                return;
+                            }
+                            status.textContent = (json.rates || []).length + ' layanan ditemukan';
+                            (json.rates || []).forEach(function (rate) {
+                                var item = document.createElement('li');
+                                item.className = 'sf-shipbox';
+                                var label = document.createElement('label');
+                                label.className = 'sf-row';
+                                label.style.gap = '10px';
+                                label.style.cursor = 'pointer';
+
+                                var radio = document.createElement('input');
+                                radio.type = 'radio';
+                                radio.name = 'sf-rate-' + shopId;
+                                radio.style.width = '17px';
+                                radio.style.height = '17px';
+                                radio.style.accentColor = 'var(--sf-brand)';
+
+                                var text = document.createElement('span');
+                                text.className = 'sf-small';
+                                text.style.flex = '1';
+                                text.textContent = rate.service + ' · ' + rate.courier + (rate.etd ? ' (' + rate.etd + ')' : '');
+
+                                var cost = document.createElement('span');
+                                cost.className = 'sf-bold';
+                                cost.textContent = rate.cost;
+
+                                label.appendChild(radio);
+                                label.appendChild(text);
+                                label.appendChild(cost);
+                                item.appendChild(label);
+
+                                radio.addEventListener('change', function () {
+                                    var service = box.querySelector('[data-shipping-field="service"]');
+                                    if (service) service.value = rate.service;
+                                    var courierField = box.querySelector('[data-shipping-field="courier"]');
+                                    if (courierField) courierField.value = rate.courier;
+                                });
+
+                                list.appendChild(item);
+                            });
+                        })
+                        .catch(function () { status.textContent = 'Gagal menghitung ongkos kirim.'; })
+                        .finally(function () { button.disabled = false; });
+                });
+            });
+        })();
+    </script>
+@endpush

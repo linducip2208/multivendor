@@ -1,6 +1,45 @@
 @extends('layouts.storefront')
-@section('title', 'Rekomendasi untuk Anda')
+
 @section('content')
-<div class="container"><h4 class="fw-bold mb-4"><i class="fas fa-lightbulb me-2 text-warning"></i> Rekomendasi Produk</h4>
-@if($boughtTogether->count()>0)<h6 class="mb-3">Customer yang lihat {{ $product->name }} juga beli:</h6><div class="row g-3">@foreach($boughtTogether as $rp)<div class="col-6 col-md-3">@include('storefront.products._card',['product'=>$rp])</div>@endforeach</div>@else<div class="empty-state"><i class="fas fa-lightbulb"></i><h5>Belum ada rekomendasi</h5><a href="{{ route('products.index') }}" class="btn btn-primary">Lihat Produk</a></div>@endif</div>
+    <div class="sf-container">
+        <nav aria-label="Breadcrumb" class="sf-breadcrumb">
+            <a href="{{ route('home') }}">Beranda</a>
+            <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
+            <a href="{{ route('products.show', $product->slug) }}">{{ $product->name }}</a>
+            <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
+            <span aria-current="page">Rekomendasi</span>
+        </nav>
+    </div>
+
+    <section class="sf-section sf-section--tight" aria-labelledby="sf-recommendations-title">
+        <div class="sf-container">
+            <div class="sf-section-head">
+                <div>
+                    <h1 class="sf-section-head__title" id="sf-recommendations-title">Rekomendasi untuk Anda</h1>
+                    <p class="sf-muted sf-small sf-mt-0" style="max-width:60ch">
+                        Produk sejenis dari kategori yang sama dengan {{ $product->name }}.
+                    </p>
+                </div>
+                <a href="{{ route('products.index') }}" class="sf-section-head__link">
+                    Semua produk <x-storefront.icon name="arrow-right" :size="16" />
+                </a>
+            </div>
+
+            @if ($boughtTogether->isNotEmpty())
+                <div class="sf-products">
+                    @foreach ($boughtTogether as $item)
+                        <x-storefront.product-card :product="$item" />
+                    @endforeach
+                </div>
+            @else
+                <x-storefront.empty
+                    title="Belum ada rekomendasi"
+                    text="Rekomendasi muncul setelah tersedia produk lain pada kategori yang sama."
+                    :href="route('products.index')"
+                    label="Jelajahi katalog"
+                    icon="sparkles"
+                />
+            @endif
+        </div>
+    </section>
 @endsection

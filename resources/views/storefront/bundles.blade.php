@@ -1,5 +1,62 @@
 @extends('layouts.storefront')
-@section('title', 'Product Bundles — Diskon Bundling')
+
 @section('content')
-<div class="container"><h4 class="fw-bold mb-4"><i class="fas fa-cubes me-2 text-primary"></i> Bundle Hemat</h4><div class="row g-4">@forelse($bundles as $b)<div class="col-md-4"><div class="card border-0 shadow-sm rounded-4 h-100"><div class="card-body p-4"><h6 class="fw-bold">{{ $b->title }}</h6><span class="badge bg-success mb-2">Diskon {{ $b->discount_percentage }}%</span><div class="small">@foreach($b->products as $p)<div class="border-bottom py-1">{{ $p->name }} <small class="text-muted">Rp {{ number_format($p->price,0,',','.') }}</small></div>@endforeach</div><div class="mt-3"><span class="fw-bold text-primary">Total: Rp {{ number_format($b->products->sum('price') * (1 - $b->discount_percentage/100),0,',','.') }}</span></div></div></div></div>@empty<div class="col-12 empty-state"><i class="fas fa-cubes"></i><h5>Belum ada Bundle</h5><a href="{{ route('products.index') }}" class="btn btn-primary">Lihat Produk</a></div>@endforelse</div></div>
+    <div class="sf-container">
+        <nav aria-label="Breadcrumb" class="sf-breadcrumb">
+            <a href="{{ route('home') }}">Beranda</a>
+            <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
+            <span aria-current="page">Bundling</span>
+        </nav>
+    </div>
+
+    <section class="sf-section" aria-labelledby="sf-bundles-title">
+        <div class="sf-container">
+            <div class="sf-section-head">
+                <div>
+                    <h1 class="sf-section-head__title" id="sf-bundles-title">Paket Hemat</h1>
+                    <p class="sf-muted sf-small sf-mt-0" style="max-width:60ch">
+                        Gabungkan beberapa produk dalam satu paket dan hemat dibanding membeli satuan.
+                    </p>
+                </div>
+                <a href="{{ route('products.index') }}" class="sf-section-head__link">
+                    Semua produk <x-storefront.icon name="arrow-right" :size="16" />
+                </a>
+            </div>
+
+            @if ($bundles->isNotEmpty())
+                <div class="sf-stack" style="gap:20px">
+                    @foreach ($bundles as $bundle)
+                        <section class="sf-card" aria-labelledby="sf-bundle-{{ $bundle->id }}">
+                            <div class="sf-card__body">
+                                <div class="sf-row sf-row--between sf-row--wrap" style="gap:10px;margin-bottom:14px">
+                                    <h2 class="sf-mb-0" id="sf-bundle-{{ $bundle->id }}" style="font-size:1.1rem">
+                                        {{ $bundle->title }}
+                                    </h2>
+                                    @if ((float) $bundle->discount_percentage > 0)
+                                        <span class="sf-badge sf-badge--solid-danger">
+                                            Hemat {{ \App\Support\Currency::number($bundle->discount_percentage) }}%
+                                        </span>
+                                    @endif
+                                </div>
+
+                                <div class="sf-products" style="grid-template-columns:repeat(auto-fill,minmax(150px,1fr))">
+                                    @foreach ($bundle->products as $product)
+                                        <x-storefront.product-card :product="$product" />
+                                    @endforeach
+                                </div>
+                            </div>
+                        </section>
+                    @endforeach
+                </div>
+            @else
+                <x-storefront.empty
+                    title="Belum ada paket hemat"
+                    text="Paket hemat akan tampil setelah administrator membuatnya."
+                    :href="route('products.index')"
+                    label="Jelajahi katalog"
+                    icon="layers"
+                />
+            @endif
+        </div>
+    </section>
 @endsection

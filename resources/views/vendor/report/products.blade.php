@@ -1,12 +1,51 @@
 @extends('layouts.vendor')
-@section('title', 'Laporan Produk')
+@include('vendor.partials.helpers')
+
+@section('title', 'Laporan produk')
+@section('subtitle', 'Unit terjual dan pendapatan per produk')
+
+@section('breadcrumb', [
+    ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
+    ['label' => 'Laporan'],
+    ['label' => 'Produk'],
+])
+
 @section('content')
-<h4 class="fw-bold mb-1"><i class="fas fa-box me-2 text-success"></i> Laporan Produk</h4>
-<p class="text-muted small mb-3">Performa produk toko Anda</p>
-<div class="card border-0 rounded-4 shadow-sm"><div class="p-3 border-bottom"><form method="GET"><input type="text" name="search" class="form-control" placeholder="Cari produk..." value="{{ request('search') }}"></form></div>
-<div class="table-responsive"><table class="table table-hover mb-0"><thead class="table-light"><tr><th>Produk</th><th>Harga</th><th>Stok</th><th>Terjual</th><th>Pendapatan</th><th>Status</th></tr></thead>
-<tbody>@forelse($products as $p)
-<tr><td class="fw-medium">{{ Str::limit($p->name, 50) }}</td><td>Rp {{ number_format($p->price,0,',','.') }}</td><td>{{ $p->current_stock }}</td><td class="fw-bold">{{ $p->sold ?? 0 }}</td><td class="fw-bold text-success">Rp {{ number_format($p->revenue ?? 0,0,',','.') }}</td><td><span class="badge bg-{{ $p->status==='approved'?'success' : 'warning' }}-subtle">{{ $p->status }}</span></td></tr>
-@empty<tr><td colspan="6" class="text-center py-4 text-muted">Belum ada data</td></tr>@endforelse
-</tbody></table></div>@if($products->hasPages())<div class="p-3">{{ $products->links() }}</div>@endif</div>
+    <x-admin.tabs class="mb-3" :tabs="[
+        ['label' => 'Produk', 'href' => route('vendor.report.products'), 'active' => true, 'icon' => 'package'],
+        ['label' => 'Pesanan', 'href' => route('vendor.report.orders'), 'icon' => 'shopping-cart'],
+        ['label' => 'Transaksi', 'href' => route('vendor.report.transactions'), 'icon' => 'receipt'],
+    ]" />
+
+    <x-admin.filters
+        :action="route('vendor.report.products')"
+        :filters="[['name' => 'search', 'label' => 'Cari produk', 'placeholder' => 'Nama produk']]"
+    />
+
+    <x-admin.card :padding="false">
+        <x-admin.table dense>
+            <x-slot:table>
+                \App\Support\TableBuilder::make()
+                    ->columns([
+                        'product' => ['label' => 'Produk', 'width' => '38%'],
+                        'sku' => ['label' => 'SKU'],
+                        'sold' => ['label' => 'Terjual', 'align' => 'end'],
+                        'stock' => ['label' => 'Sisa stok', 'align' => 'end'],
+                        'revenue' => ['label' => 'Pendapatan', 'align' => 'end'],
+                    ])
+                    ->rows(
+                        $products->map(fn ($product) => [
+                            'product' => '<a href="'.route('vendor.products.show', $product).'" class="fw-medium d-block text-reset text-truncate">'.e($product->name).'</a>',
+                            'sku' => e($product->sku ?: '—'),
+                            'sold' => e(Currency::number($product->sold ?? 0)),
+                            'stock' => e(Currency::number($product->current_stock)),
+                            'revenue' => '<span class="fw-medium text-nowrap">'.e(Currency::format($product->revenue ?? 0)).'</span>',
+                        ])->all()
+                    )
+                    ->empty('Tidak ada produk yang cocok.')
+            </x-slot:table>
+        </x-admin.table>
+    </x-admin.card>
+
+    <x-admin.pagination :paginator="$products" class="mt-3" />
 @endsection

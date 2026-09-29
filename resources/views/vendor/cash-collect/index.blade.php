@@ -1,25 +1,76 @@
 @extends('layouts.vendor')
-@section('title', 'Cash Collect')
+@include('vendor.partials.helpers')
+
+@section('title', 'Serah terima COD')
+@section('subtitle', 'Catatan attenuasi uang tunai yang dipegang kurir')
+
+@section('breadcrumb', [
+    ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
+    ['label' => 'COD'],
+])
+
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><i class="fas fa-money-bill-wave me-2"></i>Cash Collect (COD)</h4></div>
-<div class="row g-3 mb-4">
-    <div class="col-md-4"><div class="card card-stat"><div class="stat-label">Pending Collection</div><div class="stat-value text-danger">Rp {{ number_format($totalPending,0,',','.') }}</div></div></div>
-    <div class="col-md-4"><div class="card card-stat"><div class="stat-label">Sudah Dikumpul</div><div class="stat-value text-success">Rp {{ number_format($totalCollected,0,',','.') }}</div></div></div>
-    <div class="col-md-4"><div class="card card-stat"><div class="stat-label">Total Transaksi</div><div class="stat-value">{{ $collects->total() }}</div></div></div>
-</div>
-<div class="card border-0 rounded-4 shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
-            <thead class="table-light"><tr><th class="text-uppercase small">ORDER</th><th class="text-uppercase small">JUMLAH</th><th class="text-uppercase small">STATUS</th><th class="text-uppercase small">TANGGAL</th><th></th></tr></thead>
-            <tbody>
-                @forelse($collects as $c)
-                <tr><td><strong>{{ $c->order->order_number ?? '-' }}</strong></td><td class="fw-bold">Rp {{ number_format($c->amount,0,',','.') }}</td><td><span class="badge bg-{{ $c->collected ? 'success' : 'warning' }}-subtle">{{ $c->collected ? 'Lunas' : 'Pending' }}</span></td><td><small>{{ $c->created_at->format('d/m/Y H:i') }}</small></td><td>@if(!$c->collected)<form method="POST" action="{{ route('delivery.cash-collect.mark', $c) }}">@csrf <button class="btn btn-success btn-sm">Tandai Diterima</button></form>@else<small class="text-muted">{{ $c->collected_at?->format('d/m/Y H:i') }}</small>@endif</td></tr>
-                @empty
-                <tr><td colspan="5" class="text-center py-5 text-muted">Tidak ada cash collect.</td></tr>
-                @endforelse
-            </tbody>
-        </table>
+    <x-admin.alert type="info" title="COD adalah catatan attenuasi, bukan pendapatan">
+        Uang COD dipegang kurir dan belum menjadi pendapatan toko. Saldo toko bertambah secara otomatis
+        ketika pesanan berstatus <strong>Diterima</strong> atau <strong>Selesai</strong>.
+        Menandai lunas di sini hanya mencatat bahwa serah terima antara kurir dan platform sudah beres,
+        dan tidak menambah saldo satu rupiah pun.
+    </x-admin.alert>
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-xl">
+            <x-admin.stat label="Belum diterima" :value="$totalPending->toFloat()" icon="clock" color="warning" />
+        </div>
+        <div class="col-6 col-xl">
+            <x-admin.stat label="Sudah diterima" :value="$totalCollected->toFloat()" icon="check-circle" color="success" />
+        </div>
+        <div class="col-12 col-xl">
+            <x-admin.stat label="Total catatan" :value="$total" icon="list" color="primary" />
+        </div>
     </div>
-</div>
-<div class="mt-3">{{ $collects->links('vendor.pagination.bootstrap') }}</div>
+
+    <x-admin.filters
+        :action="route('vendor.cash-collect.index')"
+        :filters="[['name' => 'status', 'label' => 'Status', 'type' => 'select', 'value' => $status, 'options' => [
+            '' => 'Semua',
+            'pending' => 'Belum diterima',
+            'collected' => 'Sudah diterima',
+        ]]]"
+    />
+
+    <x-admin.card :padding="false">
+        <x-admin.table>
+            <x-slot:table>
+                \App\Support\TableBuilder::make()
+                    ->columns([
+                        'order' => ['label' => 'Pesanan', 'width' => '22%'],
+                        'courier' => ['label' => 'Kurir'],
+                        'amount' => ['label' => 'Nominal', 'align' => 'end'],
+                        'status' => ['label' => 'Serah terima'],
+                        'collected_at' => ['label' => 'Diterima pada', 'align' => 'end'],
+                        'actions' => ['label' => '', 'align' => 'end', 'width' => '160px'],
+                    ])
+                    ->rows(
+                        $collects->map(fn ($collect) => [
+                            'order' => '<a href="'.route('vendor.orders.show', $collect->order_id).'" class="fw-medium">'.e($collect->order?->order_number ?? '#'.$collect->order_id).'</a>',
+                            'courier' => '<span class="text-secondary small">'.e($collect->deliveryMan?->name ?? '—').'</span>',
+                            'amount' => '<span class="fw-medium">'.e(Currency::format($collect->amount)).'</span>',
+                            'status' => $__status($collect->collected ? 'collected' : 'pending', [
+                                'collected' => ['Diterima', 'success'],
+                                'pending' => ['Menunggu', 'warning'],
+                            ]),
+                            'collected_at' => '<span class="text-secondary small">'.e($collect->collected_at ? $collect->collected_at->format('d/m/Y H:i') : '—').'</span>',
+                            'actions' => $collect->collected
+                                ? '<span class="text-secondary small">'.e($collect->collected_at?->format('d/m/Y H:i') ?? '—').'</span>'
+                                : '<form method="POST" action="'.route('vendor.cash-collect.mark', $collect->id).'" data-confirm="Catat serah terima COD untuk pesanan ini?">'
+                                    .csrf()
+                                    .'<button type="submit" class="btn btn-sm btn-success"><x-admin.icon name="check" :size="14" class="me-1" />Tandai diterima</button></form>',
+                        ])->all()
+                    )
+                    ->empty('Belum ada catatan COD untuk toko Anda.')
+            </x-slot:table>
+        </x-admin.table>
+    </x-admin.card>
+
+    <x-admin.pagination :paginator="$collects" class="mt-3" />
 @endsection

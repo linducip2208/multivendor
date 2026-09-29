@@ -39,8 +39,16 @@ class HtmlSanitizer
         return $output;
     }
 
-    private function sanitizeAttributes(DOMElement $element): void
+    /**
+     * Alias kept for callers that read "clean" as "return the sanitised HTML".
+     * `sanitize()` remains the canonical entry point.
+     */
+    public function clean(?string $html): ?string
     {
+        return $this->sanitize($html);
+    }
+
+    private function sanitizeAttributes(DOMElement $element): void    {
         $allowed = match ($element->tagName) {
             'a' => ['href', 'title', 'target', 'rel'],
             'img' => ['src', 'alt', 'width', 'height'],

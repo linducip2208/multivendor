@@ -7,7 +7,13 @@ use Illuminate\Http\Request;
 
 class ProfileController extends Controller
 {
-    public function index() { return view('storefront.profile.index'); }
+    public function index()
+    {
+        return view('storefront.profile.index', [
+            'addresses' => auth()->user()->addresses()->orderByDesc('is_default')->get(),
+            'wallet' => auth()->user()->wallet,
+        ]);
+    }
     public function update(Request $request) {
         $v = $request->validate(['name'=>'required|string|max:255','phone'=>'nullable|string|max:20','password'=>'nullable|min:6|confirmed']);
         auth()->user()->update(['name'=>$v['name'],'phone'=>$v['phone']]);

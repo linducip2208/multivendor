@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Crypt;
 
@@ -11,6 +12,7 @@ use Illuminate\Support\Facades\Crypt;
     'api_secret_encrypted', 'extra_headers', 'config', 'is_active',
     'is_default', 'sort_order', 'description'
 ])]
+#[Hidden(['api_key_encrypted', 'api_secret_encrypted'])]
 class Provider extends Model
 {
     protected function casts(): array

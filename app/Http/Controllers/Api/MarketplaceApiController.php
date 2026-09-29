@@ -17,6 +17,7 @@ use App\Models\ProductVariant;
 use App\Models\Shop;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Services\Api\PersonalAccessTokenIssuer;
 use App\Services\OrderWorkflowService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -73,7 +74,7 @@ class MarketplaceApiController extends Controller
             return $this->error('Akun customer diperlukan.', 403);
         }
 
-        return $this->success(['token' => $user->createToken('customer-api')->plainTextToken, 'user' => new CustomerResource($user->load('wallet'))], 'Login berhasil');
+        return $this->success(['token' => $this->issueToken($user, 'customer-api'), 'user' => new CustomerResource($user->load('wallet'))], 'Login berhasil');
     }
 
     public function register(Request $request)
@@ -82,7 +83,7 @@ class MarketplaceApiController extends Controller
         $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => Hash::make($data['password']), 'role' => 'customer', 'status' => 'active', 'referral_code' => Str::random(8)]);
         Wallet::create(['user_id' => $user->id, 'balance' => 0]);
 
-        return $this->success(['token' => $user->createToken('customer-api')->plainTextToken, 'user' => new CustomerResource($user->load('wallet'))], 'Registrasi berhasil', 201);
+        return $this->success(['token' => $this->issueToken($user, 'customer-api'), 'user' => new CustomerResource($user->load('wallet'))], 'Registrasi berhasil', 201);
     }
 
     public function profile(Request $request)
@@ -177,6 +178,11 @@ class MarketplaceApiController extends Controller
         abort_if($product->status !== 'approved' || ! $product->published || $product->shop->status !== 'active' || $product->shop->vacation_mode, 422, 'Produk tidak tersedia.');
         abort_if($quantity < $product->min_qty || ($product->max_qty && $quantity > $product->max_qty), 422, 'Kuantitas tidak valid.');
         abort_if($quantity > ($variant?->stock ?? $product->current_stock), 422, 'Stok tidak mencukupi.');
+    }
+
+    private function issueToken(User $user, string $name): string
+    {
+        return app(PersonalAccessTokenIssuer::class)->issue($user, $name, ['*'])['token'];
     }
 
     private function success(mixed $data, string $message = 'OK', int $status = 200)

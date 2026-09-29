@@ -1,23 +1,61 @@
 @extends('layouts.admin')
+
 @section('title', 'Database Settings')
+
+@section('breadcrumb')
+    <x-admin.breadcrumb :items="['System', ['label' => 'Database']]" />
+@endsection
+
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><i class="fas fa-database me-2"></i>Database Settings</h4></div>
-<div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="card card-stat"><div class="stat-label">Total Tabel</div><div class="stat-value">{{ count($tables) }}</div></div></div>
-    <div class="col-md-3"><div class="card card-stat"><div class="stat-label">Ukuran DB</div><div class="stat-value">{{ number_format($dbSize / 1024 / 1024, 1) }} MB</div></div></div>
-    <div class="col-md-3"><div class="card card-stat"><div class="stat-label">Connection</div><div class="stat-value small">{{ config('database.default') }}</div></div></div>
-    <div class="col-md-3"><div class="card card-stat"><div class="stat-label">Action</div><form method="POST" action="{{ route('admin.system.db-optimize') }}">@csrf <button class="btn btn-outline-primary btn-sm">Optimize Tables</button></form></div></div>
-</div>
-<div class="card border-0 rounded-4 shadow-sm">
-    <div class="table-responsive">
-        <table class="table table-hover mb-0">
-            <thead class="table-light"><tr><th class="text-uppercase small">TABEL</th><th class="text-uppercase small">ROWS</th><th class="text-uppercase small">SIZE</th><th class="text-uppercase small">AUTO INCREMENT</th><th class="text-uppercase small">ENGINE</th></tr></thead>
-            <tbody>
-                @foreach($tables as $t)
-                <tr><td class="fw-medium font-monospace small">{{ $t->Name ?? $t->name }}</td><td>{{ number_format($t->Rows ?? $t->rows ?? 0) }}</td><td>{{ round(($t->Data_length + $t->Index_length) / 1024, 1) }} KB</td><td>{{ $t->Auto_increment ?? '-' }}</td><td>{{ $t->Engine ?? $t->engine ?? '-' }}</td></tr>
-                @endforeach
-            </tbody>
-        </table>
+    <x-admin.page-header title="Pengaturan Database" subtitle="Ukuran tabel dan status koneksi.">
+        <x-slot:actions>
+            <form method="POST" action="{{ route('admin.system.db-optimize') }}">
+                @csrf
+                <button type="submit" class="btn btn-outline-warning btn-sm">Optimasi Tabel</button>
+            </form>
+        </x-slot:actions>
+    </x-admin.page-header>
+
+    @if ($driver !== 'mysql' && $driver !== 'mariadb')
+        <x-admin.alert type="warning" :title="'Optimasi hanya tersedia untuk MySQL atau MariaDB. Driver saat ini: '.$driver" />
+    @endif
+
+    <div class="row g-3 mb-3">
+        <div class="col-6 col-xl-3">
+            <x-admin.stat label="Driver" :value="strtoupper($driver)" icon="database" color="primary" />
+        </div>
+        <div class="col-6 col-xl-3">
+            <x-admin.stat label="Total Ukuran" :value="number_format($dbSize, 2, ',', '.').' MB'" icon="save" color="info" />
+        </div>
+        <div class="col-6 col-xl-3">
+            <x-admin.stat label="Jumlah Tabel" :value="count($tables)" icon="layers" color="secondary" />
+        </div>
     </div>
-</div>
+
+    <x-admin.card title="Tabel" icon="table" flush>
+        <div class="table-responsive">
+            <table class="table admin-table mb-0 table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col">Tabel</th>
+                        <th scope="col" class="text-end">Baris</th>
+                        <th scope="col" class="text-end">Data</th>
+                        <th scope="col" class="text-end">Index</th>
+                        <th scope="col" class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($tables as $table)
+                        <tr>
+                            <td><code class="small">{{ $table['Name'] }}</code></td>
+                            <td class="text-end">{{ number_format((int) $table['Rows'], 0, ',', '.') }}</td>
+                            <td class="text-end">{{ number_format(((int) $table['Data_length']) / 1048576, 2, ',', '.') }} MB</td>
+                            <td class="text-end">{{ number_format(((int) $table['Index_length']) / 1048576, 2, ',', '.') }} MB</td>
+                            <td class="text-end fw-semibold">{{ number_format(((int) $table['total']) / 1048576, 2, ',', '.') }} MB</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </x-admin.card>
 @endsection

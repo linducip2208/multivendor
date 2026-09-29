@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order;
+use App\Services\Api\PersonalAccessTokenIssuer;
 use App\Services\OrderWorkflowService;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,9 @@ class DeliveryApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Akun delivery diperlukan.'], 403);
         }
 
-        return response()->json(['success' => true, 'message' => 'Login berhasil', 'data' => ['token' => auth()->user()->createToken('delivery-api')->plainTextToken]]);
+        $token = app(PersonalAccessTokenIssuer::class)->issue(auth()->user(), 'delivery-api', ['*'])['token'];
+
+        return response()->json(['success' => true, 'message' => 'Login berhasil', 'data' => ['token' => $token]]);
     }
 
     public function orders(Request $request)

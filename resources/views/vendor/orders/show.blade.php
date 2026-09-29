@@ -1,100 +1,228 @@
 @extends('layouts.vendor')
+@include('vendor.partials.helpers')
 
-@section('title', 'Detail Pesanan')
+@section('title', 'Pesanan '.$order->order_number)
+@section('subtitle', ($order->customer?->name ?? 'Pelanggan').' · '.$order->created_at->format('d M Y H:i'))
+
+@section('breadcrumb', [
+    ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
+    ['label' => 'Pesanan', 'href' => route('vendor.orders.index')],
+    ['label' => $order->order_number],
+])
+
+@section('actions')
+    <a href="{{ route('vendor.orders.index') }}" class="btn btn-outline-secondary">
+        <x-admin.icon name="arrow-left" :size="16" class="me-1" />
+        <span>Daftar pesanan</span>
+    </a>
+    @if (in_array($order->order_status, \App\Services\Vendor\OrderEditService::editableStatuses(), true))
+        <a href="{{ route('vendor.orders.edit', $order) }}" class="btn btn-outline-secondary">
+            <x-admin.icon name="edit" :size="16" class="me-1" />
+            <span>Ubah pesanan</span>
+        </a>
+    @endif
+@endsection
 
 @section('content')
-<div class="mb-4">
-    <a href="{{ route('vendor.orders.index') }}" class="text-decoration-none small"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
-    <h4 class="fw-bold mt-2 mb-1">Order #{{ $order->order_number }}</h4>
-</div>
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <x-admin.card title="Item pesanan" icon="package" :padding="false" flush>
+                <x-admin.table>
+                    <x-slot:table>
+                        \App\Support\TableBuilder::make()
+                            ->columns([
+                                'product' => ['label' => 'Produk', 'width' => '40%'],
+                                'quantity' => ['label' => 'Qty', 'align' => 'end'],
+                                'price' => ['label' => 'Harga', 'align' => 'end'],
+                                'discount' => ['label' => 'Diskon', 'align' => 'end'],
+                                'sub_total' => ['label' => 'Subtotal', 'align' => 'end'],
+                            ])
+                            ->rows(
+                                $order->items->map(fn ($item) => [
+                                    'product' => '<span class="fw-medium d-block text-truncate">'.e($item->product?->name ?? 'Produk tidak tersedia').'</span>'
+                                        .($item->variant?->name ? '<span class="text-secondary small">'.e($item->variant->name).'</span>' : ''),
+                                    'quantity' => e(Currency::number($item->quantity)),
+                                    'price' => '<span class="text-nowrap">'.e(Currency::format($item->price)).'</span>',
+                                    'discount' => (float) $item->discount > 0 ? '-'.e(Currency::format($item->discount)) : '—',
+                                    'sub_total' => '<span class="fw-medium text-nowrap">'.e(Currency::format($item->sub_total)).'</span>',
+                                ])->all()
+                            )
+                    </x-slot:table>
 
-<div class="row g-4">
-    <div class="col-lg-8">
-        <div class="card border-0 rounded-4 shadow-sm mb-4">
-            <div class="card-header bg-transparent border-0 pt-3 px-3"><h6 class="fw-bold mb-0"><i class="fas fa-box me-2"></i> Item Pesanan</h6></div>
-            <div class="table-responsive">
-                <table class="table mb-0">
-                    <thead class="table-light"><tr><th>Produk</th><th>Qty</th><th>Harga</th><th>Subtotal</th></tr></thead>
-                    <tbody>
-                        @foreach($order->items as $item)
+                    <x-slot:tfoot>
                         <tr>
-                            <td>
-                                <div class="fw-medium">{{ $item->product->name ?? 'Produk' }}</div>
-                                @if($item->variant_detail)<small class="text-muted">{{ $item->variant_detail }}</small>@endif
-                            </td>
-                            <td>{{ $item->quantity }}</td>
-                            <td>Rp {{ number_format($item->price, 0, ',', '.') }}</td>
-                            <td>Rp {{ number_format($item->sub_total, 0, ',', '.') }}</td>
+                            <td colspan="4" class="text-end text-secondary">Subtotal</td>
+                            <td class="text-end">{{ Currency::format($order->sub_total) }}</td>
                         </tr>
-                        @endforeach
-                    </tbody>
-                    <tfoot class="table-light">
-                        <tr><td colspan="3" class="text-end fw-medium">Subtotal</td><td>Rp {{ number_format($order->sub_total, 0, ',', '.') }}</td></tr>
-                        <tr><td colspan="3" class="text-end">Ongkir</td><td>Rp {{ number_format($order->shipping_cost, 0, ',', '.') }}</td></tr>
-                        @if($order->coupon_discount > 0)<tr><td colspan="3" class="text-end">Kupon</td><td>-Rp {{ number_format($order->coupon_discount, 0, ',', '.') }}</td></tr>@endif
-                        <tr><td colspan="3" class="text-end fw-bold">Total</td><td class="fw-bold">Rp {{ number_format($order->total, 0, ',', '.') }}</td></tr>
-                    </tfoot>
-                </table>
-            </div>
+                        <tr>
+                            <td colspan="4" class="text-end text-secondary">Pajak</td>
+                            <td class="text-end">{{ Currency::format($order->tax) }}</td>
+                        </tr>
+                        @if ((float) $order->discount > 0)
+                            <tr>
+                                <td colspan="4" class="text-end text-secondary">Diskon</td>
+                                <td class="text-end">-{{ Currency::format($order->discount) }}</td>
+                            </tr>
+                        @endif
+                        @if ((float) $order->coupon_discount > 0)
+                            <tr>
+                                <td colspan="4" class="text-end text-secondary">Kupon {{ $order->coupon_code ? '('.$order->coupon_code.')' : '' }}</td>
+                                <td class="text-end">-{{ Currency::format($order->coupon_discount) }}</td>
+                            </tr>
+                        @endif
+                        <tr>
+                            <td colspan="4" class="text-end text-secondary">Ongkir</td>
+                            <td class="text-end">{{ Currency::format($order->shipping_cost) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" class="text-end fw-semibold">Total</td>
+                            <td class="text-end fw-semibold">{{ Currency::format($order->total) }}</td>
+                        </tr>
+                    </x-slot:tfoot>
+                </x-admin.table>
+            </x-admin.card>
+
+            @if ($order->shipments->isNotEmpty())
+                <x-admin.card title="Riwayat pengiriman" icon="truck" class="mt-3" :padding="false">
+                    <x-admin.table dense>
+                        <x-slot:table>
+                            \App\Support\TableBuilder::make()
+                                ->columns([
+                                    'courier' => ['label' => 'Kurir'],
+                                    'tracking' => ['label' => 'Resi'],
+                                    'cost' => ['label' => 'Biaya', 'align' => 'end'],
+                                    'status' => ['label' => 'Status'],
+                                    'shipped' => ['label' => 'Dikirim', 'align' => 'end'],
+                                ])
+                                ->rows(
+                                    $order->shipments->map(fn ($shipment) => [
+                                        'courier' => '<span class="fw-medium">'.e($shipment->courier).'</span>'.($shipment->service ? '<span class="text-secondary small d-block">'.e($shipment->service).'</span>' : ''),
+                                        'tracking' => '<span class="font-monospace small">'.e($shipment->tracking_number ?: '—').'</span>',
+                                        'cost' => '<span class="text-nowrap">'.e(Currency::format($shipment->cost)).'</span>',
+                                        'status' => $__status($shipment->status),
+                                        'shipped' => '<span class="text-secondary small">'.e($shipment->shipped_at?->format('d/m/Y H:i') ?? '—').'</span>',
+                                    ])->all()
+                                )
+                                ->empty('Belum ada catatan pengiriman.')
+                        </x-slot:table>
+                    </x-admin.table>
+                </x-admin.card>
+            @endif
+
+            <x-admin.card title="Riwayat status" icon="history" class="mt-3">
+                <x-admin.activity-feed
+                    :items="$order->statusHistory->map(fn ($history) => [
+                        'actor' => $history->changedBy?->name ?? 'Sistem',
+                        'action' => $history->note ?: (\Illuminate\Support\Str::headline((string) $history->status)),
+                        'at' => $history->created_at->format('d/m/Y H:i'),
+                        'icon' => 'activity',
+                    ])->all()"
+                    empty="Belum ada riwayat status."
+                />
+            </x-admin.card>
         </div>
 
-        <div class="card border-0 rounded-4 shadow-sm">
-            <div class="card-header bg-transparent border-0 pt-3 px-3"><h6 class="fw-bold mb-0"><i class="fas fa-history me-2"></i> Riwayat Status</h6></div>
-            <div class="card-body">
-                @forelse($order->statusHistory as $h)
-                <div class="d-flex gap-3 mb-3 pb-3 border-bottom">
-                    <div class="badge bg-info-subtle text-info mt-1">{{ ucfirst($h->status) }}</div>
-                    <div>
-                        <small>{{ $h->created_at->format('d/m/Y H:i') }}</small>
-                        @if($h->note)<div class="small text-muted">{{ $h->note }}</div>@endif
+        <div class="col-12 col-xl-4">
+            <x-admin.card title="Informasi pesanan" icon="info">
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-secondary fw-normal">Status</dt>
+                    <dd class="col-7 text-end">{{ $__orderStatus($order->order_status) }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Pembayaran</dt>
+                    <dd class="col-7 text-end">{{ $__paymentStatus($order->payment_status) }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Pemenuhan</dt>
+                    <dd class="col-7 text-end">{{ $__status($order->fulfillment_status) }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Sumber</dt>
+                    <dd class="col-7 text-end text-uppercase">{{ $order->source ?? 'web' }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Pelanggan</dt>
+                    <dd class="col-7 text-end">
+                        @if ($order->customer)
+                            <a href="{{ route('vendor.customers.show', $order->customer_id) }}">{{ $order->customer->name }}</a>
+                            <div class="text-secondary">{{ $order->customer->email }}</div>
+                        @else
+                            —
+                        @endif
+                    </dd>
+                    <dt class="col-5 text-secondary fw-normal">Resi</dt>
+                    <dd class="col-7 text-end font-monospace">{{ $order->shipping_tracking_id ?: '—' }}</dd>
+                </dl>
+
+                @if (! empty($order->shipping_address))
+                    <hr class="my-3" />
+                    <div class="small">
+                        <div class="fw-semibold mb-1">Alamat kirim</div>
+                        <div class="text-secondary">{{ $order->shipping_address['address'] ?? '—' }}</div>
+                        <div class="text-secondary">
+                            {{ implode(', ', array_filter([$order->shipping_address['city'] ?? null, $order->shipping_address['state'] ?? null, $order->shipping_address['postcode'] ?? null])) }}
+                        </div>
                     </div>
-                </div>
-                @empty
-                <p class="text-muted small">Belum ada riwayat</p>
-                @endforelse
-            </div>
+                @endif
+
+                @if ($order->note)
+                    <hr class="my-3" />
+                    <div class="small">
+                        <div class="fw-semibold mb-1">Catatan pelanggan</div>
+                        <div class="text-secondary">{{ $order->note }}</div>
+                    </div>
+                @endif
+            </x-admin.card>
+
+            @if ($shippable)
+                <x-admin.card title="Kirim pesanan" icon="truck" class="mt-3">
+                    <form method="POST" action="{{ route('vendor.orders.ship', $order) }}" data-confirm="Kirim pesanan {{ $order->order_number }}?">
+                        @csrf
+
+                        <div class="row g-2">
+                            <div class="col-12 col-sm-6">
+                                <x-admin.form-field name="courier" label="Kurir" required placeholder="mis. JNE" />
+                            </div>
+                            <div class="col-12 col-sm-6">
+                                <x-admin.form-field name="service" label="Layanan" placeholder="mis. REG" />
+                            </div>
+                            <div class="col-12">
+                                <x-admin.form-field name="tracking_number" label="Nomor resi" required placeholder="Masukkan resi pelacakan" />
+                            </div>
+                            <div class="col-6">
+                                <x-admin.form-field name="weight" label="Berat (kg)" type="number" :min="0" :step="0.01" />
+                            </div>
+                            <div class="col-6">
+                                <x-admin.form-field name="cost" label="Biaya kirim" type="number" :min="0" :step="0.01" :value="0" />
+                            </div>
+                            <div class="col-12">
+                                <x-admin.form-field name="note" label="Catatan" />
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-primary w-100">
+                            <x-admin.icon name="truck" :size="16" class="me-1" />
+                            <span>Tandai dikirim</span>
+                        </button>
+                    </form>
+                </x-admin.card>
+            @endif
+
+            @if (in_array($order->order_status, ['pending', 'paid', 'confirmed', 'processing'], true))
+                <x-admin.card title="Ubah status" icon="refresh" class="mt-3">
+                    <form method="POST" action="{{ route('vendor.orders.update-status', $order) }}">
+                        @csrf
+                        @method('PUT')
+
+                        <x-admin.form-field
+                            name="status"
+                            label="Status baru"
+                            type="select"
+                            required
+                            :options="collect($transitions)->mapWithKeys(fn ($transition) => [$transition => \Illuminate\Support\Str::headline($transition)])->all()"
+                        />
+                        <x-admin.form-field name="note" label="Catatan" type="textarea" :rows="2" />
+                        <x-admin.form-field name="reason" label="Alasan (untuk pembatalan)" type="textarea" :rows="2" />
+
+                        <button type="submit" class="btn btn-outline-primary w-100">
+                            <x-admin.icon name="check" :size="16" class="me-1" />
+                            <span>Perbarui status</span>
+                        </button>
+                    </form>
+                </x-admin.card>
+            @endif
         </div>
     </div>
-
-    <div class="col-lg-4">
-        <div class="card border-0 rounded-4 shadow-sm mb-4">
-            <div class="card-header bg-transparent border-0 pt-3 px-3"><h6 class="fw-bold mb-0"><i class="fas fa-info-circle me-2"></i> Info Pesanan</h6></div>
-            <div class="card-body">
-                <div class="mb-2"><small class="text-muted">Status</small><div><span class="badge bg-{{ ['pending'=>'warning','confirmed'=>'info','processing'=>'primary','shipped'=>'indigo','delivered'=>'success','canceled'=>'danger'][$order->order_status] }}-subtle">{{ ucfirst($order->order_status) }}</span></div></div>
-                <div class="mb-2"><small class="text-muted">Pembayaran</small><div><span class="badge bg-{{ $order->payment_status === 'paid' ? 'success' : 'warning' }}-subtle">{{ $order->payment_status }}</span></div></div>
-                <div class="mb-2"><small class="text-muted">Pelanggan</small><div>{{ $order->customer->name ?? '-' }}<br><small>{{ $order->customer->email ?? '' }}</small></div></div>
-                @if($order->shipping_address)
-                <div class="mb-2"><small class="text-muted">Alamat Kirim</small><div class="small">{{ $order->shipping_address['address'] ?? '-' }}, {{ $order->shipping_address['city'] ?? '' }}</div></div>
-                @endif
-                @if($order->note)
-                <div class="mb-2"><small class="text-muted">Catatan</small><div class="small">{{ $order->note }}</div></div>
-                @endif
-            </div>
-        </div>
-
-        @if(in_array($order->order_status, ['pending', 'confirmed']))
-        <div class="card border-0 rounded-4 shadow-sm">
-            <div class="card-header bg-transparent border-0 pt-3 px-3"><h6 class="fw-bold mb-0"><i class="fas fa-cog me-2"></i> Update Status</h6></div>
-            <div class="card-body">
-                <form method="POST" action="{{ route('vendor.orders.update-status', $order) }}">
-                    @csrf @method('PUT')
-                    <div class="mb-3">
-                        <label class="form-label small fw-medium">Status Baru</label>
-                        <select name="status" class="form-select" required>
-                            @if($order->order_status === 'pending')<option value="confirmed">Konfirmasi Pesanan</option>@endif
-                            @if(in_array($order->order_status, ['pending', 'confirmed']))<option value="processing">Proses Pesanan</option>@endif
-                            <option value="canceled">Batalkan Pesanan</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label small fw-medium">Catatan</label>
-                        <textarea name="note" class="form-control" rows="2"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100"><i class="fas fa-check me-2"></i> Update Status</button>
-                </form>
-            </div>
-        </div>
-        @endif
-    </div>
-</div>
 @endsection

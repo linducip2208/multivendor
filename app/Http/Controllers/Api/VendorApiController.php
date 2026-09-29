@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Order;
 use App\Models\Product;
 use App\Models\Transaction;
+use App\Services\Api\PersonalAccessTokenIssuer;
 use App\Services\OrderWorkflowService;
 use Illuminate\Http\Request;
 
@@ -22,7 +23,9 @@ class VendorApiController extends Controller
             return $this->error('Akun vendor dengan toko diperlukan.', 403);
         }
 
-        return $this->success(['token' => $vendor->createToken('vendor-api')->plainTextToken, 'shop' => ['id' => $vendor->shop->id, 'name' => $vendor->shop->name, 'slug' => $vendor->shop->slug]], 'Login berhasil');
+        $token = app(PersonalAccessTokenIssuer::class)->issue($vendor, 'vendor-api', ['*'])['token'];
+
+        return $this->success(['token' => $token, 'shop' => ['id' => $vendor->shop->id, 'name' => $vendor->shop->name, 'slug' => $vendor->shop->slug]], 'Login berhasil');
     }
 
     public function dashboard(Request $request)

@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\RequirePair::class,
             \App\Http\Middleware\LanguageMiddleware::class,
         ]);
+
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'vendor' => \App\Http\Middleware\VendorMiddleware::class,
@@ -25,16 +26,22 @@ return Application::configure(basePath: dirname(__DIR__))
             'delivery.api' => \App\Http\Middleware\EnsureDeliveryApi::class,
             'delivery' => \App\Http\Middleware\DeliveryMiddleware::class,
             'language' => \App\Http\Middleware\LanguageMiddleware::class,
+            'license.exempt' => \App\Http\Middleware\LicenseExempt::class,
+            'permission' => \App\Http\Middleware\EnsurePermission::class,
+            'tenant' => \App\Http\Middleware\ResolveTenant::class,
+            'force.json' => \Illuminate\Http\Middleware\ForceJsonResponse::class,
         ]);
-        $middleware->web(append: [\App\Http\Middleware\LanguageMiddleware::class]);
+
         $middleware->validateCsrfTokens(except: [
             'api/*',
             'webhook/*',
             'checkout/shipping-cost',
         ]);
+
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*'),
+            fn (Request $request) => $request->is('api/*') || $request->expectsJson(),
         );
     })->create();

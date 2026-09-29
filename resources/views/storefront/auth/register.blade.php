@@ -1,61 +1,171 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
-    <title>Daftar — {{ config('app.name') }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+@extends('layouts.storefront')
+
+@push('head')
     <style>
-        :root { --brand-primary: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; }
-        body { font-family: 'Inter', system-ui, sans-serif; background: #f1f5f9; }
-        .register-card { border: none; border-radius: 20px; box-shadow: 0 4px 40px rgba(0,0,0,.06); }
-        .form-control { border-radius: 12px; padding: 12px 16px; border: 1.5px solid #e2e8f0; }
-        .form-control:focus { border-color: var(--brand-primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
-        .btn-register { background: linear-gradient(135deg, var(--brand-primary), var(--brand-dark)); border: none; border-radius: 12px; padding: 12px 24px; font-weight: 600; color: #fff; }
+        .sf-auth { display: grid; gap: 28px; align-items: center; }
+        @media (min-width: 992px) { .sf-auth { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 44px; } }
+        .sf-auth__aside {
+            border-radius: var(--sf-radius-lg);
+            padding: clamp(28px, 4vw, 48px);
+            background: linear-gradient(135deg, var(--sf-brand) 0%, var(--sf-brand-700) 100%);
+            color: var(--sf-brand-contrast);
+        }
+        .sf-auth__aside h2 { color: inherit; }
+        .sf-auth__list { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; }
     </style>
-</head>
-<body class="d-flex align-items-center justify-content-center min-vh-100 p-4">
-<div class="card register-card w-100" style="max-width:480px;">
-    <div class="card-body p-5">
-        <div class="text-center mb-4">
-            <i class="fas fa-store-alt fa-3x text-primary mb-2"></i>
-            <h3 class="fw-bold">Daftar</h3>
-            <p class="text-muted">Buat akun di {{ config('app.name') }}</p>
+@endpush
+
+@section('content')
+    @php
+        $appName = $whitelabel['appName'] ?? config('app.name');
+        $registrationOpen = (bool) \App\Models\SystemSetting::get('customer_registration_open', true);
+        $hasSocial = \Illuminate\Support\Facades\Route::has('social.redirect');
+    @endphp
+
+    <div class="sf-container sf-section sf-section--tight">
+        <div class="sf-auth">
+            <section class="sf-panel" aria-labelledby="sf-register-title">
+                <h1 class="sf-mb-0" id="sf-register-title" style="font-size:clamp(1.4rem,1.2rem+1vw,1.9rem)">Buat akun pelanggan</h1>
+                <p class="sf-small sf-muted">
+                    Gratis, hanya butuh satu menit, dan langsung bisa checkout bersama banyak toko.
+                </p>
+
+                @unless ($registrationOpen)
+                    <x-storefront.alert type="warning" title="Pendaftaran ditutup" style="margin-top:18px">
+                        Saat ini pendaftaran pelanggan baru sedang tidak dibuka. Silakan kembali lagi nanti.
+                    </x-storefront.alert>
+
+                    <p class="sf-small sf-muted" style="margin-top:18px">
+                        Sudah punya akun? <a href="{{ route('login') }}">Masuk di sini</a>.
+                    </p>
+                @else
+                    @if ($hasSocial)
+                        <div class="sf-row sf-row--wrap" style="gap:8px;margin:20px 0">
+                            @foreach (['google' => 'Google', 'facebook' => 'Facebook', 'github' => 'GitHub'] as $provider => $label)
+                                <a href="{{ route('social.redirect', $provider) }}" class="sf-btn sf-btn--outline sf-btn--sm">
+                                    {{ $label }}
+                                </a>
+                            @endforeach
+                        </div>
+                        <div class="sf-row" style="gap:12px;margin-bottom:20px">
+                            <span style="flex:1;height:1px;background:var(--sf-border)" aria-hidden="true"></span>
+                            <span class="sf-tiny sf-muted">atau daftar dengan email</span>
+                            <span style="flex:1;height:1px;background:var(--sf-border)" aria-hidden="true"></span>
+                        </div>
+                    @endif
+
+                    <form method="POST" action="{{ route('register') }}" class="sf-stack" style="gap:16px" novalidate>
+                        @csrf
+
+                        <div class="sf-field">
+                            <label class="sf-label" for="sf-register-name">Nama lengkap <span class="sf-required">*</span></label>
+                            <input class="sf-input" id="sf-register-name" type="text" name="name" required autocomplete="name"
+                                   value="{{ old('name') }}" @error('name') aria-invalid="true" aria-describedby="sf-register-name-error" @enderror>
+                            @error('name')
+                                <span class="sf-error" id="sf-register-name-error">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div class="sf-field">
+                            <label class="sf-label" for="sf-register-email">Email <span class="sf-required">*</span></label>
+                            <input class="sf-input" id="sf-register-email" type="email" name="email" required autocomplete="email"
+                                   value="{{ old('email') }}" @error('email') aria-invalid="true" aria-describedby="sf-register-email-error" @enderror>
+                            @error('email')
+                                <span class="sf-error" id="sf-register-email-error">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div class="sf-field">
+                            <label class="sf-label" for="sf-register-phone">Nomor telepon</label>
+                            <input class="sf-input" id="sf-register-phone" type="tel" name="phone" autocomplete="tel"
+                                   value="{{ old('phone') }}" @error('phone') aria-invalid="true" aria-describedby="sf-register-phone-error" @enderror>
+                            @error('phone')
+                                <span class="sf-error" id="sf-register-phone-error">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+                            <div class="sf-field">
+                                <label class="sf-label" for="sf-register-password">Password <span class="sf-required">*</span></label>
+                                <input class="sf-input" id="sf-register-password" type="password" name="password" required
+                                       autocomplete="new-password" @error('password') aria-invalid="true" aria-describedby="sf-register-password-error" @enderror>
+                                @error('password')
+                                    <span class="sf-error" id="sf-register-password-error">{{ $message }}</span>
+                                @enderror
+                            </div>
+                            <div class="sf-field">
+                                <label class="sf-label" for="sf-register-password-confirm">Ulangi password <span class="sf-required">*</span></label>
+                                <input class="sf-input" id="sf-register-password-confirm" type="password" name="password_confirmation"
+                                       required autocomplete="new-password">
+                            </div>
+                        </div>
+                        <p class="sf-hint sf-mb-0">Gunakan minimal 8 karakter.</p>
+
+                        <div class="sf-field">
+                            <label class="sf-label" for="sf-register-referral">Kode referral</label>
+                            <input class="sf-input" id="sf-register-referral" type="text" name="referral_code"
+                                   value="{{ old('referral_code') }}" autocomplete="off"
+                                   @error('referral_code') aria-invalid="true" aria-describedby="sf-register-referral-error" @enderror>
+                            @error('referral_code')
+                                <span class="sf-error" id="sf-register-referral-error">{{ $message }}</span>
+                            @enderror
+                        </div>
+
+                        <label class="sf-checkbox" for="sf-register-terms">
+                            <input type="checkbox" id="sf-register-terms" name="terms" value="1" required
+                                   @checked(old('terms')) @error('terms') aria-invalid="true" aria-describedby="sf-register-terms-error" @enderror>
+                            <span>Saya menyetujui <a href="{{ route('page.terms') }}">syarat &amp; ketentuan</a> serta
+                                <a href="{{ route('page.privacy') }}">kebijakan privasi</a>.</span>
+                        </label>
+                        @error('terms')
+                            <span class="sf-error" id="sf-register-terms-error">{{ $message }}</span>
+                        @enderror
+
+                        <button type="submit" class="sf-btn sf-btn--primary sf-btn--block sf-btn--lg">
+                            <x-storefront.icon name="user" :size="18" /> Buat akun
+                        </button>
+                    </form>
+
+                    <p class="sf-small sf-muted sf-mb-0" style="margin-top:18px">
+                        Sudah punya akun? <a href="{{ route('login') }}">Masuk</a>.
+                    </p>
+                @endunless
+            </section>
+
+            <aside class="sf-auth__aside" aria-labelledby="sf-register-aside-title">
+                <p class="sf-hero__eyebrow">{{ $appName }}</p>
+                <h2 class="sf-mb-0" id="sf-register-aside-title" style="font-size:clamp(1.5rem,1.2rem+1.4vw,2.1rem)">
+                    Belanja lebih cepat, lebih aman
+                </h2>
+                <p class="sf-mb-0" style="opacity:.9;max-width:44ch">
+                    Satu akun untuk melacak pesanan, menyimpan alamat, dan mengelola dompet digital.
+                </p>
+
+                <ul class="sf-auth__list" style="margin-top:26px">
+                    <li class="sf-row" style="gap:12px;align-items:flex-start">
+                        <span class="sf-row" style="justify-content:center;width:38px;height:38px;border-radius:var(--sf-radius-sm);background:rgba(255,255,255,.16);flex-shrink:0">
+                            <x-storefront.icon name="map-pin" :size="19" />
+                        </span>
+                        <span>Simpan alamat pengiriman agar checkout berikutnya jauh lebih singkat.</span>
+                    </li>
+                    <li class="sf-row" style="gap:12px;align-items:flex-start">
+                        <span class="sf-row" style="justify-content:center;width:38px;height:38px;border-radius:var(--sf-radius-sm);background:rgba(255,255,255,.16);flex-shrink:0">
+                            <x-storefront.icon name="bell" :size="19" />
+                        </span>
+                        <span>Terima pembaruan status pesanan dan promo yang benar-benar relevan.</span>
+                    </li>
+                    <li class="sf-row" style="gap:12px;align-items:flex-start">
+                        <span class="sf-row" style="justify-content:center;width:38px;height:38px;border-radius:var(--sf-radius-sm);background:rgba(255,255,255,.16);flex-shrink:0">
+                            <x-storefront.icon name="lock" :size="19" />
+                        </span>
+                        <span>Data Anda terenkripsi dan tidak dibagikan kepada penjual.</span>
+                    </li>
+                </ul>
+
+                <a href="{{ route('page.terms') }}" class="sf-btn sf-btn--block" style="background:#fff;color:var(--sf-brand);margin-top:26px">
+                    Baca syarat &amp; ketentuan
+                </a>
+            </aside>
         </div>
-        <form method="POST" action="{{ route('register') }}">
-            @csrf
-            <div class="mb-3">
-                <label class="form-label fw-medium">Nama Lengkap</label>
-                <input type="text" name="name" class="form-control" placeholder="Nama Anda" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-medium">Email</label>
-                <input type="email" name="email" class="form-control" placeholder="email@example.com" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-medium">No. HP</label>
-                <input type="tel" name="phone" class="form-control" placeholder="08123456789">
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-medium">Password</label>
-                <input type="password" name="password" class="form-control" placeholder="Min. 8 karakter" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-medium">Konfirmasi Password</label>
-                <input type="password" name="password_confirmation" class="form-control" placeholder="Ulangi password" required>
-            </div>
-            <div class="mb-3">
-                <label class="form-label fw-medium">Kode Referral (opsional)</label>
-                <input type="text" name="referral_code" class="form-control" placeholder="Masukkan kode referral">
-            </div>
-            <button type="submit" class="btn btn-register w-100"><i class="fas fa-user-plus me-2"></i> Daftar Sekarang</button>
-        </form>
-        <p class="text-center mt-3 mb-0">Sudah punya akun? <a href="{{ route('login') }}" class="fw-semibold">Masuk</a></p>
     </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+@endsection

@@ -1,6 +1,111 @@
 @extends('layouts.vendor')
-@section('title', 'Chat: '.$customer->name)
-@section('content')
-<div class="mb-4"><a href="{{ route('vendor.chat.inbox') }}" class="small"><i class="fas fa-arrow-left me-1"></i>Inbox</a><h4 class="fw-bold mt-2">Chat dengan {{ $customer->name }}</h4></div>
-<div class="card border-0 rounded-4 shadow-sm"><div class="card-body text-center py-5"><i class="fas fa-comments fa-4x text-muted mb-3 opacity-25"></i><h5>Chat System</h5><p class="text-muted">Real-time chat akan aktif setelah integrasi Pusher / Laravel Reverb / WebSocket.</p><p class="text-muted small">Saat ini gunakan kontak langsung: <strong>{{ $customer->email }}</strong></p></div></div>
+@include('vendor.partials.helpers')
+
+@section('title', 'Chat dengan '.$participants->first()->user->name)
+@section('subtitle', $conversation->subject)
+
+@section('breadcrumb', [
+    ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
+    ['label' => 'Chat', 'href' => route('vendor.chat.inbox')],
+    ['label' => 'Percakapan'],
+])
+
+@section('actions')
+    <a href="{{ route('vendor.tickets.index') }}" class="btn btn-outline-secondary">
+        <x-admin.icon name="life-buoy" :size="16" class="me-1" />
+        <span>Buat tiket</span>
+    </a>
 @endsection
+
+@section('content')
+    <div class="row g-3">
+        <div class="col-12 col-xl-8">
+            <x-admin.card :padding="false" flush>
+                <div class="chat-thread p-3" style="max-height: 60vh; overflow-y: auto;" data-chat-thread>
+                    @forelse ($messages as $message)
+                        @php $mine = (int) $message->user_id === (int) auth('vendor')->id(); @endphp
+                        <div class="d-flex gap-2 mb-3 {{ $mine ? 'flex-row-reverse' : '' }}">
+                            <x-admin.avatar :name="$message->author?->name ?? 'Pelanggan'" size="sm" />
+                            <div class="{{ $mine ? 'text-end' : '' }}" style="max-width: 78%;">
+                                <div class="d-flex align-items-baseline gap-2 {{ $mine ? 'flex-row-reverse' : '' }}">
+                                    <span class="fw-medium">{{ $mine ? 'Anda' : ($message->author?->name ?? 'Pelanggan') }}</span>
+                                    <span class="text-secondary small">{{ $message->created_at->format('d/m/Y H:i') }}</span>
+                                </div>
+                                <div class="rounded-3 px-3 py-2 mt-1 text-start" style="background: {{ $mine ? 'var(--tblr-primary)' : 'var(--tblr-secondary-bg)' }}; color: {{ $mine ? 'var(--tblr-primary-fg)' : 'inherit' }};">
+                                    {{ $message->body }}
+                                </div>
+                            </div>
+                        </div>
+                    @empty
+                        <x-admin.empty-state icon="message-square" text="Belum ada pesan. Mulai percakapan di bawah." compact />
+                    @endforelse
+                </div>
+
+                <div class="card-footer bg-transparent border-top">
+                    <form method="POST" action="{{ route('vendor.chat.send') }}">
+                        @csrf
+                        <input type="hidden" name="conversation_id" value="{{ $conversation->id }}">
+
+                        <div class="row g-2 align-items-end">
+                            <div class="col-12">
+                                <label class="form-label small mb-1" for="chat-body">Pesan</label>
+                                <textarea class="form-control" id="chat-body" name="body" rows="3" required maxlength="5000" placeholder="Tulis balasan untuk pelanggan&hellip;">{{ old('body') }}</textarea>
+                            </div>
+                            <div class="col-12 d-flex justify-content-end gap-2">
+                                <button type="submit" class="btn btn-primary" data-chat-send>
+                                    <x-admin.icon name="mail" :size="16" class="me-1" />
+                                    <span>Kirim</span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </x-admin.card>
+        </div>
+
+        <div class="col-12 col-xl-4">
+            <x-admin.card title="Detail percakapan" icon="info">
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-secondary fw-normal">Status</dt>
+                    <dd class="col-7 text-end">{{ $__status($conversation->status) }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Dibuat</dt>
+                    <dd class="col-7 text-end">{{ $conversation->created_at?->format('d M Y') }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Pesan terakhir</dt>
+                    <dd class="col-7 text-end">{{ $conversation->last_message_at?->format('d M Y H:i') ?? '—' }}</dd>
+                    <dt class="col-5 text-secondary fw-normal">Jumlah pesan</dt>
+                    <dd class="col-7 text-end">{{ $messages->count() }}</dd>
+                </dl>
+            </x-admin.card>
+
+            <x-admin.card title="Peserta" icon="users" class="mt-3">
+                @foreach ($participants as $participant)
+                    <div class="d-flex align-items-center gap-2 {{ $loop->last ? '' : 'mb-3' }}">
+                        <x-admin.avatar :name="$participant->user?->name ?? 'Pelanggan'" size="sm" />
+                        <span class="min-w-0">
+                            <span class="d-block text-truncate fw-medium">{{ $participant->user?->name ?? 'Pelanggan' }}</span>
+                            <span class="d-block text-secondary small text-truncate">{{ $participant->user?->email }}</span>
+                        </span>
+                    </div>
+                @endforeach
+
+                @if ($participants->isNotEmpty() && $conversation->order_id)
+                    <a href="{{ route('vendor.orders.show', $conversation->order_id) }}" class="btn btn-outline-secondary w-100 mt-3">
+                        <x-admin.icon name="shopping-cart" :size="16" class="me-1" />
+                        <span>Lihat pesanan terkait</span>
+                    </a>
+                @endif
+            </x-admin.card>
+        </div>
+    </div>
+@endsection
+
+@push('scripts')
+    <script data-chat-thread>
+        (function () {
+            const thread = document.querySelector('[data-chat-thread]');
+            if (thread) {
+                thread.scrollTop = thread.scrollHeight;
+            }
+        })();
+    </script>
+@endpush

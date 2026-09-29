@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Support\Money;
 use Illuminate\Http\Request;
 
 class CartController extends Controller
@@ -15,16 +16,22 @@ class CartController extends Controller
         $cartItems = Cart::where('customer_id', auth()->id())
             ->with(['product.shop', 'variant'])
             ->get()
-            ->groupBy(fn ($item) => $item->product->shop_id);
+            ->each(function (Cart $item): void {
+                $item->price = $item->variant?->getEffectivePrice() ?? $item->product?->getEffectivePrice();
+            })
+            ->groupBy(fn ($item) => $item->product?->shop_id);
 
         $shops = [];
         foreach ($cartItems as $shopId => $items) {
             $shop = $items->first()->product->shop;
-            $subtotal = $items->sum(fn ($i) => $i->price * $i->quantity);
-            $shops[] = ['shop' => $shop, 'items' => $items, 'subtotal' => $subtotal];
+            $subtotal = Money::sum(array_map(
+                static fn (Cart $item) => Money::of($item->price)->multiply((int) $item->quantity),
+                $items->all()
+            ));
+            $shops[] = ['shop' => $shop, 'items' => $items, 'subtotal' => $subtotal->toFloat()];
         }
 
-        $total = collect($shops)->sum('subtotal');
+        $total = Money::sum(array_map(static fn (array $group) => Money::of($group['subtotal']), $shops))->toFloat();
 
         return view('storefront.cart.index', compact('shops', 'total'));
     }
