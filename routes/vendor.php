@@ -61,6 +61,12 @@ Route::prefix('vendor')->name('vendor.')->group(function (): void {
         Route::put('shop/vacation', [VendorShopController::class, 'toggleVacation'])->name('shop.vacation');
         Route::get('products/low-stock', [VendorProductController::class, 'lowStock'])->name('products.low-stock');
         Route::patch('products/bulk-price', [VendorProductController::class, 'bulkPriceUpdate'])->name('products.bulk-price');
+        Route::post('products/{product}/varian/{varian}/gambar', [VendorProductController::class, 'simpanGambarVarian'])->name('products.varian.gambar.simpan');
+        Route::delete('products/{product}/varian/{varian}/gambar', [VendorProductController::class, 'hapusGambarVarian'])->name('products.varian.gambar.hapus');
+        Route::post('products/{product}/lisensi', [VendorProductController::class, 'terbitkanLisensiDigital'])->name('products.lisensi.terbit');
+        Route::post('koleksi', [VendorProductController::class, 'simpanKoleksiTematik'])->name('koleksi.simpan');
+        Route::post('koleksi/{product}/tambah', [VendorProductController::class, 'tambahProdukKeKoleksi'])->name('koleksi.tambah');
+        Route::delete('koleksi/{product}/lepas', [VendorProductController::class, 'lepasProdukDariKoleksi'])->name('koleksi.lepas');
         Route::resource('products', VendorProductController::class);
         Route::get('inventory', [VendorInventoryController::class, 'index'])->name('inventory.index');
         Route::get('inventory/movements', [VendorInventoryController::class, 'movements'])->name('inventory.movements');

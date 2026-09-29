@@ -17,6 +17,10 @@ Schedule::command('subscriptions:expire')->dailyAt('00:10')->withoutOverlapping(
 Schedule::command('promotions:expire')->dailyAt('00:20')->withoutOverlapping();
 Schedule::command('notifications:digest')->dailyAt('07:00')->withoutOverlapping();
 Schedule::command('seo:sitemap-warm')->dailyAt('04:00');
+Schedule::command('marketing:pengingat-abandoned')->hourly()->withoutOverlapping();
+Schedule::command('marketing:voucher-ultah')->dailyAt('08:00')->withoutOverlapping();
+Schedule::command('marketing:pengingat-flashdeal')->everyFifteenMinutes()->withoutOverlapping();
+Schedule::command('finance:kirim-settlement')->monthlyOn(1, '01:00')->withoutOverlapping();
 
 Artisan::command('webhooks:replay {delivery : Delivery ID or event id} {--endpoint= : Restrict to a webhook endpoint id} {--reset : Clear the attempt counter first}', function () {
     /** @var \App\Models\WebhookDelivery $delivery */
