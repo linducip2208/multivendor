@@ -22,10 +22,11 @@ class WalletController extends ApiController
         return $this->ok(new WalletResource($wallet));
     }
 
-    public function transactions(Request $request, ApiFilter $filter): JsonResponse
+    public function transactions(Request $request): JsonResponse
     {
         $wallet = Wallet::firstOrCreate(['user_id' => $request->user()->id], ['balance' => 0]);
-        $paginator = ApiCatalog::walletTransactions()->paginate($wallet->transactions()->getQuery(), $request);
+        $filter = ApiCatalog::walletTransactions();
+        $paginator = $filter->paginate($wallet->transactions(), $request);
 
         return $this->paged(
             $paginator,

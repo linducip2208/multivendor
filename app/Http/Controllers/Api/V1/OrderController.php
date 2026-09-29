@@ -17,10 +17,11 @@ use Illuminate\Http\Request;
 
 class OrderController extends ApiController
 {
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::orders()->paginate(
-            Order::where('customer_id', $request->user()->id)->with(['shop', 'items.product']),
+        $filter = ApiCatalog::orders();
+        $paginator = $filter->paginate(
+            Order::where('customer_id', $request->user()->id)->with(['shop', 'items.product', 'items.variant']),
             $request
         );
 
@@ -44,7 +45,7 @@ class OrderController extends ApiController
     {
         $model = $this->owned($request, $order);
         $filter = ApiCatalog::shipments();
-        $paginator = $filter->paginate($model->shipments()->getQuery(), $request);
+        $paginator = $filter->paginate($model->shipments()->with(['order', 'provider']), $request);
 
         return $this->paged(
             $paginator,
@@ -59,7 +60,7 @@ class OrderController extends ApiController
     {
         $model = $this->owned($request, $order);
         $filter = ApiCatalog::refunds();
-        $paginator = $filter->paginate($model->refunds()->getQuery(), $request);
+        $paginator = $filter->paginate($model->refunds()->with(['order', 'orderItem']), $request);
 
         return $this->paged(
             $paginator,

@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 class CheckoutController extends ApiController
 {
     private const RULES = [
-        'address_id' => 'nullable|integer',
+        'address_id' => 'nullable|integer|min:1',
         'new_label' => 'nullable|string|max:60',
         'new_receiver_name' => 'nullable|required_without:address_id|string|max:255',
         'new_receiver_phone' => 'nullable|required_without:address_id|string|max:20',
@@ -42,8 +42,8 @@ class CheckoutController extends ApiController
     public function store(Request $request, CheckoutApiService $checkout): JsonResponse
     {
         $data = $request->validate(self::RULES + [
-            'payment_provider_id' => 'required|integer',
-            'payment_channel' => 'nullable|array',
+            'payment_provider_id' => 'required|integer|min:1',
+            'payment_channel' => 'nullable|array|max:50',
         ]);
 
         $result = $checkout->place($request->user(), $data);

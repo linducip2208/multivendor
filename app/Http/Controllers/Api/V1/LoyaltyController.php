@@ -28,9 +28,10 @@ class LoyaltyController extends ApiController
         return $this->ok(new LoyaltyResource($points->load('transactions')));
     }
 
-    public function transactions(Request $request, ApiFilter $filter): JsonResponse
+    public function transactions(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::loyaltyTransactions()->paginate(
+        $filter = ApiCatalog::loyaltyTransactions();
+        $paginator = $filter->paginate(
             LoyaltyTransaction::where('customer_id', $request->user()->id),
             $request
         );

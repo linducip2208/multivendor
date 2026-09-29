@@ -71,7 +71,14 @@ class MarketplaceApiController extends Controller
         }
         $user = $request->user();
         if (! $user->isCustomer()) {
+            auth()->logout();
+
             return $this->error('Akun customer diperlukan.', 403);
+        }
+        if ((string) $user->status !== 'active') {
+            auth()->logout();
+
+            return $this->error('Akun tidak aktif.', 403);
         }
 
         return $this->success(['token' => $this->issueToken($user, 'customer-api'), 'user' => new CustomerResource($user->load('wallet'))], 'Login berhasil');
@@ -79,9 +86,12 @@ class MarketplaceApiController extends Controller
 
     public function register(Request $request)
     {
-        $data = $request->validate(['name' => 'required|string|max:255', 'email' => 'required|email|unique:users,email', 'password' => 'required|string|min:8']);
-        $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => Hash::make($data['password']), 'role' => 'customer', 'status' => 'active', 'referral_code' => Str::random(8)]);
-        Wallet::create(['user_id' => $user->id, 'balance' => 0]);
+        $data = $request->validate(['name' => 'required|string|max:255', 'email' => 'required|email|max:190|unique:users,email', 'password' => 'required|string|min:8|max:72']);
+        do {
+            $referral = Str::random(8);
+        } while (User::where('referral_code', $referral)->exists());
+        $user = User::create(['name' => $data['name'], 'email' => $data['email'], 'password' => Hash::make($data['password']), 'role' => 'customer', 'status' => 'active', 'referral_code' => $referral]);
+        Wallet::firstOrCreate(['user_id' => $user->id], ['balance' => 0]);
 
         return $this->success(['token' => $this->issueToken($user, 'customer-api'), 'user' => new CustomerResource($user->load('wallet'))], 'Registrasi berhasil', 201);
     }
@@ -106,7 +116,7 @@ class MarketplaceApiController extends Controller
 
     public function order(Request $request, Order $order)
     {
-        abort_unless($order->customer_id === $request->user()->id, 403);
+        abort_unless($order->customer_id === $request->user()->id, 404);
 
         return $this->success(new OrderResource($order->load(['shop', 'items.product', 'statusHistory'])));
     }
@@ -125,7 +135,7 @@ class MarketplaceApiController extends Controller
 
     public function addCart(Request $request)
     {
-        $data = $request->validate(['product_id' => 'required|integer|exists:products,id', 'variant_id' => 'nullable|integer|exists:product_variants,id', 'quantity' => 'required|integer|min:1']);
+        $data = $request->validate(['product_id' => 'required|integer|exists:products,id', 'variant_id' => 'nullable|integer|exists:product_variants,id', 'quantity' => 'required|integer|min:1|max:10000']);
         $product = Product::with('shop')->findOrFail($data['product_id']);
         $variant = ! empty($data['variant_id']) ? ProductVariant::whereKey($data['variant_id'])->where('product_id', $product->id)->firstOrFail() : null;
         $existing = Cart::where(['customer_id' => $request->user()->id, 'product_id' => $product->id, 'product_variant_id' => $variant?->id])->first();
@@ -138,8 +148,8 @@ class MarketplaceApiController extends Controller
 
     public function updateCart(Request $request, Cart $cart)
     {
-        abort_unless($cart->customer_id === $request->user()->id, 403);
-        $data = $request->validate(['quantity' => 'required|integer|min:1']);
+        abort_unless($cart->customer_id === $request->user()->id, 404);
+        $data = $request->validate(['quantity' => 'required|integer|min:1|max:10000']);
         $cart->load('product.shop', 'variant');
         $this->assertCartable($cart->product, $cart->variant, $data['quantity']);
         $cart->update($data);
@@ -149,7 +159,7 @@ class MarketplaceApiController extends Controller
 
     public function removeCart(Request $request, Cart $cart)
     {
-        abort_unless($cart->customer_id === $request->user()->id, 403);
+        abort_unless($cart->customer_id === $request->user()->id, 404);
         $cart->delete();
 
         return $this->success(null, 'Item dihapus');
@@ -157,7 +167,7 @@ class MarketplaceApiController extends Controller
 
     public function cancel(Request $request, Order $order, OrderWorkflowService $workflow)
     {
-        abort_unless($order->customer_id === $request->user()->id, 403);
+        abort_unless($order->customer_id === $request->user()->id, 404);
         $workflow->cancel($order, $request->user()->id, 'Dibatalkan customer');
 
         return $this->success(null, 'Pesanan dibatalkan');
@@ -182,7 +192,7 @@ class MarketplaceApiController extends Controller
 
     private function issueToken(User $user, string $name): string
     {
-        return app(PersonalAccessTokenIssuer::class)->issue($user, $name, ['*'])['token'];
+        return app(PersonalAccessTokenIssuer::class)->issue($user, $name, ['read', 'write'])['token'];
     }
 
     private function success(mixed $data, string $message = 'OK', int $status = 200)

@@ -15,9 +15,10 @@ use Illuminate\Http\Request;
 
 class NotificationController extends ApiController
 {
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::notifications()->paginate($this->scoped($request), $request);
+        $filter = ApiCatalog::notifications();
+        $paginator = $filter->paginate($this->scoped($request), $request);
 
         return $this->paged(
             $paginator,

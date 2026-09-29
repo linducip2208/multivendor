@@ -29,10 +29,11 @@ class AddressController extends ApiController
         'is_default' => 'sometimes|boolean',
     ];
 
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $filter = ApiCatalog::addresses();
         $query = CustomerAddress::where('customer_id', $request->user()->id);
-        $paginator = ApiCatalog::addresses()->paginate($query, $request);
+        $paginator = $filter->paginate($query, $request);
 
         return $this->paged($paginator, AddressResource::collection($paginator->getCollection()), 'OK', $filter, $request);
     }

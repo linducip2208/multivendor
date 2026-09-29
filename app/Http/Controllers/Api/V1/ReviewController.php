@@ -18,9 +18,10 @@ use Illuminate\Support\Facades\DB;
 
 class ReviewController extends ApiController
 {
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::reviews()->paginate(
+        $filter = ApiCatalog::reviews();
+        $paginator = $filter->paginate(
             ProductReview::where('customer_id', $request->user()->id)
                 ->with(['product:id,name,slug,thumbnail', 'customer']),
             $request

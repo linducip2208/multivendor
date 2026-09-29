@@ -43,10 +43,11 @@ class VendorPortalController extends ApiController
         ]);
     }
 
-    public function products(Request $request, ApiFilter $filter): JsonResponse
+    public function products(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::products()->paginate(
-            $this->shopQuery($request)->with(['category', 'brand']),
+        $filter = ApiCatalog::products();
+        $paginator = $filter->paginate(
+            $this->shopQuery($request)->with(['category', 'brand', 'variants']),
             $request
         );
 
@@ -80,11 +81,23 @@ class VendorPortalController extends ApiController
             'description' => 'sometimes|nullable|string',
             'price' => 'sometimes|numeric|min:0|max:999999999999',
             'special_price' => 'sometimes|nullable|numeric|min:0|max:999999999999',
-            'current_stock' => 'sometimes|integer|min:0',
-            'weight' => 'sometimes|nullable|integer|min:0',
+            'current_stock' => 'sometimes|integer|min:0|max:10000000',
+            'weight' => 'sometimes|nullable|integer|min:0|max:100000',
             'published' => 'sometimes|boolean',
+            // DB enum is pending|approved|suspended; accept legacy
+            // draft|rejected values and map them so vendors can never
+            // self-approve or write an enum the DB rejects.
             'status' => 'sometimes|in:draft,pending,approved,rejected',
         ]);
+
+        if (isset($data['status'])) {
+            $data['status'] = match ($data['status']) {
+                'draft' => 'pending',
+                'rejected' => 'suspended',
+                'approved' => $model->status === 'approved' ? 'approved' : 'pending',
+                default => $data['status'],
+            };
+        }
 
         $model->fill($data)->save();
         $this->markResource($request, 'product', (int) $model->id);
@@ -92,10 +105,11 @@ class VendorPortalController extends ApiController
         return $this->ok(new ProductResource($model->fresh(['category', 'brand'])), 'Produk diperbarui');
     }
 
-    public function orders(Request $request, ApiFilter $filter): JsonResponse
+    public function orders(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::orders()->paginate(
-            Order::where('shop_id', $this->shopId($request))->with(['customer', 'items.product']),
+        $filter = ApiCatalog::orders();
+        $paginator = $filter->paginate(
+            Order::where('shop_id', $this->shopId($request))->with(['customer', 'items.product', 'items.variant']),
             $request
         );
 
@@ -117,10 +131,12 @@ class VendorPortalController extends ApiController
         return $this->ok(new OrderResource($model->load(['customer', 'items.product', 'statusHistory', 'shipments'])));
     }
 
-    public function shipments(Request $request, ApiFilter $filter): JsonResponse
+    public function shipments(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::shipments()->paginate(
-            \App\Models\OrderShipment::whereIn('order_id', Order::where('shop_id', $this->shopId($request))->select('id')),
+        $filter = ApiCatalog::shipments();
+        $paginator = $filter->paginate(
+            \App\Models\OrderShipment::whereIn('order_id', Order::where('shop_id', $this->shopId($request))->select('id'))
+                ->with(['order', 'provider']),
             $request
         );
 
@@ -185,9 +201,10 @@ class VendorPortalController extends ApiController
         return $this->ok($rows);
     }
 
-    public function reviews(Request $request, ApiFilter $filter): JsonResponse
+    public function reviews(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::reviews()->paginate(
+        $filter = ApiCatalog::reviews();
+        $paginator = $filter->paginate(
             ProductReview::whereIn('product_id', Product::where('shop_id', $this->shopId($request))->select('id'))
                 ->with(['product:id,name,slug', 'customer']),
             $request
@@ -227,7 +244,10 @@ class VendorPortalController extends ApiController
             'vacation_message' => 'nullable|string|max:255',
         ]);
 
-        $shop = $request->user()->shop;
+        $shop = \App\Models\Shop::whereKey($this->shopId($request))->first();
+
+        $this->abortUnlessOwned($shop !== null, 'shop_not_found');
+
         $shop->forceFill($data)->save();
         $this->markResource($request, 'shop', (int) $shop->id);
 

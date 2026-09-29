@@ -14,10 +14,11 @@ use Illuminate\Http\Request;
 
 class SupportController extends ApiController
 {
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::supportTickets()->paginate(
-            SupportTicket::where('customer_id', $request->user()->id),
+        $filter = ApiCatalog::supportTickets();
+        $paginator = $filter->paginate(
+            SupportTicket::where('customer_id', $request->user()->id)->with('replies'),
             $request
         );
 
@@ -40,9 +41,14 @@ class SupportController extends ApiController
         $data = $request->validate([
             'subject' => 'required|string|max:190',
             'type' => 'nullable|in:order,payment,product,account,other',
-            'priority' => 'nullable|in:low,normal,high,urgent',
+            // DB enum is low|medium|high|urgent; accept legacy `normal` and map it.
+            'priority' => 'nullable|in:low,medium,normal,high,urgent',
             'description' => 'required|string|max:5000',
         ]);
+
+        if (($data['priority'] ?? null) === 'normal') {
+            $data['priority'] = 'medium';
+        }
 
         $ticket = SupportTicket::create($data + [
             'customer_id' => $request->user()->id,

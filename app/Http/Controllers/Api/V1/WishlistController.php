@@ -14,9 +14,10 @@ use Illuminate\Http\Request;
 
 class WishlistController extends ApiController
 {
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::wishlist()->paginate(
+        $filter = ApiCatalog::wishlist();
+        $paginator = $filter->paginate(
             Wishlist::where('customer_id', $request->user()->id)
                 ->with(['product.shop', 'product.category', 'product.brand']),
             $request
@@ -65,6 +66,8 @@ class WishlistController extends ApiController
     {
         return $this->ok(
             Wishlist::where('customer_id', $request->user()->id)
+                ->orderBy('id')
+                ->limit(500)
                 ->pluck('product_id')
                 ->map(static fn ($id): int => (int) $id)
                 ->all()

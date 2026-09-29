@@ -16,13 +16,14 @@ use Illuminate\Http\Request;
 
 class CouponController extends ApiController
 {
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
+        $filter = ApiCatalog::coupons();
         $query = Coupon::where('status', true)
             ->where(fn ($q) => $q->whereNull('start_date')->orWhere('start_date', '<=', now()))
             ->where(fn ($q) => $q->whereNull('end_date')->orWhere('end_date', '>=', now()));
 
-        $paginator = ApiCatalog::coupons()->paginate($query, $request);
+        $paginator = $filter->paginate($query, $request);
 
         return $this->paged(
             $paginator,

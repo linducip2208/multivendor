@@ -27,9 +27,10 @@ use Illuminate\Http\Request;
  */
 class PublicReadController extends ApiController
 {
-    public function products(Request $request, ApiFilter $filter): JsonResponse
+    public function products(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::products()->cursor('id', 'desc')->paginate($this->publishedProducts(), $request);
+        $filter = ApiCatalog::products()->cursor('id', 'desc');
+        $paginator = $filter->paginate($this->publishedProducts(), $request);
 
         return $this->paged($paginator, ProductResource::collection($paginator->items())->resolve($request), 'OK', $filter, $request);
     }
@@ -41,10 +42,10 @@ class PublicReadController extends ApiController
         return $this->ok(new ProductResource($product));
     }
 
-    public function categories(Request $request, ApiFilter $filter): JsonResponse
+    public function categories(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::categories()
-            ->cursor('id', 'asc')
+        $filter = ApiCatalog::categories()->cursor('id', 'asc');
+        $paginator = $filter
             ->paginate(Category::where('status', true)->whereNull('parent_id')->with('children'), $request);
 
         return $this->paged(
@@ -63,10 +64,10 @@ class PublicReadController extends ApiController
         return $this->ok(new CategoryResource($category));
     }
 
-    public function brands(Request $request, ApiFilter $filter): JsonResponse
+    public function brands(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::brands()
-            ->cursor('id', 'asc')
+        $filter = ApiCatalog::brands()->cursor('id', 'asc');
+        $paginator = $filter
             ->paginate(Brand::where('status', true)->withCount('products'), $request);
 
         return $this->paged(
@@ -78,10 +79,10 @@ class PublicReadController extends ApiController
         );
     }
 
-    public function stores(Request $request, ApiFilter $filter): JsonResponse
+    public function stores(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::stores()
-            ->cursor('id', 'desc')
+        $filter = ApiCatalog::stores()->cursor('id', 'desc');
+        $paginator = $filter
             ->paginate(Shop::where('status', 'active')->withCount('products'), $request);
 
         return $this->paged(
@@ -100,7 +101,7 @@ class PublicReadController extends ApiController
         return $this->ok(new ShopPublicResource($shop));
     }
 
-    public function search(Request $request, ApiFilter $filter): JsonResponse
+    public function search(Request $request): JsonResponse
     {
         $data = $request->validate([
             'q' => 'required|string|min:2|max:100',

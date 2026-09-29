@@ -26,9 +26,10 @@ use Illuminate\Http\Request;
 
 class CatalogController extends ApiController
 {
-    public function products(Request $request, ApiFilter $filter): JsonResponse
+    public function products(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::products()->paginate($this->publishedQuery(), $request);
+        $filter = ApiCatalog::products();
+        $paginator = $filter->paginate($this->publishedQuery(), $request);
 
         return $this->paged(
             $paginator,
@@ -55,7 +56,7 @@ class CatalogController extends ApiController
     {
         $product = $this->publishedQuery()->where('slug', $slug)->firstOrFail();
         $filter = ApiCatalog::variants();
-        $paginator = $filter->paginate($product->variants()->getQuery(), $request);
+        $paginator = $filter->paginate($product->variants()->with('product'), $request);
 
         return $this->paged(
             $paginator,
@@ -84,9 +85,10 @@ class CatalogController extends ApiController
         );
     }
 
-    public function categories(Request $request, ApiFilter $filter): JsonResponse
+    public function categories(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::categories()->paginate(
+        $filter = ApiCatalog::categories();
+        $paginator = $filter->paginate(
             Category::where('status', true)->whereNull('parent_id')->with('children'),
             $request
         );
@@ -110,9 +112,10 @@ class CatalogController extends ApiController
         return $this->ok(new CategoryResource($category));
     }
 
-    public function brands(Request $request, ApiFilter $filter): JsonResponse
+    public function brands(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::brands()->paginate(
+        $filter = ApiCatalog::brands();
+        $paginator = $filter->paginate(
             Brand::where('status', true)->withCount('products'),
             $request
         );
@@ -133,9 +136,10 @@ class CatalogController extends ApiController
         ));
     }
 
-    public function stores(Request $request, ApiFilter $filter): JsonResponse
+    public function stores(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::stores()->paginate(
+        $filter = ApiCatalog::stores();
+        $paginator = $filter->paginate(
             Shop::where('status', 'active')->withCount('products'),
             $request
         );
@@ -156,10 +160,11 @@ class CatalogController extends ApiController
         ));
     }
 
-    public function storeProducts(Request $request, ApiFilter $filter, string $slug): JsonResponse
+    public function storeProducts(Request $request, string $slug): JsonResponse
     {
         $shop = Shop::where('status', 'active')->where('slug', $slug)->firstOrFail();
-        $paginator = ApiCatalog::products()->paginate($this->publishedQuery()->where('shop_id', $shop->id), $request);
+        $filter = ApiCatalog::products();
+        $paginator = $filter->paginate($this->publishedQuery()->where('shop_id', $shop->id), $request);
 
         return $this->paged(
             $paginator,
@@ -170,9 +175,10 @@ class CatalogController extends ApiController
         );
     }
 
-    public function vendors(Request $request, ApiFilter $filter): JsonResponse
+    public function vendors(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::vendors()->paginate(
+        $filter = ApiCatalog::vendors();
+        $paginator = $filter->paginate(
             User::where('role', 'vendor')->where('status', 'active')->with('shop'),
             $request
         );

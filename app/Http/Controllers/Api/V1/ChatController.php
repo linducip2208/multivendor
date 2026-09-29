@@ -20,9 +20,10 @@ use Illuminate\Support\Str;
 
 class ChatController extends ApiController
 {
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::conversations()->paginate($this->scoped($request), $request);
+        $filter = ApiCatalog::conversations();
+        $paginator = $filter->paginate($this->scoped($request)->with(['shop', 'order']), $request);
 
         return $this->paged(
             $paginator,
@@ -40,10 +41,11 @@ class ChatController extends ApiController
         return $this->ok(new ConversationResource($model->load(['shop', 'order', 'messages'])));
     }
 
-    public function messages(Request $request, int $conversation, ApiFilter $filter): JsonResponse
+    public function messages(Request $request, int $conversation): JsonResponse
     {
         $model = $this->owned($request, $conversation);
-        $paginator = ApiCatalog::messages()->paginate(
+        $filter = ApiCatalog::messages();
+        $paginator = $filter->paginate(
             $model->messages()->whereNull('deleted_at')->with('author'),
             $request
         );
@@ -91,8 +93,8 @@ class ChatController extends ApiController
     {
         $data = $request->validate([
             'subject' => 'required|string|max:190',
-            'shop_id' => 'nullable|integer|exists:shops,id',
-            'order_id' => 'nullable|integer',
+            'shop_id' => 'nullable|integer|min:1|exists:shops,id',
+            'order_id' => 'nullable|integer|min:1|exists:orders,id',
             'type' => 'nullable|in:support,order,product',
             'priority' => 'nullable|in:low,normal,high,urgent',
             'body' => 'required|string|max:5000',

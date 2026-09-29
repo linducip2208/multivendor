@@ -17,9 +17,10 @@ class CompareController extends ApiController
 {
     private const MAX_ITEMS = 4;
 
-    public function index(Request $request, ApiFilter $filter): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $paginator = ApiCatalog::wishlist()->paginate(
+        $filter = ApiCatalog::wishlist();
+        $paginator = $filter->paginate(
             CompareList::where('customer_id', $request->user()->id)
                 ->with(['product.shop', 'product.category', 'product.brand', 'product.variants']),
             $request

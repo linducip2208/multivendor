@@ -29,6 +29,8 @@ final class ApiFilter
 
     private ?string $defaultSort = null;
 
+    private string $defaultDirection = 'desc';
+
     private string $cursorColumn = 'id';
 
     private string $cursorDirection = 'desc';
@@ -82,6 +84,7 @@ final class ApiFilter
     public function defaultSort(string $key, string $direction = 'desc'): self
     {
         $this->defaultSort = $key;
+        $this->defaultDirection = strtolower($direction) === 'asc' ? 'asc' : 'desc';
         $this->sorts[$key] ??= $key;
 
         return $this;
@@ -156,7 +159,7 @@ final class ApiFilter
         $raw = trim((string) $request->query('sort', ''));
 
         if ($raw === '') {
-            return $this->defaultSort === null ? [] : [$this->defaultSort => $this->defaultSort];
+            return $this->defaultSort === null ? [] : [$this->defaultSort => ($this->sorts[$this->defaultSort] ?? $this->defaultSort).'|'.$this->defaultDirection];
         }
 
         $out = [];
@@ -178,7 +181,7 @@ final class ApiFilter
         }
 
         if ($out === [] && $this->defaultSort !== null) {
-            return [$this->defaultSort => $this->defaultSort];
+            return [$this->defaultSort => ($this->sorts[$this->defaultSort] ?? $this->defaultSort).'|'.$this->defaultDirection];
         }
 
         return $out;
@@ -209,7 +212,15 @@ final class ApiFilter
     {
         $raw = trim((string) $request->query('sort', ''));
 
-        return $raw === '' ? $this->defaultSort : $raw;
+        if ($raw !== '') {
+            return $raw;
+        }
+
+        if ($this->defaultSort === null) {
+            return null;
+        }
+
+        return $this->defaultDirection === 'desc' ? '-'.$this->defaultSort : $this->defaultSort;
     }
 
     public function apply(Builder $query, Request $request): Builder
@@ -326,14 +337,18 @@ final class ApiFilter
     private function applySort(Builder $query, Request $request): void
     {
         $sorts = $this->resolvedSorts($request);
-
-        if ($sorts === []) {
-            return;
-        }
+        $ordered = [];
 
         foreach ($sorts as $spec) {
             [$column, $direction] = array_pad(explode('|', $spec, 2), 2, 'asc');
             $query->orderBy($column, $direction === 'desc' ? 'desc' : 'asc');
+            $ordered[] = $column;
+        }
+
+        // Deterministic tiebreak so cursor/offset pages never skip or repeat
+        // rows when the requested sort column is not unique.
+        if ($this->allowCursor && ! in_array($this->cursorColumn, $ordered, true)) {
+            $query->orderBy($this->cursorColumn, $this->cursorDirection);
         }
     }
 }

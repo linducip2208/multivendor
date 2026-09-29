@@ -47,7 +47,9 @@ class PaymentController extends ApiController
 
         return $this->ok(
             Order::where('payment_group_id', $group->id)
-                ->with(['shop', 'items.product'])
+                ->with(['shop', 'items.product', 'items.variant'])
+                ->latest('id')
+                ->limit(100)
                 ->get()
                 ->map(fn (Order $order): array => [
                     'id' => (int) $order->id,

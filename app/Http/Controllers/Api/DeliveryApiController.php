@@ -17,7 +17,7 @@ class DeliveryApiController extends Controller
             return response()->json(['success' => false, 'message' => 'Akun delivery diperlukan.'], 403);
         }
 
-        $token = app(PersonalAccessTokenIssuer::class)->issue(auth()->user(), 'delivery-api', ['*'])['token'];
+        $token = app(PersonalAccessTokenIssuer::class)->issue(auth()->user(), 'delivery-api', ['read', 'write'])['token'];
 
         return response()->json(['success' => true, 'message' => 'Login berhasil', 'data' => ['token' => $token]]);
     }
@@ -29,7 +29,7 @@ class DeliveryApiController extends Controller
 
     public function updateOrder(Request $request, Order $order, OrderWorkflowService $workflow)
     {
-        abort_unless($order->delivery_man_id === $request->user()->id, 403);
+        abort_unless($order->delivery_man_id === $request->user()->id, 404);
         $data = $request->validate(['status' => 'required|in:shipped,delivered', 'note' => 'nullable|string|max:1000']);
         if ($data['status'] === 'shipped') {
             $workflow->ship($order, $request->user()->id, null, $data['note'] ?? null);
