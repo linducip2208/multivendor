@@ -23,6 +23,12 @@
         @php
             $b2bRows = [];
             try { $b2bRows = app(\App\Services\B2b\B2bPricingService::class)->tierTableRows($product); } catch (\Throwable) {}
+            $galeriDasarVendor = [];
+            $koleksiVendor = collect();
+            $panduanVendor = [];
+            try { $galeriDasarVendor = $product->galeriDasar(); } catch (\Throwable) {}
+            try { $koleksiVendor = $product->koleksiTematikAktif(); } catch (\Throwable) { $koleksiVendor = collect(); }
+            try { $panduanVendor = $product->panduanKategori(); } catch (\Throwable) { $panduanVendor = []; }
         @endphp
         <x-admin.card :padding="false" class="mt-3"><div class="card-body"><h6 class="fw-bold mb-1">Harga Grosir (Tier)</h6>
             <p class="text-muted small mb-3">Tampil juga di halaman produk pembeli sebagai tabel tier. Kosong = harga ecer berlaku.</p>
@@ -39,6 +45,81 @@
                 </table></div>
             @endif
         </div></x-admin.card>
+        <div class="card mt-3">
+            <div class="card-header"><h3 class="card-title">Gambar per Varian</h3></div>
+            <div class="card-body">
+                <p class="text-secondary small">Galeri halaman produk otomatis mengikuti varian yang dipilih pembeli. Varian tanpa gambar memakai foto utama produk.</p>
+                @if(($product->variants?->count() ?? 0) > 0)
+                    <div class="list-group list-group-flush">
+                        @foreach(($product->variants ?? []) as $v)
+                            @php
+                                $urlVarian = [];
+                                $adaGambar = false;
+                                try { $urlVarian = $v->urlGaleri(); $adaGambar = $v->punyaGambarSendiri(); } catch (\Throwable) {}
+                            @endphp
+                            <div class="list-group-item px-0">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-medium">{{ $v->variant ?: 'Varian #'.$v->id }}</span>
+                                    @if($adaGambar)
+                                        <span class="badge bg-success-lt text-success">Gambar sendiri ({{ count($urlVarian) }})</span>
+                                    @else
+                                        <span class="badge bg-secondary-lt text-secondary">Fallback foto utama</span>
+                                    @endif
+                                </div>
+                                @if($urlVarian !== [])
+                                    <div class="d-flex gap-2 mt-2 flex-wrap">
+                                        @foreach($urlVarian as $g)
+                                            <img src="{{ $g }}" alt="" loading="lazy" class="rounded-3" style="width:56px;height:56px;object-fit:cover;">
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-secondary small mb-0">Belum ada varian. Galeri memakai foto utama produk.</p>
+                @endif
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header"><h3 class="card-title">Lisensi Digital</h3></div>
+            <div class="card-body">
+                @if(($product->product_type ?? '') === 'digital')
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="text-secondary small">Berkas unduhan:</span>
+                        @if(! empty($product->digital_file))
+                            <span class="badge bg-success-lt text-success">Terunggah</span>
+                        @else
+                            <span class="badge bg-warning-lt text-warning">Belum ada berkas</span>
+                        @endif
+                    </div>
+                    <p class="text-secondary small mb-0">Setiap pembelian otomatis mendapat kunci lisensi unik dengan batas unduh (bawaan 5x) dan riwayat unduhan. Pencabutan tersedia bila terjadi penyalahgunaan.</p>
+                @else
+                    <p class="text-secondary small mb-0">Produk fisik — lisensi digital tidak berlaku.</p>
+                @endif
+            </div>
+        </div>
+        <div class="card mt-3">
+            <div class="card-header"><h3 class="card-title">Koleksi &amp; Panduan</h3></div>
+            <div class="card-body">
+                <div class="text-secondary small mb-1">Koleksi tematik yang sedang tayang:</div>
+                @if($koleksiVendor->isNotEmpty())
+                    <div class="d-flex gap-2 flex-wrap mb-3">
+                        @foreach($koleksiVendor as $k)
+                            <span class="badge bg-azure-lt text-azure">{{ $k->name }}</span>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-secondary small">Belum masuk koleksi kurasi apa pun (mis. “Back to School”).</p>
+                @endif
+                <div class="text-secondary small mb-1">Panduan di halaman produk:</div>
+                @if(! empty($panduanVendor['baris'] ?? []))
+                    <p class="small mb-0"><span class="fw-medium">{{ $panduanVendor['judul'] ?? 'Panduan' }}</span> — {{ count($panduanVendor['baris']) }} baris tampil otomatis dari atribut produk.</p>
+                @else
+                    <p class="text-secondary small mb-0">Belum ada panduan (tambahkan atribut ukuran/nutrisi agar panduan tampil otomatis).</p>
+                @endif
+            </div>
+        </div>
         <div class="mt-2"><a href="{{ route('vendor.products.edit', $product) }}" class="btn btn-outline-primary w-100"><x-admin.icon name="edit" :size="16" class="me-1" />Ubah Produk</a></div>
     </div>
 </div>

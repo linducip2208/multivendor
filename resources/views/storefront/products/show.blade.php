@@ -90,6 +90,11 @@
                 </div>
             </div>
 
+            {{-- Galeri per varian: mengikuti varian terpilih, fallback ke galeri utama. --}}
+            @isset($galeriVarian)
+                <script type="application/json" data-sf-variant-galleries>{{ json_encode($galeriVarian ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) }}</script>
+            @endisset
+
             {{-- Galeri video produk (video_url existing + shorts toko). Murni tampil, tanpa ubah harga/stok. --}}
             @php
                 try { $sfVideos = \App\Services\Kepercayaan\SkorToko::videos($product); }
@@ -557,6 +562,29 @@
         </ul>
     </section>
 
+    {{-- Panduan terstruktur per kategori (ukuran fashion / nutrisi makanan), dari atribut existing. --}}
+    @isset($panduanKategori)
+        @if (! empty($panduanKategori['baris'] ?? []))
+            <section class="sf-container sf-section sf-section--tight" aria-labelledby="sf-pdp-panduan-title">
+                <h2 class="sf-section-head__title" id="sf-pdp-panduan-title" style="font-size:1.15rem">{{ $panduanKategori['judul'] ?? 'Panduan Produk' }}</h2>
+                <table class="sf-specs" style="max-width:720px">
+                    <caption class="sf-sr-only">{{ $panduanKategori['judul'] ?? 'Panduan produk' }} {{ $product->name }}</caption>
+                    <tbody>
+                        @foreach ($panduanKategori['baris'] as $baris)
+                            <tr>
+                                <th scope="row">{{ $baris['label'] }}</th>
+                                <td>{{ $baris['nilai'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                @if (! empty($panduanKategori['catatan'] ?? null))
+                    <p class="sf-small sf-muted" style="max-width:720px">{{ $panduanKategori['catatan'] }}</p>
+                @endif
+            </section>
+        @endif
+    @endisset
+
     @if ($boughtTogether->isNotEmpty())
         <section class="sf-section sf-section--subtle" aria-labelledby="sf-bought-title">
             <div class="sf-container">
@@ -683,6 +711,93 @@
                     field.value = button.dataset.variantId || '';
                 });
             }).observe(button, { attributes: true, attributeFilter: ['data-variant-id'] });
+        })();
+        (function () {
+            /* Galeri per varian: tukar foto mengikuti varian terpilih, fallback ke galeri utama. */
+            try {
+                var payloadEl = document.querySelector('[data-sf-variant-galleries]');
+                var variantRoot = document.querySelector('[data-sf-variant-group]') ? document.querySelector('[data-sf-variants]') : null;
+                if (!payloadEl) return;
+                var galleries = JSON.parse(payloadEl.textContent || '{}');
+                if (!galleries || typeof galleries !== 'object') return;
+
+                var main = document.querySelector('[data-sf-gallery-main] img');
+                var thumbs = Array.prototype.slice.call(document.querySelectorAll('[data-sf-gallery-thumb]'));
+                if (!main || !thumbs.length) return;
+
+                var defaults = thumbs.map(function (t) {
+                    return { btn: t, src: t.getAttribute('data-src') || '', img: t.querySelector('img') ? t.querySelector('img').getAttribute('src') : '' };
+                });
+                var defaultMain = main.getAttribute('src') || '';
+
+                var variantPayload = {};
+                try { variantPayload = JSON.parse(variantRoot ? variantRoot.getAttribute('data-sf-variants') : '{}') || {}; }
+                catch (e) { variantPayload = {}; }
+
+                var selectedOf = function () {
+                    var out = {};
+                    document.querySelectorAll('[data-sf-variant-group]').forEach(function (group) {
+                        var name = group.getAttribute('data-sf-variant-group');
+                        group.querySelectorAll('[data-sf-variant-opt][aria-pressed="true"]').forEach(function (btn) {
+                            out[name] = btn.getAttribute('data-sf-variant-opt');
+                        });
+                    });
+                    return out;
+                };
+
+                var applyFor = function (variantId) {
+                    var urls = variantId && galleries[String(variantId)] ? galleries[String(variantId)] : null;
+                    if (!urls || !urls.length) {
+                        main.setAttribute('src', defaultMain);
+                        defaults.forEach(function (d, i) {
+                            d.btn.hidden = false;
+                            d.btn.setAttribute('data-src', d.src);
+                            var img = d.btn.querySelector('img');
+                            if (img && d.img) img.setAttribute('src', d.img);
+                            d.btn.setAttribute('aria-current', i === 0 ? 'true' : 'false');
+                        });
+                        return;
+                    }
+                    main.setAttribute('src', urls[0]);
+                    defaults.forEach(function (d, i) {
+                        if (i < urls.length) {
+                            d.btn.hidden = false;
+                            d.btn.setAttribute('data-src', urls[i]);
+                            var img = d.btn.querySelector('img');
+                            if (img) img.setAttribute('src', urls[i]);
+                            d.btn.setAttribute('aria-current', i === 0 ? 'true' : 'false');
+                        } else {
+                            d.btn.hidden = true;
+                        }
+                    });
+                    var first = defaults[0] ? defaults[0].btn : null;
+                    if (first) first.setAttribute('aria-current', 'true');
+                };
+
+                var refresh = function () {
+                    var selected = selectedOf();
+                    var list = variantPayload.variants || [];
+                    var match = null;
+                    for (var i = 0; i < list.length; i++) {
+                        var attrs = list[i].attributes || [];
+                        var ok = true;
+                        /* Bentuk map {Warna:Hitam} tidak dipakai galeri; fallback aman. */
+                        if (!Array.isArray(attrs)) { ok = false; }
+                        else {
+                            for (var j = 0; j < attrs.length; j++) {
+                                if (selected[attrs[j].name] !== attrs[j].value) { ok = false; break; }
+                            }
+                        }
+                        if (ok && Array.isArray(attrs) && attrs.length) { match = list[i]; break; }
+                    }
+                    applyFor(match ? match.id : null);
+                };
+
+                document.querySelectorAll('[data-sf-variant-opt]').forEach(function (btn) {
+                    btn.addEventListener('click', function () { window.setTimeout(refresh, 0); });
+                });
+                window.setTimeout(refresh, 0);
+            } catch (e) {}
         })();
     </script>
 @endpush

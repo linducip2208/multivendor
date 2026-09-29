@@ -405,4 +405,448 @@ class Product extends Model
             return false;
         }
     }
+
+    // ===== Galeri per varian (aditif — fallback ke thumbnail produk) =====
+
+    /** Normalisasi satu path gambar menjadi URL tampil. */
+    public static function urlGambar(string $path): string
+    {
+        $path = trim($path);
+
+        return str_starts_with($path, 'http') ? $path : url('img/'.ltrim($path, '/'));
+    }
+
+    /** Galeri tingkat produk (thumbnail + images), sebagai URL tampil. */
+    public function galeriDasar(): array
+    {
+        try {
+            $images = $this->getAttribute('images');
+
+            if (is_string($images)) {
+                $images = json_decode($images, true) ?: [];
+            }
+
+            $paths = collect((array) $images)->map(fn ($p) => trim((string) $p))->filter();
+
+            if (trim((string) $this->getAttribute('thumbnail')) !== '') {
+                $paths = $paths->prepend(trim((string) $this->getAttribute('thumbnail')));
+            }
+
+            return $paths->map(fn ($p) => static::urlGambar($p))->unique()->values()->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Galeri untuk varian tertentu; fallback ke galeri produk bila varian
+     * tidak punya gambar sendiri atau kolom belum termigrasi.
+     *
+     * @return list<string>
+     */
+    public function galeriUntukVarian(?int $variantId = null): array
+    {
+        $dasar = $this->galeriDasar();
+
+        if ($variantId === null) {
+            return $dasar;
+        }
+
+        try {
+            $varian = $this->relationLoaded('variants')
+                ? $this->variants->firstWhere('id', $variantId)
+                : $this->variants()->find($variantId);
+
+            if ($varian === null || ! method_exists($varian, 'urlGaleri')) {
+                return $dasar;
+            }
+
+            $milikVarian = $varian->urlGaleri();
+
+            return $milikVarian !== [] ? $milikVarian : $dasar;
+        } catch (Throwable) {
+            return $dasar;
+        }
+    }
+
+    /** Peta id varian → daftar URL gambar (untuk galeri reaktif di PDP). */
+    public function petaGaleriVarian(): array
+    {
+        try {
+            $varians = $this->relationLoaded('variants') ? $this->variants : $this->variants()->get();
+            $peta = [];
+
+            foreach ($varians as $varian) {
+                if (! method_exists($varian, 'urlGaleri')) {
+                    continue;
+                }
+
+                $urls = $varian->urlGaleri();
+
+                if ($urls !== []) {
+                    $peta[(int) $varian->id] = $urls;
+                }
+            }
+
+            return $peta;
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    // ===== Panduan terstruktur per kategori (aditif, dari atribut existing) =====
+
+    /**
+     * Panduan terstruktur untuk PDP: panduan ukuran (fashion) atau info
+     * nutrisi (makanan) yang dirangkai dari atribut existing produk +
+     * kategorinya. Kosong bila tidak ada atribut yang relevan.
+     *
+     * @return array{judul: string, jenis: string, baris: list<array{label: string, nilai: string}>, catatan: ?string}
+     */
+    public function panduanKategori(): array
+    {
+        try {
+            $kategori = mb_strtolower(trim((string) (($this->category?->name ?? '').' '.($this->category?->slug ?? ''))));
+
+            // Nilai atribut dibaca lewat join (tabel product_attributes hanya
+            // menyimpan id referensi; tidak ada kolom value di sana).
+            $baris = [];
+
+            if ($this->getKey() !== null
+                && Schema::hasTable('product_attributes')
+                && Schema::hasTable('attributes')) {
+                $query = DB::table('product_attributes as pa')
+                    ->join('attributes as a', 'a.id', '=', 'pa.attribute_id')
+                    ->where('pa.product_id', $this->getKey());
+
+                if (Schema::hasTable('attribute_values')) {
+                    $query->leftJoin('attribute_values as av', 'av.id', '=', 'pa.attribute_value_id');
+                    $rows = $query->get(['a.name as nama', 'av.value as nilai']);
+                } else {
+                    $rows = $query->get(['a.name as nama']);
+                }
+
+                foreach ($rows as $row) {
+                    $nama = mb_strtolower(trim((string) ($row->nama ?? '')));
+                    $nilai = trim((string) ($row->nilai ?? ''));
+
+                    if ($nama === '' || $nilai === '') {
+                        continue;
+                    }
+
+                    $baris[] = ['label' => (string) ($row->nama ?? 'Atribut'), 'nilai' => $nilai, 'kunci' => $nama];
+                }
+            }
+
+            $isFashion = $this->teksMengandung($kategori, ['fashion', 'pakaian', 'baju', 'kaos', 'kemeja', 'celana', 'jaket', 'sepatu', 'sandal', 'tas', 'hijab', 'dress', 'fashion']);
+            $isMakanan = $this->teksMengandung($kategori, ['makanan', 'minuman', 'kuliner', 'snack', 'food', 'beverage', 'kopi', 'teh', 'kue', 'roti']);
+
+            $kunciUkuran = ['ukuran', 'size', 'lingkar', 'panjang', 'lebar', 'tinggi', 'panjang badan', 'panjang lengan', 'bust', 'pinggang'];
+            $kunciNutrisi = ['kalori', 'energi', 'protein', 'lemak', 'karbohidrat', 'gula', 'garam', 'natrium', 'serat', 'nutrition', 'takaran', 'berat bersih', 'komposisi', 'alergen', 'kedaluwarsa', 'expired'];
+
+            if ($isMakanan) {
+                $relevan = array_values(array_filter($baris, fn ($b) => $this->teksMengandung($b['kunci'], $kunciNutrisi)));
+
+                if ($relevan === []) {
+                    return [];
+                }
+
+                return [
+                    'judul' => 'Informasi Nilai Gizi',
+                    'jenis' => 'nutrisi',
+                    'baris' => array_map(fn ($b) => ['label' => $b['label'], 'nilai' => $b['nilai']], $relevan),
+                    'catatan' => 'Nilai gizi per kemasan sesuai label produsen. Konsultasikan ke ahli gizi bila perlu.',
+                ];
+            }
+
+            if ($isFashion) {
+                $relevan = array_values(array_filter($baris, fn ($b) => $this->teksMengandung($b['kunci'], $kunciUkuran)));
+
+                if ($relevan === []) {
+                    return [];
+                }
+
+                return [
+                    'judul' => 'Panduan Ukuran',
+                    'jenis' => 'ukuran',
+                    'baris' => array_map(fn ($b) => ['label' => $b['label'], 'nilai' => $b['nilai']], $relevan),
+                    'catatan' => 'Ukur badan Anda lalu cocokkan dengan tabel di atas. Bila di antara dua ukuran, pilih yang lebih besar.',
+                ];
+            }
+
+            // Kategori umum: tampilkan atribut terstruktur apa adanya bila ada.
+            if ($baris === []) {
+                return [];
+            }
+
+            return [
+                'judul' => 'Detail Atribut',
+                'jenis' => 'umum',
+                'baris' => array_map(fn ($b) => ['label' => $b['label'], 'nilai' => $b['nilai']], $baris),
+                'catatan' => null,
+            ];
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    private function teksMengandung(string $teks, array $kataKunci): bool
+    {
+        foreach ($kataKunci as $kata) {
+            if ($kata !== '' && str_contains($teks, mb_strtolower((string) $kata))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // ===== Koleksi tematik terkurasi (aditif, baca-saja untuk PDP) =====
+
+    /**
+     * Koleksi aktif yang memuat produk ini dan sedang dalam jadwal tampil
+     * (starts_at/ends_at dihormati bila terisi).
+     *
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    public function koleksiTematikAktif(): \Illuminate\Support\Collection
+    {
+        try {
+            if (! Schema::hasTable('thematic_collections')
+                || ! Schema::hasTable('thematic_collection_product')
+                || $this->getKey() === null) {
+                return collect();
+            }
+
+            $sekarang = now();
+
+            return DB::table('thematic_collections as tc')
+                ->join('thematic_collection_product as tcp', 'tcp.thematic_collection_id', '=', 'tc.id')
+                ->where('tcp.product_id', $this->getKey())
+                ->where('tc.is_active', true)
+                ->where(fn ($q) => $q->whereNull('tc.starts_at')->orWhere('tc.starts_at', '<=', $sekarang))
+                ->where(fn ($q) => $q->whereNull('tc.ends_at')->orWhere('tc.ends_at', '>=', $sekarang))
+                ->orderBy('tc.sort_order')
+                ->orderBy('tc.name')
+                ->get(['tc.id', 'tc.name', 'tc.slug', 'tc.description', 'tc.banner', 'tc.starts_at', 'tc.ends_at']);
+        } catch (Throwable) {
+            return collect();
+        }
+    }
+
+    /** Semua koleksi yang sedang tayang (untuk landing kurasi). */
+    public static function koleksiTematikTayang(int $batas = 12): \Illuminate\Support\Collection
+    {
+        try {
+            if (! Schema::hasTable('thematic_collections')) {
+                return collect();
+            }
+
+            $sekarang = now();
+
+            return DB::table('thematic_collections')
+                ->where('is_active', true)
+                ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', $sekarang))
+                ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', $sekarang))
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->limit(max(1, $batas))
+                ->get();
+        } catch (Throwable) {
+            return collect();
+        }
+    }
+
+    /** Produk tayang anggota satu koleksi (untuk landing koleksi). */
+    public static function produkKoleksi(string $slugKoleksi, int $batas = 24): \Illuminate\Support\Collection
+    {
+        try {
+            if (! Schema::hasTable('thematic_collections')
+                || ! Schema::hasTable('thematic_collection_product')) {
+                return collect();
+            }
+
+            $koleksi = DB::table('thematic_collections')->where('slug', $slugKoleksi)->first();
+
+            if (! $koleksi) {
+                return collect();
+            }
+
+            return DB::table('thematic_collection_product as tcp')
+                ->join('products as p', 'p.id', '=', 'tcp.product_id')
+                ->where('tcp.thematic_collection_id', $koleksi->id)
+                ->where('p.status', 'approved')
+                ->where('p.published', true)
+                ->orderBy('tcp.sort_order')
+                ->limit(max(1, $batas))
+                ->get(['p.id', 'p.name', 'p.slug', 'p.thumbnail', 'p.price', 'p.special_price']);
+        } catch (Throwable) {
+            return collect();
+        }
+    }
+
+    // ===== Lisensi digital otomatis (aditif, pakai digital_file existing) =====
+
+    /** True bila produk digital dan sudah punya berkas unduhan. */
+    public function butuhLisensiDigital(): bool
+    {
+        return (string) ($this->getAttribute('product_type') ?? '') === 'digital'
+            && trim((string) ($this->getAttribute('digital_file') ?? '')) !== '';
+    }
+
+    /**
+     * Terbitkan kunci lisensi unik untuk satu pembelian (satu order item →
+     * satu kunci). Idempoten: pembelian yang sama tidak digandakan.
+     */
+    public function buatLisensiDigital(?int $orderItemId = null, int $maksUnduh = 5, ?\DateTimeInterface $kedaluwarsa = null): ?object
+    {
+        try {
+            if (! Schema::hasTable('digital_licenses') || $this->getKey() === null) {
+                return null;
+            }
+
+            if ($orderItemId !== null) {
+                $ada = DB::table('digital_licenses')->where('order_item_id', $orderItemId)->first();
+
+                if ($ada) {
+                    return $ada;
+                }
+            }
+
+            for ($i = 0; $i < 10; $i++) {
+                $kunci = 'LIC-'.implode('-', [
+                    strtoupper(\Illuminate\Support\Str::random(4)),
+                    strtoupper(\Illuminate\Support\Str::random(4)),
+                    strtoupper(\Illuminate\Support\Str::random(4)),
+                ]);
+
+                if (DB::table('digital_licenses')->where('license_key', $kunci)->exists()) {
+                    continue;
+                }
+
+                $id = DB::table('digital_licenses')->insertGetId([
+                    'product_id' => $this->getKey(),
+                    'order_item_id' => $orderItemId,
+                    'license_key' => $kunci,
+                    'max_downloads' => max(1, $maksUnduh),
+                    'download_count' => 0,
+                    'revoked' => false,
+                    'expires_at' => $kedaluwarsa?->format('Y-m-d H:i:s'),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+
+                return DB::table('digital_licenses')->where('id', $id)->first();
+            }
+
+            return null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /** Ambil lisensi milik satu order item, bila ada. */
+    public function lisensiUntukOrderItem(int $orderItemId): ?object
+    {
+        try {
+            if (! Schema::hasTable('digital_licenses')) {
+                return null;
+            }
+
+            return DB::table('digital_licenses')->where('order_item_id', $orderItemId)->first();
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Catat satu unduhan; tolak bila lisensi dicabut, kedaluwarsa,
+     * atau batas unduh tercapai. Mengembalikan status berbahasa Indonesia.
+     *
+     * @return array{ok: bool, pesan: string, sisa: int}
+     */
+    public static function catatUnduhanLisensi(string $kunci, ?string $ip = null, ?string $agen = null): array
+    {
+        try {
+            if (! Schema::hasTable('digital_licenses') || ! Schema::hasTable('digital_license_downloads')) {
+                return ['ok' => false, 'pesan' => 'Fitur lisensi digital belum tersedia.', 'sisa' => 0];
+            }
+
+            $lisensi = DB::table('digital_licenses')->where('license_key', $kunci)->first();
+
+            if (! $lisensi) {
+                return ['ok' => false, 'pesan' => 'Kunci lisensi tidak ditemukan.', 'sisa' => 0];
+            }
+
+            if ((bool) $lisensi->revoked) {
+                return ['ok' => false, 'pesan' => 'Lisensi ini telah dicabut.', 'sisa' => 0];
+            }
+
+            if ($lisensi->expires_at !== null && now()->greaterThan($lisensi->expires_at)) {
+                return ['ok' => false, 'pesan' => 'Masa berlaku lisensi sudah berakhir.', 'sisa' => 0];
+            }
+
+            $sisa = (int) $lisensi->max_downloads - (int) $lisensi->download_count;
+
+            if ($sisa <= 0) {
+                return ['ok' => false, 'pesan' => 'Batas unduh lisensi sudah habis.', 'sisa' => 0];
+            }
+
+            DB::table('digital_license_downloads')->insert([
+                'digital_license_id' => $lisensi->id,
+                'downloaded_at' => now(),
+                'ip_hash' => $ip !== null ? hash('sha256', $ip) : null,
+                'user_agent' => $agen !== null ? mb_substr($agen, 0, 255) : null,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('digital_licenses')->where('id', $lisensi->id)->increment('download_count');
+
+            return ['ok' => true, 'pesan' => 'Unduhan dicatat.', 'sisa' => $sisa - 1];
+        } catch (Throwable) {
+            return ['ok' => false, 'pesan' => 'Gagal mencatat unduhan.', 'sisa' => 0];
+        }
+    }
+
+    /** Riwayat unduhan satu kunci lisensi, terbaru dulu. */
+    public static function riwayatUnduhanLisensi(string $kunci): array
+    {
+        try {
+            if (! Schema::hasTable('digital_licenses') || ! Schema::hasTable('digital_license_downloads')) {
+                return [];
+            }
+
+            $lisensi = DB::table('digital_licenses')->where('license_key', $kunci)->first();
+
+            if (! $lisensi) {
+                return [];
+            }
+
+            return DB::table('digital_license_downloads')
+                ->where('digital_license_id', $lisensi->id)
+                ->orderByDesc('downloaded_at')
+                ->get()
+                ->all();
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /** Cabut lisensi (unduhan berikutnya ditolak). */
+    public static function cabutLisensi(string $kunci): bool
+    {
+        try {
+            if (! Schema::hasTable('digital_licenses')) {
+                return false;
+            }
+
+            return (bool) DB::table('digital_licenses')->where('license_key', $kunci)->update([
+                'revoked' => true,
+                'updated_at' => now(),
+            ]);
+        } catch (Throwable) {
+            return false;
+        }
+    }
 }

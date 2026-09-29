@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
-    'product_id', 'sku', 'variant', 'variant_attributes', 'price',
+    'product_id', 'sku', 'variant', 'variant_attributes', 'images', 'price',
     'special_price', 'discount_type', 'discount_start', 'discount_end', 'stock',
     'low_stock_threshold',
 ])]
@@ -18,6 +18,7 @@ class ProductVariant extends Model
     {
         return [
             'variant_attributes' => 'json',
+            'images' => 'array',
             'price' => 'decimal:2',
             'special_price' => 'decimal:2',
             'discount_start' => 'datetime',
@@ -51,6 +52,60 @@ class ProductVariant extends Model
         $stock = (int) $this->stock;
 
         return $stock > 0 && $stock <= (int) ($this->low_stock_threshold ?? 3);
+    }
+
+    // ===== Galeri per varian (aditif — fallback ke thumbnail produk) =====
+
+    /** Daftar path gambar milik varian ini (kosong bila belum diunggah). */
+    public function galeri(): array
+    {
+        $raw = $this->getAttribute('images');
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = is_array($decoded) ? $decoded : [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn ($p) => trim((string) $p),
+            (array) $raw
+        )));
+    }
+
+    /** URL galeri varian, siap tampil di PDP maupun panel vendor. */
+    public function urlGaleri(): array
+    {
+        return array_map(
+            fn (string $p) => str_starts_with($p, 'http') ? $p : url('img/'.ltrim($p, '/')),
+            $this->galeri()
+        );
+    }
+
+    /**
+     * Gambar utama varian; fallback ke gambar cadangan (thumbnail produk)
+     * bila varian belum punya gambar sendiri.
+     */
+    public function gambarUtama(?string $cadangan = null): ?string
+    {
+        $urls = $this->urlGaleri();
+
+        if ($urls !== []) {
+            return $urls[0];
+        }
+
+        if (is_string($cadangan) && trim($cadangan) !== '') {
+            $cadangan = trim($cadangan);
+
+            return str_starts_with($cadangan, 'http') ? $cadangan : url('img/'.ltrim($cadangan, '/'));
+        }
+
+        return null;
+    }
+
+    /** True bila varian sudah punya minimal satu gambar sendiri. */
+    public function punyaGambarSendiri(): bool
+    {
+        return $this->galeri() !== [];
     }
 
     /**

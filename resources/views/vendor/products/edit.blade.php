@@ -95,6 +95,13 @@
                         @endif
                     </div>
                 </div>
+                <div class="col-12">
+                    <div class="alert alert-info mb-0" role="alert">
+                        <h4 class="alert-title">Baru: galeri per varian, lisensi digital, koleksi &amp; panduan</h4>
+                        <p class="mb-1">Gambar tiap varian, kunci lisensi produk digital, serta keanggotaan koleksi tematik dikelola dari halaman <span class="fw-medium">Detail Produk</span> setelah perubahan ini disimpan.</p>
+                        <p class="mb-0">Panduan ukuran/nutrisi tampil otomatis di halaman produk bila atribut produk (mis. ukuran, kalori, protein) sudah terisi.</p>
+                    </div>
+                </div>
                 <div class="col-12"><button type="submit" class="btn btn-success px-4"><x-admin.icon name="check" :size="16" class="me-2" />Perbarui</button></div>
             </div>
         </form>

@@ -56,6 +56,10 @@
 
 {{-- Tab 4: Varian --}}
 <div class="tab-pane" id="tab3">
+    <div class="alert alert-info" role="alert">
+        <div class="fw-medium mb-1">Gambar mengikuti varian</div>
+        <p class="small mb-0">Setelah produk dibuat, tambah foto tiap varian dari halaman Detail Produk (maks. 5 foto per varian). Varian tanpa foto otomatis memakai foto utama produk di halaman pembeli.</p>
+    </div>
     <p class="text-muted small mb-3">Tambah varian seperti warna, ukuran, dll. Setiap varian bisa punya harga & stok sendiri.</p>
     <div id="variantContainer">
         <div class="variant-row row g-2">
