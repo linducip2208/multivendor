@@ -629,4 +629,206 @@ final class FinanceAdminService extends AnalyticsService
             'commission_formatted' => Currency::format($commission),
         ];
     }
+
+    // ── Perdalaman keuangan: settlement terjadwal, e-Faktur, L/R (aditif) ──
+
+    /**
+     * Settlement komisi terjadwal per toko per periode (dipakai command KirimSettlementOtomatis).
+     *
+     * Idempoten per (shop, period_label): eksekusi ulang memakai batch yang sama.
+     * Menulis jurnal settlement_batch yang seimbang via LedgerService.
+     *
+     * @return array{period_label: string, batches: list<array<string, mixed>>, shops: int, net_payable: float}
+     */
+    public function runScheduledSettlement(string $from, string $to, ?int $shopId = null, ?int $actorId = null): array
+    {
+        $label = date('Y-m', strtotime($from));
+        $out = ['period_label' => $label, 'batches' => [], 'shops' => 0, 'net_payable' => 0.0];
+
+        if (! \Illuminate\Support\Facades\Schema::hasTable('settlement_batches')) {
+            return $out;
+        }
+
+        $shopIds = $shopId !== null
+            ? [$shopId]
+            : Transaction::query()
+                ->whereIn('status', self::successfulTransactionStatuses())
+                ->whereBetween('created_at', [$from, $to])
+                ->distinct()
+                ->pluck('shop_id')
+                ->map(fn ($id): int => (int) $id)
+                ->all();
+
+        foreach ($shopIds as $sid) {
+            $stats = Transaction::query()
+                ->where('shop_id', $sid)
+                ->whereIn('status', self::successfulTransactionStatuses())
+                ->whereBetween('created_at', [$from, $to])
+                ->selectRaw('COUNT(*) as orders, COALESCE(SUM(amount),0) as gross, COALESCE(SUM(admin_commission),0) as commission, COALESCE(SUM(vendor_amount),0) as net')
+                ->first();
+
+            $tax = (float) Order::query()
+                ->where('shop_id', $sid)
+                ->whereBetween('created_at', [$from, $to])
+                ->whereIn('order_status', self::revenueOrderStatuses())
+                ->sum('tax');
+
+            $orders = (int) ($stats->orders ?? 0);
+            $gross = (float) ($stats->gross ?? 0);
+            $commission = (float) ($stats->commission ?? 0);
+            $net = max(0.0, (float) ($stats->net ?? 0));
+
+            if ($orders === 0 && $net <= 0) {
+                continue;
+            }
+
+            $batchId = DB::table('settlement_batches')->where('shop_id', $sid)->where('period_label', $label)->value('id');
+
+            if ($batchId === null) {
+                $batchId = DB::table('settlement_batches')->insertGetId([
+                    'shop_id' => $sid,
+                    'period_start' => date('Y-m-01', strtotime($from)),
+                    'period_end' => date('Y-m-t', strtotime($from)),
+                    'period_label' => $label,
+                    'orders_count' => $orders,
+                    'gross' => $gross,
+                    'commission' => $commission,
+                    'tax' => $tax,
+                    'net_payable' => $net,
+                    'status' => 'posted',
+                    'executed_at' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            } else {
+                DB::table('settlement_batches')->where('id', $batchId)->update([
+                    'orders_count' => $orders,
+                    'gross' => $gross,
+                    'commission' => $commission,
+                    'tax' => $tax,
+                    'net_payable' => $net,
+                    'status' => 'posted',
+                    'executed_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            DB::table('orders')
+                ->where('shop_id', $sid)
+                ->whereBetween('created_at', [$from, $to])
+                ->whereNull('settlement_batch_id')
+                ->update(['settlement_batch_id' => $batchId]);
+
+            $this->ledger->postSettlementBatch($sid, $net, $label, 'settlement-batch:'.$sid.':'.$label);
+
+            $out['batches'][] = [
+                'id' => (int) $batchId,
+                'shop_id' => (int) $sid,
+                'period_label' => $label,
+                'orders' => $orders,
+                'gross' => $gross,
+                'commission' => $commission,
+                'tax' => $tax,
+                'net_payable' => $net,
+            ];
+            $out['shops']++;
+            $out['net_payable'] += $net;
+        }
+
+        app(AuditLogger::class)->log('settlement.scheduled_run', null, [], [
+            'period' => $label,
+            'shops' => $out['shops'],
+            'net_payable' => $out['net_payable'],
+        ], $actorId);
+
+        return $out;
+    }
+
+    /** Riwayat settlement per periode (untuk view admin.settlements.index). */
+    public function settlementBatches(int $limit = 12): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('settlement_batches')) {
+            return [];
+        }
+
+        return DB::table('settlement_batches')
+            ->leftJoin('shops', 'shops.id', '=', 'settlement_batches.shop_id')
+            ->orderByDesc('settlement_batches.period_label')
+            ->orderByDesc('settlement_batches.id')
+            ->limit(max(1, min(100, $limit)))
+            ->get([
+                'settlement_batches.*',
+                'shops.name as shop_name',
+            ])
+            ->map(fn ($row): array => [
+                'id' => (int) $row->id,
+                'shop' => (string) ($row->shop_name ?? ('Toko #'.$row->shop_id)),
+                'period_label' => (string) $row->period_label,
+                'period' => substr((string) $row->period_start, 0, 7),
+                'orders' => (int) $row->orders_count,
+                'gross' => (float) $row->gross,
+                'gross_formatted' => Currency::format((float) $row->gross),
+                'commission' => (float) $row->commission,
+                'commission_formatted' => Currency::format((float) $row->commission),
+                'tax' => (float) $row->tax,
+                'tax_formatted' => Currency::format((float) $row->tax),
+                'net_payable' => (float) $row->net_payable,
+                'net_payable_formatted' => Currency::format((float) $row->net_payable),
+                'status' => (string) $row->status,
+                'executed_at' => $row->executed_at ? (string) $row->executed_at : '',
+            ])
+            ->all();
+    }
+
+    /** Daftar e-Faktur untuk view admin.tax-report.index (guard bila tabel belum ada). */
+    public function taxInvoices(int $limit = 25, string $search = ''): array
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasTable('tax_invoices')) {
+            return [];
+        }
+
+        $query = DB::table('tax_invoices')
+            ->leftJoin('orders', 'orders.id', '=', 'tax_invoices.order_id')
+            ->leftJoin('shops', 'shops.id', '=', 'tax_invoices.shop_id')
+            ->orderByDesc('tax_invoices.id')
+            ->limit(max(1, min(100, $limit)));
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search): void {
+                $q->where('tax_invoices.invoice_number', 'like', '%'.$search.'%')
+                    ->orWhere('tax_invoices.tax_serial', 'like', '%'.$search.'%')
+                    ->orWhere('orders.order_number', 'like', '%'.$search.'%');
+            });
+        }
+
+        return $query->get([
+            'tax_invoices.*',
+            'orders.order_number',
+            'shops.name as shop_name',
+        ])
+            ->map(fn ($row): array => [
+                'id' => (int) $row->id,
+                'invoice_number' => (string) $row->invoice_number,
+                'tax_serial' => (string) $row->tax_serial,
+                'order_number' => (string) ($row->order_number ?? '-'),
+                'shop' => (string) ($row->shop_name ?? '-'),
+                'dpp' => (float) $row->dpp,
+                'dpp_formatted' => Currency::format((float) $row->dpp),
+                'ppn_rate' => (float) $row->ppn_rate,
+                'ppn' => (float) $row->ppn,
+                'ppn_formatted' => Currency::format((float) $row->ppn),
+                'grand_total' => (float) $row->grand_total,
+                'grand_total_formatted' => Currency::format((float) $row->grand_total),
+                'status' => (string) $row->status,
+                'issued_at' => $row->issued_at ? (string) $row->issued_at : '',
+            ])
+            ->all();
+    }
+
+    /** L/R per toko per periode untuk admin (perhitungan sama dengan vendor, tanpa scope auth). */
+    public function shopProfitLoss(int $shopId, string $from, string $to): array
+    {
+        return (new \App\Services\Vendor\VendorFinanceService(new \App\Services\Vendor\VendorScope))
+            ->profitLoss($shopId, $from, $to);
+    }
 }

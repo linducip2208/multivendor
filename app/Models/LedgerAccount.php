@@ -35,8 +35,9 @@ class LedgerAccount extends Model
     {
         return [
             'customer_receivable', 'gateway_escrow', 'cash',
-            'vendor_payable', 'vendor_advance', 'customer_wallet_liability',
-            'platform_revenue', 'commission_revenue', 'shipping_revenue', 'tax_payable',
+            'vendor_payable', 'vendor_advance',             'customer_wallet_liability',
+            'platform_revenue', 'commission_revenue', 'shipping_revenue', 'tax_payable', 'tax_receivable',
+            'settlement_clearing',
             'discount_expense', 'refund_expense', 'platform_fee_expense',
         ];
     }

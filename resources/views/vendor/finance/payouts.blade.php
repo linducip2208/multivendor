@@ -143,6 +143,60 @@
 
     <div class="row g-3 mt-1">
         <div class="col-12">
+            @php
+                try {
+                    $held = app(\App\Services\Vendor\VendorFinanceService::class, ['scope' => new \App\Services\Vendor\VendorScope])->heldBalance(20);
+                } catch (\Throwable $e) {
+                    $held = null;
+                }
+            @endphp
+            @if($held)
+            <x-admin.card title="Saldo tertahan vs tersedia" icon="lock">
+                <div class="row g-3 mb-3">
+                    <div class="col-6 col-xl-4">
+                        <x-admin.stat label="Tersedia (siap cair)" :value="$held['available']" icon="wallet" color="success" />
+                    </div>
+                    <div class="col-6 col-xl-4">
+                        <x-admin.stat label="Tertahan (pending_balance)" :value="$held['held']" icon="lock" color="warning" />
+                    </div>
+                    <div class="col-6 col-xl-4">
+                        <x-admin.stat label="Total" :value="$held['total']" icon="calculator" color="primary" />
+                    </div>
+                </div>
+                <p class="text-secondary small mb-3">
+                    Dana order ditahan saat settlement dan otomatis rilis menjadi saldo tersedia ketika order berstatus completed.
+                </p>
+                <x-admin.table dense>
+                    <x-slot:table>
+                        \App\Support\TableBuilder::make()
+                            ->columns([
+                                'description' => ['label' => 'Keterangan'],
+                                'operation' => ['label' => 'Operasi'],
+                                'amount' => ['label' => 'Nominal', 'align' => 'end'],
+                                'date' => ['label' => 'Tanggal', 'align' => 'end'],
+                            ])
+                            ->rows(
+                                collect($held['history'])->map(fn ($movement) => [
+                                    'description' => '<span class="text-truncate d-block">'.e($movement->description ?? '—').'</span>',
+                                    'operation' => $__status($movement->operation, [
+                                        'hold' => ['Ditahan', 'warning'],
+                                        'release' => ['Dirilis', 'success'],
+                                        'withdraw' => ['Penarikan', 'info'],
+                                    ]),
+                                    'amount' => '<span class="fw-medium">'.e(Currency::format($movement->amount)).'</span>',
+                                    'date' => '<span class="text-secondary small">'.e(\Carbon\Carbon::parse($movement->created_at)->format('d/m/Y H:i')).'</span>',
+                                ])->all()
+                            )
+                            ->empty('Belum ada riwayat penahanan dana.')
+                    </x-slot:table>
+                </x-admin.table>
+            </x-admin.card>
+            @endif
+        </div>
+    </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-12">
             <x-admin.card title="Termin & Tagihan B2B" icon="receipt">
                 <p class="text-secondary small mb-3">
                     Pesanan grosir bertahap memakai status <span class="font-monospace">partial</span> dan dilunasi per termin (mis. via transfer offline).

@@ -159,6 +159,64 @@ class LedgerService
         ]);
     }
 
+    /**
+     * e-Faktur pajak per order (aditif).
+     *
+     * Mencatat pengakuan PPN: debit piutang pajak, kredit utang pajak.
+     * Idempoten per order bila $transactionGroup diisi (mis. tax_invoice:{orderId}).
+     * PPN nol -> tidak ada jurnal, kembalikan grup yang diberikan/diacak.
+     */
+    public function postTaxInvoice(Order $order, float $ppn, ?string $taxSerial = null, ?string $transactionGroup = null): string
+    {
+        if ($ppn <= 0) {
+            return (string) ($transactionGroup ?? Str::uuid()->toString());
+        }
+
+        if ($transactionGroup && LedgerEntry::where('transaction_group', $transactionGroup)->exists()) {
+            return $transactionGroup;
+        }
+
+        return $this->post('tax_invoice', [
+            ['account' => 'tax_receivable', 'direction' => 'debit', 'amount' => $ppn, 'memo' => 'PPN '.$order->order_number],
+            ['account' => 'tax_payable', 'direction' => 'credit', 'amount' => $ppn, 'memo' => 'PPN '.$order->order_number],
+        ], [
+            'reference_type' => Order::class,
+            'reference_id' => $order->id,
+            'order_id' => $order->id,
+            'shop_id' => $order->shop_id,
+            'transaction_group' => $transactionGroup,
+            'memo' => $taxSerial ? 'e-Faktur '.$taxSerial : 'e-Faktur '.$order->order_number,
+        ], $order);
+    }
+
+    /**
+     * Settlement komisi terjadwal per toko per periode (aditif).
+     *
+     * Memindahkan kewajiban bersih vendor dari kliring settlement ke escrow
+     * gateway agar siap dicairkan; balance karena debit == kredit.
+     */
+    public function postSettlementBatch(int $shopId, float $netPayable, string $periodLabel, ?string $transactionGroup = null): string
+    {
+        if ($netPayable <= 0) {
+            return (string) ($transactionGroup ?? Str::uuid()->toString());
+        }
+
+        if ($transactionGroup && LedgerEntry::where('transaction_group', $transactionGroup)->exists()) {
+            return $transactionGroup;
+        }
+
+        return $this->post('settlement_batch', [
+            ['account' => 'settlement_clearing', 'direction' => 'debit', 'amount' => $netPayable, 'memo' => 'Settlement '.$periodLabel],
+            ['account' => 'vendor_payable', 'direction' => 'credit', 'amount' => $netPayable, 'memo' => 'Settlement '.$periodLabel],
+        ], [
+            'reference_type' => 'settlement_batch',
+            'reference_id' => null,
+            'shop_id' => $shopId,
+            'transaction_group' => $transactionGroup,
+            'memo' => 'Settlement terjadwal '.$periodLabel,
+        ]);
+    }
+
     /** Balance of a single account (debit-positive for assets/expenses). */
     public function balance(string $accountCode): float
     {
@@ -206,6 +264,8 @@ class LedgerService
             'commission_revenue' => ['Commission Revenue', 'revenue', 'credit'],
             'shipping_revenue' => ['Shipping Revenue', 'revenue', 'credit'],
             'tax_payable' => ['Tax Payable', 'liability', 'credit'],
+            'tax_receivable' => ['Tax Receivable (PPN Keluaran)', 'asset', 'debit'],
+            'settlement_clearing' => ['Settlement Clearing', 'asset', 'debit'],
             'discount_expense' => ['Discount Expense', 'expense', 'debit'],
             'refund_expense' => ['Refund Expense', 'expense', 'debit'],
             'platform_fee_expense' => ['Platform Fee Expense', 'expense', 'debit'],

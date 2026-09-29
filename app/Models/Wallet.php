@@ -49,6 +49,95 @@ class Wallet extends Model
         return $this->mutate('credit', $amount, $description, $referenceType, $referenceId, $referenceKey, 'release', true);
     }
 
+    /**
+     * Tahan saldo (held) tanpa mengubah saldo tersedia.
+     *
+     * Memakai kolom pending_balance existing sebagai saldo tertahan.
+     * Idempoten via reference_key. Riwayat tercatat dengan operation=hold.
+     */
+    public function holdPending(float $amount, ?string $description = null, ?string $referenceType = null, ?int $referenceId = null, ?string $referenceKey = null): WalletTransaction
+    {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Nominal tahan harus lebih dari nol.');
+        }
+
+        return DB::transaction(function () use ($amount, $description, $referenceType, $referenceId, $referenceKey) {
+            $wallet = static::lockForUpdate()->findOrFail($this->id);
+            if ($referenceKey && ($existing = $wallet->transactions()->where('reference_key', $referenceKey)->first())) {
+                return $existing;
+            }
+
+            $before = (float) $wallet->balance;
+            $wallet->pending_balance = (float) $wallet->pending_balance + $amount;
+            $wallet->save();
+
+            return $wallet->transactions()->create([
+                'amount' => $amount,
+                'type' => 'credit',
+                'operation' => 'hold',
+                'description' => $description,
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
+                'reference_key' => $referenceKey,
+                'balance_before' => $before,
+                'balance_after' => $before,
+                'status' => 'completed',
+            ]);
+        });
+    }
+
+    /**
+     * Rilis saldo tertahan menjadi saldo tersedia (saat order completed).
+     *
+     * Idempoten via reference_key. Riwayat tercatat dengan operation=release.
+     */
+    public function releaseHeld(float $amount, ?string $description = null, ?string $referenceType = null, ?int $referenceId = null, ?string $referenceKey = null): WalletTransaction
+    {
+        if ($amount <= 0) {
+            throw new \InvalidArgumentException('Nominal rilis harus lebih dari nol.');
+        }
+
+        return DB::transaction(function () use ($amount, $description, $referenceType, $referenceId, $referenceKey) {
+            $wallet = static::lockForUpdate()->findOrFail($this->id);
+            if ($referenceKey && ($existing = $wallet->transactions()->where('reference_key', $referenceKey)->first())) {
+                return $existing;
+            }
+            if ((float) $wallet->pending_balance < $amount) {
+                throw new \DomainException('Saldo tertahan tidak cukup untuk dirilis.');
+            }
+
+            $before = (float) $wallet->balance;
+            $wallet->balance = $before + $amount;
+            $wallet->pending_balance = (float) $wallet->pending_balance - $amount;
+            $wallet->save();
+
+            return $wallet->transactions()->create([
+                'amount' => $amount,
+                'type' => 'credit',
+                'operation' => 'release',
+                'description' => $description,
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
+                'reference_key' => $referenceKey,
+                'balance_before' => $before,
+                'balance_after' => $wallet->balance,
+                'status' => 'completed',
+            ]);
+        });
+    }
+
+    /** Ringkasan pisah saldo tersedia vs tertahan. */
+    public function heldVsAvailable(): array
+    {
+        $fresh = static::find($this->id) ?? $this;
+
+        return [
+            'available' => (float) $fresh->balance,
+            'held' => (float) $fresh->pending_balance,
+            'total' => (float) $fresh->balance + (float) $fresh->pending_balance,
+        ];
+    }
+
     private function mutate(string $type, float $amount, ?string $description, ?string $referenceType, ?int $referenceId, ?string $referenceKey, ?string $operation = null, bool $movePending = false): WalletTransaction
     {
         if ($amount <= 0) {
