@@ -1,8 +1,8 @@
 @extends('layouts.vendor')
-@section('title', 'Clearance Sale')
+@section('title', 'Cuci Gudang')
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="fw-bold mb-0"><x-admin.icon name="tag" :size="16" class="me-2 text-danger" /> Clearance Sale</h4>
+    <h4 class="fw-bold mb-0"><x-admin.icon name="tag" :size="16" class="me-2 text-danger" /> Cuci Gudang</h4>
 </div>
 <x-admin.card :padding="false"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Produk</th><th>Harga Normal</th><th>Harga Diskon</th><th>Diskon</th><th>Aksi</th></tr></thead><tbody>
 @forelse($products as $p)
@@ -12,12 +12,12 @@
         <input type="hidden" name="product_id" value="{{ $p->id }}">
         <select name="discount_type" class="form-select form-select-sm" style="width:70px"><option value="percentage">%</option><option value="flat">Rp</option></select>
         <input type="number" name="discount_value" class="form-control form-control-sm" style="width:80px" min="0" value="10">
-        <button class="btn btn-sm btn-warning">Update</button>
+        <button class="btn btn-sm btn-warning">Perbarui</button>
     </form>
 </td>
 <td><form action="{{ route('vendor.clearance.remove', $p) }}" method="POST">@csrf @method('DELETE')<button class="btn btn-sm btn-outline-danger"><x-admin.icon name="x" :size="16" /> Hapus</button></form></td></tr>
 @empty
-<tr><td colspan="5" class="text-center py-5 text-muted">Belum ada produk clearance. Set diskon di Produk Saya.</td></tr>
+<tr><td colspan="5" class="text-center py-5 text-muted">Belum ada produk cuci gudang. Set diskon di Produk Saya.</td></tr>
 @endforelse
 </tbody></table></div>@if($products->hasPages())<div class="p-3"><x-admin.pagination :paginator="$products" /></div>@endif</x-admin.card>
 @endsection

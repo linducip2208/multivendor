@@ -1,7 +1,7 @@
 @extends('layouts.vendor')
 @include('vendor.partials.helpers')
 
-@section('title', 'Inbox')
+@section('title', 'Kotak Masuk')
 @section('subtitle', 'Percakapan dengan pelanggan toko Anda')
 
 @section('breadcrumb', [

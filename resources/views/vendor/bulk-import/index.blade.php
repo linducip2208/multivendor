@@ -1,14 +1,14 @@
 @extends('layouts.vendor')
-@section('title', 'Bulk Import')
+@section('title', 'Impor Massal')
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h4 class="fw-bold mb-0"><x-admin.icon name="upload" :size="16" class="me-2 text-info" /> Bulk Import Produk</h4>
+    <h4 class="fw-bold mb-0"><x-admin.icon name="upload" :size="16" class="me-2 text-info" /> Impor Massal Produk</h4>
 </div>
 <div class="row g-4">
     <div class="col-lg-5"><x-admin.card :padding="false"><div class="card-body p-4">
         <form action="{{ route('vendor.bulk-import.store') }}" method="POST" enctype="multipart/form-data">@csrf
-            <div class="mb-3"><label class="fw-medium">Upload File CSV / Excel</label><input type="file" name="file" class="form-control" accept=".csv,.xlsx,.xls" required><small class="text-muted">Max 10MB</small></div>
-            <button class="btn btn-primary w-100"><x-admin.icon name="upload" :size="16" class="me-2" />Import Produk</button>
+            <div class="mb-3"><label class="fw-medium">Unggah Berkas CSV / Excel</label><input type="file" name="file" class="form-control" accept=".csv,.xlsx,.xls" required><small class="text-muted">Maks. 10MB</small></div>
+            <button class="btn btn-primary w-100"><x-admin.icon name="upload" :size="16" class="me-2" />Impor Produk</button>
         </form>
     </div></x-admin.card></div>
     <div class="col-lg-7"><x-admin.card :padding="false"><div class="card-body p-4">

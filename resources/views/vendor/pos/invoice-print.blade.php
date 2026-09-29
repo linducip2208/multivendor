@@ -28,7 +28,7 @@
             <div class="d-flex justify-content-between"><span>Struk</span><span class="fw-medium">{{ $order->order_number }}</span></div>
             <div class="d-flex justify-content-between"><span>Tanggal</span><span>{{ $order->created_at->format('d/m/Y H:i') }}</span></div>
             <div class="d-flex justify-content-between"><span>Kasir</span><span>{{ $order->shop?->vendor?->name ?? auth('vendor')->user()->name }}</span></div>
-            <div class="d-flex justify-content-between"><span>Pelanggan</span><span>{{ $order->customer?->name ?? 'Walk-in' }}</span></div>
+            <div class="d-flex justify-content-between"><span>Pelanggan</span><span>{{ $order->customer?->name ?? 'Langsung' }}</span></div>
         </div>
 
         <hr>

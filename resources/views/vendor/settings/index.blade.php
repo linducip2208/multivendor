@@ -80,7 +80,7 @@
                     </div>
 
                     <hr class="my-3" />
-                    <h4 class="card-title mb-3">Mode(libur)</h4>
+                    <h4 class="card-title mb-3">Mode Libur</h4>
                     <x-admin.form-field name="vacation_mode" label="Aktifkan mode libur" type="checkbox" :value="$shop->vacation_mode ? 1 : 0" />
                     <x-admin.form-field name="vacation_message" label="Pesan yang tampil" type="textarea" :rows="2" :value="$shop->vacation_message" />
 

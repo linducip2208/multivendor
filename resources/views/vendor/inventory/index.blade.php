@@ -42,7 +42,7 @@
     <x-admin.filters
         :action="route('vendor.inventory.index')"
         :filters="[
-            ['name' => 'search', 'label' => 'Cari produk', 'placeholder' => 'Nama, SKU, atau barcode'],
+            ['name' => 'search', 'label' => 'Cari produk', 'placeholder' => 'Nama, SKU, atau barkode'],
             ['name' => 'stock', 'label' => 'Status stok', 'type' => 'select', 'value' => $stock, 'options' => [
                 '' => 'Semua',
                 'in' => 'Aman',

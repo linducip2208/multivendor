@@ -60,7 +60,7 @@
                 <x-admin.pagination :paginator="$requests" class="mt-3" />
             </x-admin.card>
 
-            <x-admin.card title="Mutasi wallet" icon="activity" class="mt-3" :padding="false">
+            <x-admin.card title="Mutasi dompet" icon="activity" class="mt-3" :padding="false">
                 <x-admin.table dense>
                     <x-slot:table>
                         \App\Support\TableBuilder::make()
@@ -85,7 +85,7 @@
                                     'date' => '<span class="text-secondary small">'.e(\Carbon\Carbon::parse($movement->created_at)->format('d/m/Y H:i')).'</span>',
                                 ])->all()
                             )
-                            ->empty('Belum ada mutasi wallet.')
+                            ->empty('Belum ada mutasi dompet.')
                     </x-slot:table>
                 </x-admin.table>
             </x-admin.card>

@@ -1,11 +1,11 @@
 @extends('layouts.vendor')
 
-@section('title', 'Edit Produk')
+@section('title', 'Ubah Produk')
 
 @section('content')
 <div class="mb-4">
     <a href="{{ route('vendor.products.index') }}" class="text-decoration-none small"><x-admin.icon name="arrow-left" :size="16" class="me-1" /> Kembali</a>
-    <h4 class="fw-bold mt-2 mb-1">Edit: {{ $product->name }}</h4>
+    <h4 class="fw-bold mt-2 mb-1">Ubah: {{ $product->name }}</h4>
 </div>
 
 <x-admin.card :padding="false">
@@ -27,15 +27,15 @@
                         <input type="file" name="thumbnail" class="form-control" accept="image/*" style="max-width:400px;">
                         @if($product->thumbnail)
                             <img src="{{ url('img/'.$product->thumbnail) }}" class="rounded-3" style="width:64px;height:64px;object-fit:cover;">
-                            <small class="text-muted">Upload untuk ganti</small>
+                            <small class="text-muted">Unggah untuk mengganti</small>
                         @endif
                     </div>
-                    <small class="text-muted">Max 2MB, jpg/png/webp. Kosongkan jika tidak diubah.</small>
+                    <small class="text-muted">Maks. 2MB, jpg/png/webp. Kosongkan jika tidak diubah.</small>
                 </div>
                 <div class="col-12">
                     <label class="form-label fw-medium">Video Produk (URL)</label>
                     <input type="url" name="video_url" class="form-control" value="{{ old('video_url', $product->video_url) }}" placeholder="https://youtube.com/watch?v=...">
-                    <small class="text-muted">Link YouTube, Vimeo, atau URL video langsung</small>
+                    <small class="text-muted">Tautan YouTube, Vimeo, atau URL video langsung</small>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-medium">Kategori <span class="text-danger">*</span></label>
@@ -66,8 +66,8 @@
                 <div class="col-md-3"><label class="form-label fw-medium">Harga (Rp) <span class="text-danger">*</span></label><input type="number" name="price" class="form-control" value="{{ old('price', (int)$product->price) }}" required></div>
                 <div class="col-md-3"><label class="form-label fw-medium">Diskon (Rp)</label><input type="number" name="special_price" class="form-control" value="{{ old('special_price', (int)$product->special_price) }}"></div>
                 <div class="col-md-2"><label class="form-label fw-medium">Stok <span class="text-danger">*</span></label><input type="number" name="current_stock" class="form-control" value="{{ old('current_stock', $product->current_stock) }}" required></div>
-                <div class="col-md-2"><label class="form-label fw-medium">Min Qty</label><input type="number" name="min_qty" class="form-control" value="{{ old('min_qty', $product->min_qty) }}"></div>
-                <div class="col-md-2"><label class="form-label fw-medium">Max Qty</label><input type="number" name="max_qty" class="form-control" value="{{ old('max_qty', $product->max_qty) }}"></div>
+                <div class="col-md-2"><label class="form-label fw-medium">Jml. Min.</label><input type="number" name="min_qty" class="form-control" value="{{ old('min_qty', $product->min_qty) }}"></div>
+                <div class="col-md-2"><label class="form-label fw-medium">Jml. Maks.</label><input type="number" name="max_qty" class="form-control" value="{{ old('max_qty', $product->max_qty) }}"></div>
                 <div class="col-md-3"><label class="form-label fw-medium">Pajak (%)</label><input type="number" name="tax" class="form-control" value="{{ old('tax', $product->tax) }}" step="0.01"></div>
                 <div class="col-md-3"><label class="form-label fw-medium">Ongkir (Rp)</label><input type="number" name="shipping_cost" class="form-control" value="{{ old('shipping_cost', $product->shipping_cost) }}"></div>
                 <div class="col-md-2"><label class="form-label fw-medium">Satuan</label><input type="text" name="unit" class="form-control" value="{{ old('unit', $product->unit) }}"></div>

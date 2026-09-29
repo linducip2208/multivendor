@@ -62,7 +62,7 @@
         <div class="col-12 col-xl-4">
             <x-admin.card title="Hubungi dukungan" icon="life-buoy">
                 <p class="text-secondary small">
-                    Buat tiket untuk masalah yang memerlukan investigative lebih lanjut.
+                    Buat tiket untuk masalah yang memerlukan investigasi lebih lanjut.
                     Untuk pertanyaan singkat, chat lebih cepat.
                 </p>
 

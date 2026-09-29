@@ -85,7 +85,7 @@
                 </p>
                 <a href="{{ route('vendor.chat.inbox') }}" class="btn btn-outline-primary w-100">
                     <x-admin.icon name="message-circle" :size="16" class="me-1" />
-                    <span>Buka inbox</span>
+                    <span>Buka kotak masuk</span>
                 </a>
             </x-admin.card>
         </div>

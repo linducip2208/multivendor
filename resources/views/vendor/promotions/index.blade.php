@@ -94,7 +94,7 @@
                                             .'<button type="submit" class="btn btn-sm btn-ghost-danger" aria-label="Hapus"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M9.5 6.5V4.8A1.3 1.3 0 0 1 10.8 3.5h2.4a1.3 1.3 0 0 1 1.3 1.3v1.7"/><path d="m6.5 6.5 1 13.2a1.3 1.3 0 0 0 1.3 1.2h6.4a1.3 1.3 0 0 0 1.3-1.2l1-13.2"/></svg></button></form>',
                                     ])->all()
                                 )
-                                ->empty('Belum ada kampanye promotion.')
+                                ->empty('Belum ada kampanye promosi.')
                         </x-slot:table>
                     </x-admin.table>
                 @endif

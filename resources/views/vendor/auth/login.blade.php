@@ -39,8 +39,8 @@
                         <input type="email" name="email" class="form-control" value="{{ old('email') }}" placeholder="vendor@multivendor.test" required autofocus>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input type="password" name="password" class="form-control" placeholder="Masukkan password" required>
+                        <label class="form-label">Kata sandi</label>
+                        <input type="password" name="password" class="form-control" placeholder="Masukkan kata sandi" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-check">
@@ -53,7 +53,7 @@
                     </div>
                 </form>
                 <div class="alert alert-success mt-4 mb-0">
-                    <div class="fw-semibold mb-1">Demo Login</div>
+                    <div class="fw-semibold mb-1">Demo Masuk</div>
                     <div class="small font-monospace">Vendor: vendor@multivendor.test / password</div>
                 </div>
             </div>

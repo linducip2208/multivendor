@@ -9,7 +9,7 @@
 <form method="POST" action="{{ route('vendor.products.store') }}" enctype="multipart/form-data" id="productForm">@csrf
 
 <div class="step-wizard">
-    <div class="step active" onclick="showTab(0)">1. Basic Info</div>
+    <div class="step active" onclick="showTab(0)">1. Info Dasar</div>
     <div class="step" onclick="showTab(1)">2. Harga & Stok</div>
     <div class="step" onclick="showTab(2)">3. Gambar & Video</div>
     <div class="step" onclick="showTab(3)">4. Varian & SKU</div>
@@ -27,8 +27,8 @@
         <div class="col-md-4"><label class="fw-medium">Brand</label><select name="brand_id" class="form-select">@foreach(\App\Models\Brand::where('status',true)->get() as $b)<option value="{{ $b->id }}">{{ $b->name }}</option>@endforeach</select></div>
         <div class="col-md-4"><label class="fw-medium">Tipe <span class="text-danger">*</span></label><select name="product_type" class="form-select" id="productType" required><option value="physical">Fisik</option><option value="digital">Digital</option></select></div>
         <div class="col-md-2"><label class="fw-medium">Satuan</label><input type="text" name="unit" class="form-control" value="{{ old('unit','pcs') }}"></div>
-        <div class="col-md-2"><label class="fw-medium">Min Qty</label><input type="number" name="min_qty" class="form-control" value="1" min="1"></div>
-        <div class="col-md-2"><label class="fw-medium">Max Qty</label><input type="number" name="max_qty" class="form-control" value="10" min="1"></div>
+        <div class="col-md-2"><label class="fw-medium">Jml. Min.</label><input type="number" name="min_qty" class="form-control" value="1" min="1"></div>
+        <div class="col-md-2"><label class="fw-medium">Jml. Maks.</label><input type="number" name="max_qty" class="form-control" value="10" min="1"></div>
     </div>
 </div>
 
@@ -40,7 +40,7 @@
         <div class="col-md-4"><label class="fw-medium">Stok <span class="text-danger">*</span></label><input type="number" name="current_stock" class="form-control" value="{{ old('current_stock',0) }}" required></div>
         <div class="col-md-3"><label class="fw-medium">Pajak (%)</label><input type="number" name="tax" class="form-control" value="0" step="0.01"></div>
         <div class="col-md-3"><label class="fw-medium">Ongkir (Rp)</label><input type="number" name="shipping_cost" class="form-control" value="0"></div>
-        <div class="col-md-3"><label class="fw-medium">Tipe Diskon</label><select name="discount_type" class="form-select"><option value="">None</option><option value="flat">Nominal (Rp)</option><option value="percentage">Persentase (%)</option></select></div>
+        <div class="col-md-3"><label class="fw-medium">Tipe Diskon</label><select name="discount_type" class="form-select"><option value="">Tidak ada</option><option value="flat">Nominal (Rp)</option><option value="percentage">Persentase (%)</option></select></div>
         <div class="col-md-3"><label class="fw-medium">Berlaku s/d</label><input type="datetime-local" name="discount_end" class="form-control"></div>
     </div>
 </div>
@@ -48,9 +48,9 @@
 {{-- Tab 3: Gambar & Video --}}
 <div class="tab-pane" id="tab2">
     <div class="row g-3">
-        <div class="col-12"><label class="fw-medium">Foto Utama</label><input type="file" name="thumbnail" class="form-control" accept="image/*"><small class="text-muted">Max 2MB, jpg/png/webp</small></div>
-        <div class="col-12"><label class="fw-medium">Foto Tambahan (max 5)</label><input type="file" name="images[]" class="form-control" accept="image/*" multiple><small class="text-muted">Bisa pilih beberapa file sekaligus</small></div>
-        <div class="col-12"><label class="fw-medium">Video URL</label><input type="url" name="video_url" class="form-control" placeholder="YouTube / Vimeo / MP4 URL"><small class="text-muted">Atau upload langsung:</small><input type="file" name="video_file" class="form-control mt-1" accept="video/*"><small class="text-muted">Max 50MB, mp4/webm. Upload ke server.</small></div>
+        <div class="col-12"><label class="fw-medium">Foto Utama</label><input type="file" name="thumbnail" class="form-control" accept="image/*"><small class="text-muted">Maks. 2MB, jpg/png/webp</small></div>
+        <div class="col-12"><label class="fw-medium">Foto Tambahan (maks. 5)</label><input type="file" name="images[]" class="form-control" accept="image/*" multiple><small class="text-muted">Bisa pilih beberapa berkas sekaligus</small></div>
+        <div class="col-12"><label class="fw-medium">URL Video</label><input type="url" name="video_url" class="form-control" placeholder="URL YouTube / Vimeo / MP4"><small class="text-muted">Atau unggah langsung:</small><input type="file" name="video_file" class="form-control mt-1" accept="video/*"><small class="text-muted">Maks. 50MB, mp4/webm. Unggah ke server.</small></div>
     </div>
 </div>
 
@@ -74,9 +74,9 @@
     <div class="row g-3">
         <div class="col-12"><label class="fw-medium">Deskripsi Singkat</label><div id="quillShort" style="height:120px;"></div><input type="hidden" name="short_description" id="shortInput"></div>
         <div class="col-12"><label class="fw-medium">Deskripsi Lengkap</label><div id="quillEditor" style="height:200px;"></div><input type="hidden" name="description" id="descInput"></div>
-        <div class="col-md-6"><label class="fw-medium">Meta Title</label><input type="text" name="meta_title" class="form-control" maxlength="255"></div>
-        <div class="col-md-6"><label class="fw-medium">Meta Description</label><input type="text" name="meta_description" class="form-control" maxlength="500"></div>
-        <div class="col-12"><label class="fw-medium">Tags (pisahkan dengan koma)</label><input type="text" name="tags" class="form-control" placeholder="contoh: sepatu, sneakers, casual, pria"></div>
+        <div class="col-md-6"><label class="fw-medium">Meta Judul</label><input type="text" name="meta_title" class="form-control" maxlength="255"></div>
+        <div class="col-md-6"><label class="fw-medium">Meta Deskripsi</label><input type="text" name="meta_description" class="form-control" maxlength="500"></div>
+        <div class="col-12"><label class="fw-medium">Tag (pisahkan dengan koma)</label><input type="text" name="tags" class="form-control" placeholder="contoh: sepatu, tas, kemeja, pria"></div>
     </div>
 </div>
 

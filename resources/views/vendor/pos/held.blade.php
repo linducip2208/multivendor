@@ -1,13 +1,13 @@
 @extends('layouts.vendor')
 @include('vendor.partials.helpers')
 
-@section('title', 'Hold order')
+@section('title', 'Pesanan ditahan')
 @section('subtitle', 'Pesanan POS yang ditahan untuk dilayani nanti')
 
 @section('breadcrumb', [
     ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
     ['label' => 'POS', 'href' => route('vendor.pos.index')],
-    ['label' => 'Hold order'],
+    ['label' => 'Pesanan ditahan'],
 ])
 
 @section('actions')
@@ -19,8 +19,8 @@
 
 @section('content')
     <x-admin.alert type="info">
-        Hold order tidak mengurangi stok. Stok baru dipotong ketika hold order dilanjutkan menjadi transaksi lunas,
-        dan validate stok tetap berjalan di titik itu.
+        Pesanan ditahan tidak mengurangi stok. Stok baru dipotong ketika pesanan ditahan dilanjutkan menjadi transaksi lunas,
+        dan validasi stok tetap berjalan di titik itu.
     </x-admin.alert>
 
     <x-admin.card :padding="false">
@@ -38,7 +38,7 @@
                     ->rows(
                         $orders->map(fn ($order) => [
                             'order' => '<a href="'.route('vendor.orders.show', $order).'" class="font-monospace fw-medium">'.e($order->order_number).'</a>',
-                            'customer' => '<span class="text-truncate d-block">'.e(str_replace('POS: ', '', (string) $order->note) ?: 'Pelanggan walk-in').'</span>',
+                            'customer' => '<span class="text-truncate d-block">'.e(str_replace('POS: ', '', (string) $order->note) ?: 'Pelanggan langsung').'</span>',
                             'items' => e(Currency::number($order->items->sum('quantity'))),
                             'total' => '<span class="fw-medium text-nowrap">'.e(Currency::format($order->total)).'</span>',
                             'date' => '<span class="text-secondary small">'.e($order->created_at->format('d/m/Y H:i')).'</span>',
@@ -46,12 +46,12 @@
                                 .'<form method="POST" action="'.route('vendor.pos.resume', $order).'" class="d-inline">'
                                 .csrf().'<button type="submit" class="btn btn-sm btn-success">Lanjutkan</button></form>'
                                 .'<a href="'.route('vendor.pos.print', $order).'" class="btn btn-sm btn-ghost-light" target="_blank" rel="noopener">Cetak</a>'
-                                .'<form method="POST" action="'.route('vendor.pos.cancel-hold', $order).'" class="d-inline" data-confirm="Batalkan hold order '.e($order->order_number).'?">'
+                                .'<form method="POST" action="'.route('vendor.pos.cancel-hold', $order).'" class="d-inline" data-confirm="Batalkan pesanan ditahan '.e($order->order_number).'?">'
                                 .csrf().'<button type="submit" class="btn btn-sm btn-ghost-danger">Batal</button></form>'
                                 .'</div>',
                         ])->all()
                     )
-                    ->empty('Tidak ada hold order.')
+                    ->empty('Tidak ada pesanan ditahan.')
             </x-slot:table>
         </x-admin.table>
     </x-admin.card>

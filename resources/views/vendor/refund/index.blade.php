@@ -1,12 +1,12 @@
 @extends('layouts.vendor')
 @include('vendor.partials.helpers')
 
-@section('title', 'Refund')
-@section('subtitle', 'Pengajuan refund pada pesanan toko Anda')
+@section('title', 'Pengembalian Dana')
+@section('subtitle', 'Pengajuan pengembalian dana pada pesanan toko Anda')
 
 @section('breadcrumb', [
     ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
-    ['label' => 'Refund'],
+    ['label' => 'Pengembalian Dana'],
 ])
 
 @section('actions')
@@ -57,7 +57,7 @@
                             'status' => $__status($item->refund_status),
                             'date' => '<span class="text-secondary small">'.e($item->refund_requested_at ? \Carbon\Carbon::parse($item->refund_requested_at)->format('d/m/Y') : '—').'</span>',
                             'actions' => in_array($item->refund_status, $decisions, true)
-                                ? '<form method="POST" action="'.route('vendor.refund.update', $item->id).'" class="row g-1 justify-content-end" data-confirm="Kirim keputusan refund untuk produk ini?">'
+                                ? '<form method="POST" action="'.route('vendor.refund.update', $item->id).'" class="row g-1 justify-content-end" data-confirm="Kirim keputusan pengembalian dana untuk produk ini?">'
                                     .csrf().'@method("PUT")'
                                     .'<div class="col-auto"><input type="hidden" name="status" value="approved">'
                                     .'<button type="submit" class="btn btn-sm btn-success">Setujui</button></div>'
@@ -67,7 +67,7 @@
                                 : '<span class="text-secondary small">Menunggu keputusan</span>',
                         ])->all()
                     )
-                    ->empty('Belum ada pengajuan refund.')
+                    ->empty('Belum ada pengajuan pengembalian dana.')
             </x-slot:table>
         </x-admin.table>
     </x-admin.card>

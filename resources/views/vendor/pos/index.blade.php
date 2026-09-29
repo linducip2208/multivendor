@@ -12,7 +12,7 @@
 @section('actions')
     <a href="{{ route('vendor.pos.held') }}" class="btn btn-outline-secondary">
         <x-admin.icon name="clock" :size="16" class="me-1" />
-        <span>Hold order</span>
+        <span>Pesanan ditahan</span>
     </a>
 @endsection
 
@@ -84,7 +84,7 @@
             </x-admin.card>
 
             <x-admin.card title="Pembayaran" icon="cash-coin">
-                <x-admin.form-field name="customer_name" label="Nama pelanggan" placeholder="Pelanggan walk-in" />
+                <x-admin.form-field name="customer_name" label="Nama pelanggan" placeholder="Pelanggan langsung" />
                 <x-admin.form-field name="customer_phone" label="Telepon" type="tel" placeholder="08xx" />
                 <x-admin.form-field name="discount" label="Diskon" type="number" :min="0" :step="1" :prefix="Currency::config()['symbol']" />
                 <x-admin.form-field name="payment_method" label="Metode pembayaran" type="select" :options="[
@@ -107,7 +107,7 @@
                     </button>
                     <button type="button" class="btn btn-outline-secondary" data-pos-hold disabled>
                         <x-admin.icon name="clock" :size="16" class="me-1" />
-                        <span>Simpan sebagai hold</span>
+                        <span>Simpan sebagai pesanan ditahan</span>
                     </button>
                 </div>
 

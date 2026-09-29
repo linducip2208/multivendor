@@ -2,7 +2,7 @@
 @include('vendor.partials.helpers')
 
 @section('title', 'Serah terima COD')
-@section('subtitle', 'Catatan attenuasi uang tunai yang dipegang kurir')
+@section('subtitle', 'Catatan atenuasi uang tunai yang dipegang kurir')
 
 @section('breadcrumb', [
     ['label' => 'Vendor', 'href' => route('vendor.dashboard')],
@@ -10,7 +10,7 @@
 ])
 
 @section('content')
-    <x-admin.alert type="info" title="COD adalah catatan attenuasi, bukan pendapatan">
+    <x-admin.alert type="info" title="COD adalah catatan atenuasi, bukan pendapatan">
         Uang COD dipegang kurir dan belum menjadi pendapatan toko. Saldo toko bertambah secara otomatis
         ketika pesanan berstatus <strong>Diterima</strong> atau <strong>Selesai</strong>.
         Menandai lunas di sini hanya mencatat bahwa serah terima antara kurir dan platform sudah beres,

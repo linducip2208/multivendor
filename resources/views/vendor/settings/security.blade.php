@@ -26,7 +26,7 @@
 
                 <x-admin.card title="Autentikasi" icon="shield">
                     <x-admin.form-field name="two_factor_enabled" label="Aktifkan autentikasi dua faktor" type="checkbox" :value="$two_factor_enabled ? 1 : 0" help="Minta kode sekali pakai setiap kali masuk dari perangkat baru." />
-                    <x-admin.form-field name="login_alert" label="Kirim peringatan login" type="checkbox" :value="$login_alert ? 1 : 0" help="Kirim email dan notifikasi dalam aplikasi setiap kali ada percobaan login." />
+                    <x-admin.form-field name="login_alert" label="Kirim peringatan masuk" type="checkbox" :value="$login_alert ? 1 : 0" help="Kirim email dan notifikasi dalam aplikasi setiap kali ada percobaan masuk." />
                     <x-admin.form-field name="login_alert_after" label="Peringatan setelah" type="number" :min="1" :max="100" :value="$settings->login_alert_after ?? 1" suffix="percobaan gagal" />
                     <x-admin.form-field name="session_timeout_minutes" label="Durasi sesi" type="number" :min="5" :max="10080" :value="$session_timeout_minutes" suffix="menit" help="Sesi berakhir otomatis setelah tidak ada aktivitas." />
 
@@ -84,7 +84,7 @@
                 </div>
 
                 <dl class="row mb-0 small">
-                    <dt class="col-7 text-secondary fw-normal">Peringatan login</dt>
+                    <dt class="col-7 text-secondary fw-normal">Peringatan masuk</dt>
                     <dd class="col-5 text-end">{{ $login_alert ? $__status('active') : $__status('inactive') }}</dd>
                     <dt class="col-7 text-secondary fw-normal">Perubahan kata sandi</dt>
                     <dd class="col-5 text-end">

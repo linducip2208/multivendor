@@ -33,14 +33,14 @@
             <div class="col-6 col-xl">
                 <x-admin.card class="h-100">
                     <div class="d-flex align-items-center justify-content-between mb-2">
-                        <span class="text-secondary small text-capitalize">{{ str_replace('_', ' ', $key) }}</span>
+                        <span class="text-secondary small text-capitalize">{{ ['products' => 'produk', 'staff' => 'tim', 'storage_mb' => 'penyimpanan (MB)', 'transactions' => 'transaksi'][(string) $key] ?? str_replace('_', ' ', $key) }}</span>
                         <x-admin.badge
                             :text="$metric['unlimited'] ? 'Tak terbatas' : $metric['used'].' / '.$metric['limit']"
                             :color="$metric['unlimited'] ? 'secondary' : ($metric['percent'] >= 90 ? 'danger' : ($metric['percent'] >= 70 ? 'warning' : 'success'))"
                             pill
                         />
                     </div>
-                    <div class="progress progress-sm" role="progressbar" aria-label="Pemakaian {{ $key }}" aria-valuenow="{{ $metric['percent'] }}" aria-valuemin="0" aria-valuemax="100">
+                    <div class="progress progress-sm" role="progressbar" aria-label="Pemakaian {{ ['products' => 'produk', 'staff' => 'tim', 'storage_mb' => 'penyimpanan', 'transactions' => 'transaksi'][(string) $key] ?? $key }}" aria-valuenow="{{ $metric['percent'] }}" aria-valuemin="0" aria-valuemax="100">
                         <div class="progress-bar bg-{{ $metric['unlimited'] ? 'secondary' : ($metric['percent'] >= 90 ? 'bg-danger' : ($metric['percent'] >= 70 ? 'bg-warning' : 'bg-success')) }}" style="width: {{ $metric['unlimited'] ? 0 : max(2, $metric['percent']) }}%"></div>
                     </div>
                 </x-admin.card>

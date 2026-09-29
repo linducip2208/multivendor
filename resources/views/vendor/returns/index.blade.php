@@ -12,7 +12,7 @@
 @section('actions')
     <a href="{{ route('vendor.refund.index') }}" class="btn btn-outline-secondary">
         <x-admin.icon name="rotate-ccw" :size="16" class="me-1" />
-        <span>Pengajuan refund</span>
+        <span>Pengajuan pengembalian dana</span>
     </a>
 @endsection
 

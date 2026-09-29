@@ -37,14 +37,14 @@
 
     <table class="meta">
         <tr><td class="muted">Kasir</td><td class="right">{{ $order->shop?->vendor?->name ?? auth('vendor')->user()->name }}</td></tr>
-        <tr><td class="muted">Pelanggan</td><td class="right">{{ $order->customer?->name ?? 'Walk-in' }}</td></tr>
+        <tr><td class="muted">Pelanggan</td><td class="right">{{ $order->customer?->name ?? 'Langsung' }}</td></tr>
     </table>
 
     <table>
         <thead>
             <tr>
                 <th>Produk</th>
-                <th class="right">Qty</th>
+                <th class="right">Jml.</th>
                 <th class="right">Subtotal</th>
             </tr>
         </thead>

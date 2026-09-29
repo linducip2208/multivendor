@@ -1,8 +1,8 @@
 @extends('layouts.vendor')
-@section('title', 'Onboarding - Step 3')
+@section('title', 'Orientasi - Langkah 3')
 @section('content')
 <div style="max-width:500px;margin:0 auto">
-    <div class="text-center mb-4"><div class="mb-2"><x-admin.badge color="primary">Step 3/4</x-admin.badge></div><h4 class="fw-bold">Pengaturan Pengiriman</h4><p class="text-muted small">Pilih metode pengiriman yang tersedia</p></div>
+    <div class="text-center mb-4"><div class="mb-2"><x-admin.badge color="primary">Langkah 3/4</x-admin.badge></div><h4 class="fw-bold">Pengaturan Pengiriman</h4><p class="text-muted small">Pilih metode pengiriman yang tersedia</p></div>
     <form method="POST" action="{{ route('vendor.onboarding.step3.store') }}">
         @csrf
         @foreach($shippingMethods as $method)
