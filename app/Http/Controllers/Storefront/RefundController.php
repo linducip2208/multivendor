@@ -61,12 +61,14 @@ class RefundController extends Controller
         $validated = $request->validate([
             'order_item_id' => 'required|integer|exists:order_items,id',
             'amount' => 'nullable|numeric|min:0.01',
-            'reason' => ['required', 'string', 'min:10', 'max:2000'],
+            'reason' => ['required', 'string', 'in:'.implode(',', array_keys(\App\Models\OrderReturn::reasonLabels()))],
+            'reason_detail' => ['nullable', 'string', 'min:10', 'max:2000'],
         ]);
 
         $item = $order->items()->whereKey($validated['order_item_id'])->firstOrFail();
+        $detail = $validated['reason_detail'] ?? \App\Models\OrderReturn::reasonLabels()[$validated['reason']];
 
-        $refunds->request($item, (int) auth()->id(), $validated['reason'], $validated['amount'] ?? null);
+        $refunds->request($item, (int) auth()->id(), '['.$validated['reason'].'] '.$detail, $validated['amount'] ?? null);
 
         return back()->with('success', 'Permintaan refund telah dikirim ke penjual untuk ditinjau.');
     }

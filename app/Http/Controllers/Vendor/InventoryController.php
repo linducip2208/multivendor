@@ -30,6 +30,12 @@ class InventoryController extends Controller
 
     public function movements(Request $request, VendorInventoryService $inventory): View
     {
+        $transfers = \App\Models\StockTransfer::query()
+            ->with(['fromWarehouse:id,name,code', 'toWarehouse:id,name,code'])
+            ->orderByDesc('created_at')
+            ->limit(25)
+            ->get();
+
         return view('vendor.inventory.movements', [
             'movements' => $inventory->movements([
                 'product_id' => $request->integer('product_id') ?: null,
@@ -40,16 +46,42 @@ class InventoryController extends Controller
                 'in' => 'Barang masuk',
                 'out' => 'Barang keluar',
                 'adjustment' => 'Penyesuaian',
+                'transfer' => 'Transfer gudang',
+                'return' => 'Retur ke stok',
+                'opname' => 'Stock opname',
             ],
             'selected' => [
                 'product_id' => $request->integer('product_id') ?: '',
                 'type' => VendorScopeRequest::movementType($request),
             ],
+            'transfers' => $transfers,
+            'variance' => $inventory->varianceReport(25),
+            'warehouses' => \App\Models\Warehouse::query()->orderBy('name')->get(['id', 'name', 'code']),
         ]);
     }
 
     public function adjust(Request $request, VendorInventoryService $inventory): RedirectResponse
     {
+        $action = (string) $request->input('action', 'adjust');
+
+        if (in_array($action, ['transfer_request', 'transfer_approve', 'transfer_receive', 'transfer_cancel'], true)) {
+            return $this->handleTransfer($request, $inventory, $action);
+        }
+
+        if ($action === 'opname') {
+            $validated = $request->validate([
+                'product_id' => ['required', 'integer', 'exists:products,id'],
+                'quantity' => ['required', 'integer', 'min:0', 'max:1000000'],
+                'warehouse_id' => ['nullable', 'integer', 'exists:warehouses,id'],
+                'reason' => ['required', 'string', 'max:255'],
+            ]);
+
+            $product = Product::query()->findOrFail($validated['product_id']);
+            $inventory->opname($product, (int) $validated['quantity'], $validated['warehouse_id'] ?? null, $validated['reason']);
+
+            return back()->with('success', 'Hasil opname '.$product->name.' dicatat. Selisih dapat dilihat pada laporan selisih.');
+        }
+
         $validated = $request->validate([
             'product_id' => ['required', 'integer', 'exists:products,id'],
             'mode' => ['required', 'in:increase,decrease,set'],
@@ -77,5 +109,62 @@ class InventoryController extends Controller
                 ? 'Stok tidak berubah karena nilai baru sama dengan stok saat ini.'
                 : 'Stok '.$product->name.' diperbarui menjadi '.$target.' unit.'
         );
+    }
+
+    private function handleTransfer(Request $request, VendorInventoryService $inventory, string $action): RedirectResponse
+    {
+        if ($action === 'transfer_request') {
+            $validated = $request->validate([
+                'from_warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+                'to_warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+                'items' => ['nullable', 'array', 'min:1'],
+                'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
+                'items.*.quantity' => ['required', 'integer', 'min:1', 'max:100000'],
+                'items_text' => ['nullable', 'string', 'max:2000'],
+                'reason' => ['nullable', 'string', 'max:255'],
+            ]);
+
+            $items = $validated['items'] ?? [];
+
+            if ($items === [] && ! empty($validated['items_text'])) {
+                foreach (explode(',', (string) $validated['items_text']) as $pair) {
+                    [$pid, $qty] = array_pad(explode(':', trim($pair), 2), 2, null);
+
+                    if (is_numeric($pid) && is_numeric($qty) && (int) $qty > 0) {
+                        $items[] = ['product_id' => (int) $pid, 'quantity' => (int) $qty];
+                    }
+                }
+            }
+
+            if ($items === []) {
+                return back()->withInput()->with('error', 'Tambahkan minimal satu produk untuk transfer.');
+            }
+
+            $transfer = $inventory->requestTransfer(
+                (int) $validated['from_warehouse_id'],
+                (int) $validated['to_warehouse_id'],
+                $items,
+                $validated['reason'] ?? null,
+            );
+
+            return back()->with('success', 'Transfer '.$transfer->transfer_number.' dibuat sebagai draft. Menunggu persetujuan.');
+        }
+
+        $validated = $request->validate(['transfer_id' => ['required', 'integer', 'exists:stock_transfers,id']]);
+        $transfer = \App\Models\StockTransfer::query()->findOrFail($validated['transfer_id']);
+
+        match ($action) {
+            'transfer_approve' => $inventory->approveTransfer($transfer),
+            'transfer_receive' => $inventory->receiveTransfer($transfer),
+            default => $inventory->cancelTransfer($transfer),
+        };
+
+        $labels = [
+            'transfer_approve' => 'disetujui dan dikirim',
+            'transfer_receive' => 'diterima dan stok tujuan ditambah',
+            'transfer_cancel' => 'dibatalkan',
+        ];
+
+        return back()->with('success', 'Transfer '.$transfer->transfer_number.' '.($labels[$action] ?? 'diproses').'.');
     }
 }

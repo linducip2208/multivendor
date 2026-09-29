@@ -73,4 +73,23 @@
     </x-admin.card>
 
     <x-admin.pagination :paginator="$refunds" class="mt-3" />
+
+    <x-admin.card>
+        <h3 class="h6 mb-2">Analitik alasan retur</h3>
+        <p class="text-secondary small mb-2">Retur dicatat per item dengan alasan terstruktur.</p>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0">
+                <thead><tr><th>Alasan</th><th class="text-end">Jumlah</th><th class="text-end">Nominal</th></tr></thead>
+                <tbody>
+                    @foreach (($reasonAnalytics ?? []) as $row)
+                        <tr>
+                            <td>{{ $row['label'] }}</td>
+                            <td class="text-end">{{ $row['total'] }}</td>
+                            <td class="text-end">{{ Currency::format($row['nominal']) }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </x-admin.card>
 @endsection

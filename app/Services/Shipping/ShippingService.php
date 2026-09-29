@@ -226,6 +226,109 @@ class ShippingService
         return (int) (ceil($grams / $step) * $step);
     }
 
+    /** Berat volumetrik (gram) dari dimensi cm: P×L×T / divisor. */
+    public function volumetricWeight(?float $length, ?float $width, ?float $height): int
+    {
+        $divisor = max(1.0, (float) (SystemSetting::get('shipping_volumetric_divisor', '5000') ?: 5000));
+        $volume = max(0.0, (float) $length) * max(0.0, (float) $width) * max(0.0, (float) $height);
+
+        if ($volume <= 0) {
+            return 0;
+        }
+
+        return (int) ceil(($volume / $divisor) * 1000);
+    }
+
+    /** Berat tagih = terbesar antara aktual vs volumetrik. */
+    public function billableWeight(int $actualGrams, array $dimensions = []): int
+    {
+        $volumetric = $this->volumetricWeight(
+            isset($dimensions['length']) ? (float) $dimensions['length'] : null,
+            isset($dimensions['width']) ? (float) $dimensions['width'] : null,
+            isset($dimensions['height']) ? (float) $dimensions['height'] : null,
+        );
+
+        return max(max(1, $actualGrams), $volumetric);
+    }
+
+    /** Premi asuransi = % dari nilai barang, dibatasi min/maks dari pengaturan. */
+    public function insuranceFee(float $goodsValue): float
+    {
+        $rate = max(0.0, (float) (SystemSetting::get('shipping_insurance_rate', '0.5') ?: 0.5));
+        $min = max(0.0, (float) (SystemSetting::get('shipping_insurance_min', '0') ?: 0));
+        $max = max(0.0, (float) (SystemSetting::get('shipping_insurance_max', '0') ?: 0));
+
+        if ($rate <= 0 || $goodsValue <= 0) {
+            return 0.0;
+        }
+
+        $fee = $goodsValue * $rate / 100;
+
+        if ($min > 0) {
+            $fee = max($fee, $min);
+        }
+
+        if ($max > 0) {
+            $fee = min($fee, $max);
+        }
+
+        return round($fee, 2);
+    }
+
+    /** Tarif tabel zona existing (shipping_zone_rates) berdasar nilai order. */
+    public function zoneTableQuote(float $orderValue, ?int $zoneId = null): ?float
+    {
+        $query = \Illuminate\Support\Facades\DB::table('shipping_zone_rates')
+            ->join('shipping_methods', 'shipping_methods.id', '=', 'shipping_zone_rates.shipping_method_id')
+            ->where('shipping_methods.status', true)
+            ->where('shipping_zone_rates.min_order', '<=', $orderValue)
+            ->where(function ($q) use ($orderValue): void {
+                $q->whereNull('shipping_zone_rates.max_order')->orWhere('shipping_zone_rates.max_order', '>=', $orderValue);
+            });
+
+        if ($zoneId !== null && $zoneId > 0) {
+            $query->where('shipping_zone_rates.shipping_zone_id', $zoneId);
+        }
+
+        $cost = $query->orderBy('shipping_zone_rates.cost')->value('shipping_zone_rates.cost');
+
+        return $cost === null ? null : (float) $cost;
+    }
+
+    /**
+     * Fallback kurir otomatis: coba daftar kurir berurutan, kembalikan yang
+     * pertama berhasil + catatan kurir yang dicoba.
+     *
+     * @return array{success: bool, rates: list<array>, courier: ?string, tried: list<string>, message?: string}
+     */
+    public function fallbackQuote(Provider $provider, array $params, ?array $couriers = null): array
+    {
+        $candidates = $couriers ?? $this->activeCouriers();
+        $tried = [];
+        $lastMessage = 'Layanan ongkir sedang tidak tersedia.';
+
+        foreach ($candidates as $courier) {
+            $courier = strtolower(trim((string) $courier));
+
+            if ($courier === '') {
+                continue;
+            }
+
+            $tried[] = $courier;
+            $result = $this->getShippingRates($provider, array_merge($params, ['courier' => $courier]));
+
+            if (($result['success'] ?? false) && ! empty($result['rates'])) {
+                return ['success' => true, 'rates' => $result['rates'], 'courier' => $courier, 'tried' => $tried];
+            }
+
+            if (! empty($result['message'])) {
+                $lastMessage = (string) $result['message'];
+            }
+        }
+
+        return ['success' => false, 'rates' => [], 'courier' => null, 'tried' => $tried, 'message' => $lastMessage];
+    }
+
     private function request(callable $fn): ?\Illuminate\Http\Client\Response
     {
         try {

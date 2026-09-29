@@ -93,11 +93,13 @@ class OrderWorkflowService
 
             $item = $orderItemId !== null ? $order->items->firstWhere('id', $orderItemId) : null;
 
+            $structured = OrderReturn::normalizeReason($reason);
+
             $return = OrderReturn::create([
                 'rma_number' => $this->rmaNumber(),
                 'order_id' => $order->id,
                 'order_item_id' => $orderItemId,
-                'reason' => $reason !== null && $reason !== '' ? Str::limit($reason, 60, '') : 'other',
+                'reason' => $structured,
                 'description' => $reason,
                 'status' => 'requested',
                 'amount' => $item ? (string) $item->sub_total : (string) $order->total,
@@ -128,6 +130,48 @@ class OrderWorkflowService
     public function markRefunded(Order $order, ?int $actorId = null, ?string $note = null): Order
     {
         return $this->transition($order, OrderStatus::Refunded, $actorId, $note);
+    }
+
+    /**
+     * Bulk fulfillment: ubah status massal per order dalam transaksi
+     * masing-masing (atomicity per order), kumpulkan hasil OK/gagal.
+     *
+     * @param  list<int>  $orderIds
+     * @return array{ok: list<int>, fail: array<int,string>}
+     */
+    public function bulkTransition(array $orderIds, OrderStatus $to, ?int $actorId = null, ?string $note = null): array
+    {
+        $ok = [];
+        $fail = [];
+
+        foreach (array_values(array_unique(array_map('intval', $orderIds))) as $id) {
+            if ($id <= 0) {
+                continue;
+            }
+
+            try {
+                $order = Order::whereKey($id)->firstOrFail();
+
+                match ($to) {
+                    OrderStatus::Confirmed => $this->confirm($order, $actorId, $note),
+                    OrderStatus::Processing => $this->process($order, $actorId, $note),
+                    OrderStatus::Packed => $this->pack($order, $actorId, $note),
+                    OrderStatus::Shipped => $this->ship($order, $actorId, null, $note),
+                    OrderStatus::Delivered => $this->deliver($order, $actorId, $note),
+                    OrderStatus::Completed => $this->complete($order, $actorId, $note),
+                    OrderStatus::Cancelled => $this->cancel($order, $actorId, $note),
+                    default => $this->transition($order, $to, $actorId, $note),
+                };
+
+                $ok[] = $id;
+            } catch (\Throwable $e) {
+                $fail[$id] = $e instanceof ValidationException
+                    ? (string) collect($e->errors())->flatten()->first()
+                    : 'Gagal memproses pesanan.';
+            }
+        }
+
+        return ['ok' => $ok, 'fail' => $fail];
     }
 
     /**

@@ -115,12 +115,32 @@ class OrderController extends Controller
     {
         $queue = $this->fulfillment->queue((int) min(100, max(5, $request->integer('limit', 25))));
 
+        // Cetak label massal + ekspor memakai rute fulfillment existing via ?format=.
+        $selected = array_values(array_filter(array_map('intval', (array) $request->input('order_ids', []))));
+        $labels = $selected !== [] && $request->input('format') === 'labels'
+            ? $this->fulfillment->labelsFor($selected)
+            : [];
+        $export = $selected !== [] && $request->input('format') === 'csv'
+            ? $this->fulfillment->exportRows($selected)
+            : [];
+
+        // Ubah status massal via ?bulk_status=confirmed|processing|packed (POST _method disarankan, GET tetap idempotent-safe via konfirmasi view).
+        $bulkResult = null;
+
+        if ($request->isMethod('post') && $selected !== [] && is_string($request->input('bulk_status'))) {
+            $bulkResult = $this->fulfillment->bulkStatus($selected, (string) $request->input('bulk_status'), $request->input('bulk_note'));
+        }
+
         return view('vendor.fulfillment.index', [
             'orders' => $queue['orders'],
             'total' => $queue['total'],
             'value' => $queue['value'],
             'currency' => Currency::config(),
             'shoppableStatuses' => VendorFulfillmentService::shippableStatuses(),
+            'labels' => $labels,
+            'export' => $export,
+            'bulkResult' => $bulkResult,
+            'selected' => $selected,
         ]);
     }
 
@@ -137,9 +157,25 @@ class OrderController extends Controller
             'cost' => ['nullable', 'numeric', 'min:0', 'max:100000000'],
             'label_url' => ['nullable', 'url', 'max:255'],
             'note' => ['nullable', 'string', 'max:255'],
+            'order_ids' => ['nullable', 'array'],
+            'order_ids.*' => ['integer'],
         ], [
             'tracking_number.required' => 'Nomor resi wajib diisi agar pelanggan dapat melacak pesanan.',
         ]);
+
+        // Bulk fulfillment via rute ship existing: kirim order_ids[] + resi dasar yang sama.
+        $bulkIds = array_values(array_filter(array_map('intval', (array) ($validated['order_ids'] ?? []))));
+
+        if ($bulkIds !== []) {
+            $result = $this->fulfillment->bulkShip($bulkIds, $validated);
+            $ok = count($result['ok']);
+            $fail = count($result['fail']);
+
+            return back()->with(
+                $fail === 0 ? 'success' : 'warning',
+                "Pengiriman massal selesai: {$ok} berhasil".($fail > 0 ? ", {$fail} gagal. Periksa status tiap pesanan." : '.')
+            );
+        }
 
         $shipment = $this->fulfillment->ship($order, $validated);
 

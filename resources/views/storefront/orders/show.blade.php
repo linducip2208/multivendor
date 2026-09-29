@@ -42,6 +42,7 @@
                     <p class="sf-small sf-muted sf-mb-0">
                         Dibuat
                         <time datetime="{{ $order->created_at?->toAtomString() }}">{{ $order->created_at?->translatedFormat('d M Y H:i') }}</time>
+                        · Invoice <span class="sf-bold">{{ $invoiceNumber ?? $order->invoiceNumber() }}</span>
                     </p>
                 </div>
                 <div class="sf-row sf-row--wrap" style="gap:8px">
@@ -170,13 +171,22 @@
                                                 <form method="POST" action="{{ route('orders.refund.request', $item) }}" class="sf-stack" style="gap:8px;margin-top:10px">
                                                     @csrf
                                                     <div class="sf-field">
-                                                        <label class="sf-label" for="sf-refund-{{ $item->id }}">Alasan refund</label>
-                                                        <textarea class="sf-textarea" id="sf-refund-{{ $item->id }}" name="reason" required
-                                                              minlength="10" maxlength="2000" rows="3"
-                                                              placeholder="Jelaskan alasan pengajuan refund (minimal 10 karakter)"></textarea>
+                                                        <label class="sf-label" for="sf-refund-{{ $item->id }}">Alasan refund (per item)</label>
+                                                        <select class="sf-select" id="sf-refund-{{ $item->id }}" name="reason" required>
+                                                            <option value="">Pilih alasan</option>
+                                                            @foreach (($returnReasons ?? \App\Models\OrderReturn::reasonLabels()) as $key => $label)
+                                                                <option value="{{ $key }}">{{ $label }}</option>
+                                                            @endforeach
+                                                        </select>
                                                         @error('reason')
                                                             <span class="sf-error">{{ $message }}</span>
                                                         @enderror
+                                                    </div>
+                                                    <div class="sf-field">
+                                                        <label class="sf-label" for="sf-refund-detail-{{ $item->id }}">Rincian (opsional, min. 10 karakter bila diisi)</label>
+                                                        <textarea class="sf-textarea" id="sf-refund-detail-{{ $item->id }}" name="reason_detail"
+                                                              minlength="10" maxlength="2000" rows="2"
+                                                              placeholder="Contoh: layar retak saat paket dibuka"></textarea>
                                                     </div>
                                                     <div>
                                                         <button type="submit" class="sf-btn sf-btn--outline sf-btn--sm">Kirim permintaan refund</button>

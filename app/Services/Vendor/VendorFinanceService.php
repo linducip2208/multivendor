@@ -291,4 +291,60 @@ final class VendorFinanceService
             ->limit($limit)
             ->get();
     }
+
+    /**
+     * Dashboard selisih rekonsiliasi: grup pending/failed + callback mismatch,
+     * memakai kolom existing (last_reconciled_at, reconciliation_note, dst).
+     */
+    public function reconciliationOverview(int $limit = 25): array
+    {
+        $shopId = $this->scope->shopId();
+
+        $mismatches = \App\Models\PaymentWebhookCallback::query()
+            ->where('processing_result', 'amount_mismatch')
+            ->whereHas('paymentGroup.orders', fn ($q) => $q->where('shop_id', $shopId))
+            ->with(['paymentGroup:id,payment_number,grand_total,status'])
+            ->orderByDesc('received_at')
+            ->limit($limit)
+            ->get();
+
+        $pending = \App\Models\PaymentGroup::query()
+            ->whereIn('status', ['pending', 'failed', 'expired'])
+            ->whereHas('orders', fn ($q) => $q->where('shop_id', $shopId))
+            ->orderBy('expired_at')
+            ->limit($limit)
+            ->get(['id', 'payment_number', 'grand_total', 'status', 'expired_at', 'last_reconciled_at', 'reconciliation_attempts', 'reconciliation_note']);
+
+        return [
+            'mismatches' => $mismatches,
+            'pending' => $pending,
+            'mismatch_total' => $mismatches->sum(fn ($c): float => (float) ($c->reported_amount ?? 0) - (float) ($c->expected_amount ?? 0)),
+        ];
+    }
+
+    /** Retry webhook manual: tandai callback agar diproses ulang (idempoten). */
+    public function retryWebhook(int $callbackId): \App\Models\PaymentWebhookCallback
+    {
+        return DB::transaction(function () use ($callbackId): \App\Models\PaymentWebhookCallback {
+            $callback = \App\Models\PaymentWebhookCallback::query()->lockForUpdate()->findOrFail($callbackId);
+
+            $group = $callback->paymentGroup()->lockForUpdate()->first();
+
+            abort_if($group === null || ! $group->orders()->where('shop_id', $this->scope->shopId())->exists(), 403);
+
+            $callback->forceFill([
+                'processing_result' => 'received',
+                'processed_at' => null,
+                'status' => $callback->status,
+            ])->save();
+
+            $group->forceFill([
+                'last_reconciled_at' => now(),
+                'reconciliation_attempts' => ((int) $group->reconciliation_attempts) + 1,
+                'reconciliation_note' => 'Retry webhook manual oleh vendor.',
+            ])->save();
+
+            return $callback->fresh();
+        }, 3);
+    }
 }

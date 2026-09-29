@@ -13,17 +13,24 @@ class CartController extends Controller
 {
     public function index()
     {
-        $cartItems = Cart::where('customer_id', auth()->id())
+        $customerId = auth()->id();
+        $cartItems = Cart::where('customer_id', $customerId)
             ->with(['product.shop', 'variant'])
             ->get()
             ->filter(fn (Cart $item) => $item->product !== null)
             ->each(function (Cart $item): void {
                 $item->price = $item->variant?->getEffectivePrice() ?? $item->product?->getEffectivePrice();
-            })
-            ->groupBy(fn ($item) => $item->product?->shop_id);
+            });
+
+        // Simpan-untuk-nanti memakai sesi (tanpa migrasi): id cart yang diparkir.
+        $savedIds = array_values(array_filter(array_map('intval', (array) session('saved_for_later', []))));
+        $saved = $cartItems->whereIn('id', $savedIds);
+        $active = $cartItems->whereNotIn('id', $savedIds);
+
+        $grouped = $active->groupBy(fn ($item) => $item->product?->shop_id);
 
         $shops = [];
-        foreach ($cartItems as $shopId => $items) {
+        foreach ($grouped as $shopId => $items) {
             $shop = $items->first()->product->shop;
             if ($shop === null) {
                 continue;
@@ -32,12 +39,15 @@ class CartController extends Controller
                 static fn (Cart $item) => Money::of($item->price)->multiply((int) $item->quantity),
                 $items->all()
             ));
-            $shops[] = ['shop' => $shop, 'items' => $items, 'subtotal' => $subtotal->toFloat()];
+            $weight = $items->sum(fn ($item) => max(1, (int) ($item->product->weight ?? 1000)) * (int) $item->quantity);
+            $shops[] = ['shop' => $shop, 'items' => $items, 'subtotal' => $subtotal->toFloat(), 'weight' => $weight];
         }
 
         $total = Money::sum(array_map(static fn (array $group) => Money::of($group['subtotal']), $shops))->toFloat();
 
-        return view('storefront.cart.index', compact('shops', 'total'));
+        $this->trackAbandoned($customerId, $active, (float) $total);
+
+        return view('storefront.cart.index', compact('shops', 'total', 'saved'));
     }
 
     public function add(Request $request)
@@ -94,6 +104,22 @@ class CartController extends Controller
     {
         if ($cart->customer_id !== auth()->id()) abort(403);
 
+        // Aksi simpan-untuk-nanti / kembalikan memakai rute update existing.
+        $action = (string) $request->input('action', '');
+
+        if ($action === 'save_for_later') {
+            $saved = array_values(array_unique([...(array) session('saved_for_later', []), $cart->id]));
+            session(['saved_for_later' => $saved]);
+
+            return back()->with('success', 'Item dipindahkan ke simpan-untuk-nanti.');
+        }
+
+        if ($action === 'move_to_cart') {
+            session(['saved_for_later' => array_values(array_diff((array) session('saved_for_later', []), [$cart->id]))]);
+
+            return back()->with('success', 'Item dikembalikan ke keranjang.');
+        }
+
         $request->validate(['quantity' => 'required|integer|min:1|max:1000']);
         $cart->load('product.shop', 'variant');
         if ($cart->product === null) {
@@ -129,5 +155,29 @@ class CartController extends Controller
         if ($quantity < $product->min_qty || ($product->max_qty && $quantity > $product->max_qty)) abort(422, 'Kuantitas tidak memenuhi batas pembelian.');
         $stock = $variant?->stock ?? $product->current_stock;
         if ($quantity > $stock) abort(422, 'Stok tidak mencukupi.');
+    }
+
+    /** Catat keranjang terbengkalai untuk pengingat (tabel abandoned_carts existing). */
+    private function trackAbandoned(int $customerId, $activeItems, float $total): void
+    {
+        try {
+            if ($activeItems->isEmpty()) {
+                return;
+            }
+
+            \Illuminate\Support\Facades\DB::table('abandoned_carts')->updateOrInsert(
+                ['customer_id' => $customerId, 'recovered_at' => null],
+                [
+                    'item_count' => $activeItems->count(),
+                    'amount' => $total,
+                    'items' => json_encode($activeItems->map(fn (Cart $i) => [
+                        'product_id' => $i->product_id, 'quantity' => $i->quantity, 'price' => $i->price,
+                    ])->all()),
+                    'updated_at' => now(),
+                    'created_at' => now(),
+                ],
+            );
+        } catch (\Throwable) {
+        }
     }
 }

@@ -141,6 +141,21 @@
                     <span>Perbarui rekening</span>
                 </a>
             </x-admin.card>
+
+            @if (! empty($reconciliation))
+                <x-admin.card title="Rekonsiliasi pembayaran" icon="scale" class="mt-3">
+                    <p class="text-secondary small">Auto-match terjadwal via <code>reconcileGroup()</code>; selisih nominal dari callback ditampilkan di sini. Retry webhook manual tersedia via layanan keuangan.</p>
+                    <dl class="row mb-0 small">
+                        <dt class="col-7 text-secondary fw-normal">Callback selisih</dt>
+                        <dd class="col-5 text-end">{{ $reconciliation['mismatches']->count() }}</dd>
+                        <dt class="col-7 text-secondary fw-normal">Grup menunggu</dt>
+                        <dd class="col-5 text-end">{{ $reconciliation['pending']->count() }}</dd>
+                    </dl>
+                    @foreach ($reconciliation['pending']->take(5) as $group)
+                        <p class="small mb-1"><code>{{ $group->payment_number }}</code> · {{ $group->status }} · {{ $group->reconciliation_note ?? 'Belum direkonsiliasi' }}</p>
+                    @endforeach
+                </x-admin.card>
+            @endif
         </div>
     </div>
 @endsection

@@ -18,6 +18,46 @@
 @endsection
 
 @section('content')
+    <x-admin.card>
+        <h3 class="h6 mb-2">Pemenuhan massal</h3>
+        <p class="text-secondary small mb-2">Pilih pesanan di bawah (centang), lalu kirim massal dengan satu resi dasar, cetak label massal, atau ekspor CSV. Status massal (dikonfirmasi/diproses/dikemas) diproses per pesanan secara atomik.</p>
+        @if (! empty($bulkResult))
+            <div class="alert alert-info py-2 px-3 small">
+                Massal: {{ count($bulkResult['ok'] ?? []) }} berhasil, {{ count($bulkResult['fail'] ?? []) }} gagal.
+            </div>
+        @endif
+        @if (! empty($labels))
+            <div class="table-responsive mb-2">
+                <table class="table table-sm">
+                    <thead><tr><th>Pesanan</th><th>Kurir</th><th>Layanan</th><th>Resi</th><th>Berat</th><th>Biaya</th></tr></thead>
+                    <tbody>
+                        @foreach ($labels as $label)
+                            <tr>
+                                <td>{{ $label['nomor_pesanan'] }}</td><td>{{ $label['kurir'] }}</td>
+                                <td>{{ $label['layanan'] }}</td><td><code>{{ $label['resi'] }}</code></td>
+                                <td>{{ $label['berat'] }}</td><td>{{ $label['biaya'] }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+        @if (! empty($export))
+            <div class="alert alert-success py-2 px-3 small">
+                Ekspor siap: {{ count($export) - 1 }} baris (header: {{ implode(', ', $export[0] ?? []) }}). Salin dari tabel label atau unduh via laporan pesanan.
+            </div>
+        @endif
+        <form method="GET" action="{{ route('vendor.fulfillment.index') }}" class="row g-2" id="bulk-fulfillment-form">
+            <div class="col-12">
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" name="format" value="labels" class="btn btn-outline-primary btn-sm">Cetak label massal</button>
+                    <button type="submit" name="format" value="csv" class="btn btn-outline-secondary btn-sm">Ekspor CSV</button>
+                </div>
+                <p class="text-secondary small mt-2 mb-0">Centang pesanan pada daftar, lalu klik tombol di atas. Untuk kirim massal, gunakan formulir kirim pada salah satu pesanan dengan menambahkan <code>order_ids[]</code>.</p>
+            </div>
+        </form>
+    </x-admin.card>
+
     <div class="row g-3 mb-3">
         <div class="col-6 col-xl">
             <x-admin.stat label="Menunggu dikirim" :value="$total" icon="truck" color="warning" />
@@ -44,6 +84,7 @@
                     <div class="row g-3 align-items-start">
                         <div class="col-12 col-lg-7">
                             <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <input type="checkbox" name="order_ids[]" value="{{ $order->id }}" form="bulk-fulfillment-form" aria-label="Pilih {{ $order->order_number }}">
                                 <a href="{{ route('vendor.orders.show', $order) }}" class="fw-semibold text-reset">
                                     {{ $order->order_number }}
                                 </a>

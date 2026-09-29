@@ -157,6 +157,63 @@ class PaymentGatewayService
         return $adapter->getTransactionStatus($gatewayPaymentId);
     }
 
+    /**
+     * Rekonsiliasi terjadwal/manual untuk satu grup: probe gateway, catat
+     * last_reconciled_at + attempts + note pada kolom existing, kembalikan
+     * status selisih tanpa mengubah order (dashboard yang memutuskan).
+     *
+     * @return array{success: bool, status: string, matched: bool, message: string}
+     */
+    public function reconcileGroup(\App\Models\PaymentGroup $group): array
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($group): array {
+            $locked = \App\Models\PaymentGroup::whereKey($group->getKey())->lockForUpdate()->firstOrFail();
+            $provider = $locked->provider;
+            $reference = (string) ($locked->gateway_reference ?: $locked->payment_number);
+
+            if (! $provider || ! self::supportsReconciliation((string) $provider->api_format)) {
+                $locked->forceFill([
+                    'last_reconciled_at' => now(),
+                    'reconciliation_attempts' => ((int) $locked->reconciliation_attempts) + 1,
+                    'reconciliation_note' => 'Gateway tidak mendukung rekonsiliasi otomatis.',
+                ])->save();
+
+                foreach ($locked->orders()->lockForUpdate()->get() as $order) {
+                    $order->forceFill(['reconciled_at' => now()])->save();
+                }
+
+                return ['success' => false, 'status' => (string) $locked->status, 'matched' => false, 'message' => 'Gateway tidak mendukung rekonsiliasi otomatis.'];
+            }
+
+            $result = $this->reconcile($provider, $reference);
+            $remote = strtolower((string) ($result['status'] ?? $result['transaction_status'] ?? 'unknown'));
+            $local = strtolower((string) $locked->status);
+            $matched = $result['success'] ?? false
+                ? in_array($remote, [$local, 'paid', 'settlement', 'success'], true) || $remote === $local
+                : false;
+
+            $locked->forceFill([
+                'last_reconciled_at' => now(),
+                'reconciliation_attempts' => ((int) $locked->reconciliation_attempts) + 1,
+                'reconciliation_note' => mb_substr(
+                    ($result['success'] ?? false ? 'Cocok' : 'Selisih').': gateway='.($remote ?: '?').' lokal='.$local,
+                    0, 500,
+                ),
+            ])->save();
+
+            foreach ($locked->orders()->lockForUpdate()->get() as $order) {
+                $order->forceFill(['reconciled_at' => now()])->save();
+            }
+
+            return [
+                'success' => (bool) ($result['success'] ?? false),
+                'status' => $remote,
+                'matched' => $matched,
+                'message' => $matched ? 'Pembayaran cocok dengan gateway.' : 'Ditemukan selisih, periksa dashboard rekonsiliasi.',
+            ];
+        }, 3);
+    }
+
     public static function supportedFormats(): array
     {
         return array_keys(self::ADAPTERS);

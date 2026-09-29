@@ -87,6 +87,10 @@
                 <x-admin.form-field name="customer_name" label="Nama pelanggan" placeholder="Pelanggan langsung" />
                 <x-admin.form-field name="customer_phone" label="Telepon" type="tel" placeholder="08xx" />
                 <x-admin.form-field name="discount" label="Diskon" type="number" :min="0" :step="1" :prefix="Currency::config()['symbol']" />
+                <div class="alert alert-info py-2 px-3 small">
+                    Diskon per item + pajak per item didukung via API (<code>items[][discount]</code>, <code>items[][tax_rate]</code>).
+                    Shift kasir mencatat selisih kas (diharapkan vs dihitung), retur POS kembali ke stok, dan barkode massal tersedia di faktur.
+                </div>
                 <x-admin.form-field name="payment_method" label="Metode pembayaran" type="select" :options="[
                     'cash' => 'Tunai',
                     'qris' => 'QRIS',

@@ -45,6 +45,7 @@ class WalletController extends Controller
             ],
             'minimum' => Money::of(10000),
             'currency' => Currency::config(),
+            'reconciliation' => $shop ? $this->finance->reconciliationOverview(10) : null,
         ]);
     }
 

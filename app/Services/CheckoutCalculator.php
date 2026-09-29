@@ -25,7 +25,7 @@ class CheckoutCalculator
 
     public function __construct(private readonly ShippingService $shipping) {}
 
-    public function calculate(User $customer, Collection $cartItems, array $shippingSelections, ?string $couponCode, array $address): array
+    public function calculate(User $customer, Collection $cartItems, array $shippingSelections, ?string $couponCode, array $address, array $options = []): array
     {
         $lines = collect();
         foreach ($cartItems as $cartItem) {
@@ -58,14 +58,15 @@ class CheckoutCalculator
             throw ValidationException::withMessages(['coupon_code' => 'Kupon tidak aktif, kedaluwarsa, atau kuotanya habis.']);
         }
 
-        $shops = $lines->groupBy(fn ($line) => $line->product->shop_id)->map(function (Collection $shopLines, $shopId) use ($shippingSelections, $coupon) {
+        $shops = $lines->groupBy(fn ($line) => $line->product->shop_id)->map(function (Collection $shopLines, $shopId) use ($shippingSelections, $coupon, $options) {
             $shop = $shopLines->first()->product->shop;
             $subtotal = Money::sum(array_map(fn ($line) => $line->line_total, $shopLines->all()));
             $tax = Money::sum(array_map(
                 fn ($line) => $line->line_total->multiply($line->tax_rate / 100),
                 $shopLines->all(),
             ));
-            $shipping = $this->shippingFor($shop, $shopLines, $shippingSelections[$shopId] ?? []);
+            $shipping = $this->shippingFor($shop, $shopLines, $shippingSelections[$shopId] ?? [], $options);
+            $insurance = $this->insuranceFor($shopLines, $shippingSelections[$shopId] ?? [], $options);
             $eligibleSubtotal = $this->eligibleSubtotal($coupon, $shopLines, $shop);
 
             return (object) [
@@ -73,7 +74,9 @@ class CheckoutCalculator
                 'shopLines' => $shopLines,
                 'subtotal' => $subtotal->toFloat(),
                 'tax' => $tax->toFloat(),
-                'shipping' => $shipping->toFloat(),
+                'shipping' => $shipping->add($insurance)->toFloat(),
+                'shippingBase' => $shipping->toFloat(),
+                'insurance' => $insurance->toFloat(),
                 'eligibleSubtotal' => $eligibleSubtotal->toFloat(),
             ];
         });
@@ -98,6 +101,7 @@ class CheckoutCalculator
             'subtotal' => (float) $shops->sum('subtotal'),
             'tax' => (float) $shops->sum('tax'),
             'shipping' => (float) $shops->sum('shipping'),
+            'insurance' => (float) $shops->sum('insurance'),
             'discount' => (float) $shops->sum('couponDiscount'),
             'grand_total' => $grandTotal->toFloat(),
             'coupon' => $coupon,
@@ -129,7 +133,7 @@ class CheckoutCalculator
         return (float) VatTax::whereKey($product->vat_tax_id)->where('is_active', true)->value('rate');
     }
 
-    private function shippingFor(Shop $shop, Collection $lines, array $selection): Money
+    private function shippingFor(Shop $shop, Collection $lines, array $selection, array $options = []): Money
     {
         if ($lines->every(fn ($line) => $line->product->product_type === 'digital')) {
             return Money::zero();
@@ -145,14 +149,54 @@ class CheckoutCalculator
             throw ValidationException::withMessages(["shipping_methods.{$shop->id}" => "Asal pengiriman toko {$shop->name} belum dikonfigurasi."]);
         }
 
-        $weight = max(1, $lines->sum(fn ($line) => max(1, (int) $line->product->weight) * $line->quantity));
+        $actual = max(1, $lines->sum(fn ($line) => max(1, (int) $line->product->weight) * $line->quantity));
+        $weight = $this->shipping->billableWeight($actual, [
+            'length' => $options['dimensions']['length'] ?? $selection['length'] ?? null,
+            'width' => $options['dimensions']['width'] ?? $selection['width'] ?? null,
+            'height' => $options['dimensions']['height'] ?? $selection['height'] ?? null,
+        ]);
         $cost = $this->cachedRate($provider, $shop, (string) $origin, $selection, $weight);
 
         if ($cost === null) {
-            throw ValidationException::withMessages(["shipping_methods.{$shop->id}" => 'Layanan pengiriman tidak valid.']);
+            // Fallback kurir otomatis memakai daftar kurir aktif.
+            $fallback = $this->shipping->fallbackQuote($provider, [
+                'origin' => $origin, 'destination' => $selection['destination'], 'weight' => $weight,
+            ]);
+
+            if (! ($fallback['success'] ?? false)) {
+                // Terakhir: tarif tabel zona existing sebagai jaring pengaman.
+                $zoneCost = $this->shipping->zoneTableQuote(
+                    (float) $lines->sum(fn ($line) => $line->line_total->toFloat()),
+                    isset($selection['zone_id']) ? (int) $selection['zone_id'] : null,
+                );
+
+                if ($zoneCost === null) {
+                    throw ValidationException::withMessages(["shipping_methods.{$shop->id}" => 'Layanan pengiriman tidak valid.']);
+                }
+
+                return Money::of($zoneCost);
+            }
+
+            $cheapest = collect($fallback['rates'])->min('cost');
+
+            return Money::of((float) $cheapest);
         }
 
         return Money::of($cost);
+    }
+
+    /** Premi asuransi opsional per toko (kolom existing: digabung ke shipping_cost). */
+    private function insuranceFor(Collection $lines, array $selection, array $options): Money
+    {
+        $wanted = (bool) ($options['insurance'] ?? $selection['insurance'] ?? false);
+
+        if (! $wanted || $lines->every(fn ($line) => $line->product->product_type === 'digital')) {
+            return Money::zero();
+        }
+
+        $goods = Money::sum(array_map(fn ($line) => $line->line_total, $lines->all()));
+
+        return Money::of($this->shipping->insuranceFee($goods->toFloat()));
     }
 
     private function cachedRate(Provider $provider, Shop $shop, string $origin, array $selection, int $weight): ?float

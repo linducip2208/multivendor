@@ -125,6 +125,12 @@
                                                     </div>
                                                     <button type="submit" class="sf-btn sf-btn--outline sf-btn--sm">Perbarui</button>
                                                 </form>
+                                                <form method="POST" action="{{ route('cart.update', $item) }}" style="margin-top:8px">
+                                                    @csrf
+                                                    @method('PUT')
+                                                    <input type="hidden" name="action" value="save_for_later">
+                                                    <button type="submit" class="sf-btn sf-btn--ghost sf-btn--sm">Simpan untuk nanti</button>
+                                                </form>
                                             </div>
 
                                             <div class="sf-cartline__right">
@@ -198,8 +204,57 @@
                             Pesanan diproses terpisah untuk setiap toko. Ongkos kirim dan pajak akhir dihitung
                             setelah Anda memilih metode pengiriman pada halaman checkout.
                         </p>
+                        <div class="sf-panel" style="margin-top:14px">
+                            <h3 class="sf-footer__title" style="font-size:.9rem">Estimasi ongkir di keranjang</h3>
+                            @foreach ($groups as $group)
+                                <p class="sf-tiny sf-muted sf-mb-0">
+                                    {{ $group['shop']?->name ?? 'Toko' }}: ±{{ number_format((float) ($group['weight'] ?? 0) / 1000, 1) }} kg.
+                                    Estimasi pasti tampil setelah pilih tujuan &amp; kurir di checkout (fallback kurir otomatis bila utama gagal).
+                                </p>
+                            @endforeach
+                        </div>
                     </aside>
                 </div>
+
+                @if (($saved ?? collect())->isNotEmpty())
+                    <section class="sf-card" style="margin-top:20px" aria-labelledby="sf-saved-title">
+                        <div class="sf-card__body">
+                            <h2 id="sf-saved-title" style="font-size:1rem">Simpan untuk nanti ({{ $saved->count() }} item)</h2>
+                            <p class="sf-small sf-muted">Item ini diparkir dan tidak ikut dihitung pada checkout.</p>
+                            @foreach ($saved as $item)
+                                <div class="sf-row sf-row--between sf-row--wrap" style="gap:8px;padding:8px 0;border-top:1px solid var(--sf-border)">
+                                    <span class="sf-small">{{ $item->product?->name ?? 'Produk' }} × {{ (int) $item->quantity }}</span>
+                                    <form method="POST" action="{{ route('cart.update', $item) }}">
+                                        @csrf
+                                        @method('PUT')
+                                        <input type="hidden" name="action" value="move_to_cart">
+                                        <button type="submit" class="sf-btn sf-btn--outline sf-btn--sm">Kembalikan ke keranjang</button>
+                                    </form>
+                                </div>
+                            @endforeach
+                        </div>
+                    </section>
+                @endif
+            @endif
+
+            @if ($groups->isEmpty() && ($saved ?? collect())->isNotEmpty())
+                <section class="sf-card" style="margin-top:20px" aria-labelledby="sf-saved-title-empty">
+                    <div class="sf-card__body">
+                        <h2 id="sf-saved-title-empty" style="font-size:1rem">Simpan untuk nanti ({{ $saved->count() }} item)</h2>
+                        <p class="sf-small sf-muted">Keranjang aktif kosong. Item yang diparkir tidak ikut checkout.</p>
+                        @foreach ($saved as $item)
+                            <div class="sf-row sf-row--between sf-row--wrap" style="gap:8px;padding:8px 0;border-top:1px solid var(--sf-border)">
+                                <span class="sf-small">{{ $item->product?->name ?? 'Produk' }} × {{ (int) $item->quantity }}</span>
+                                <form method="POST" action="{{ route('cart.update', $item) }}">
+                                    @csrf
+                                    @method('PUT')
+                                    <input type="hidden" name="action" value="move_to_cart">
+                                    <button type="submit" class="sf-btn sf-btn--outline sf-btn--sm">Kembalikan ke keranjang</button>
+                                </form>
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
             @endif
         </div>
     </section>

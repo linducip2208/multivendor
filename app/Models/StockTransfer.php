@@ -39,4 +39,19 @@ class StockTransfer extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+    public function canShip(): bool
+    {
+        return (string) $this->status === 'draft';
+    }
+
+    public function canReceive(): bool
+    {
+        return (string) $this->status === 'in_transit';
+    }
+
+    public function canCancel(): bool
+    {
+        return in_array((string) $this->status, ['draft', 'in_transit'], true);
+    }
 }

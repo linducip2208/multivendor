@@ -46,11 +46,15 @@ class PosController extends Controller
             'items.*.product_id' => ['required', 'integer'],
             'items.*.product_variant_id' => ['nullable', 'integer'],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:10000'],
+            'items.*.discount' => ['nullable', 'numeric', 'min:0', 'max:1000000000000'],
+            'items.*.tax_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:20'],
             'discount' => ['nullable', 'numeric', 'min:0', 'max:1000000000000'],
             'payment_method' => ['required', 'in:cash,transfer,qris'],
             'hold' => ['nullable', 'boolean'],
+            'pos_shift_id' => ['nullable', 'integer', 'exists:pos_shifts,id'],
+            'pos_register_id' => ['nullable', 'integer', 'exists:pos_registers,id'],
         ]);
 
         $order = $this->pos->sell($validated);

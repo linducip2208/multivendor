@@ -247,4 +247,58 @@ class PaymentWebhookController extends Controller
 
         return substr($gatewayId.self::DEDUPE_SEPARATOR.$incoming->value, 0, 255);
     }
+
+    /**
+     * Retry webhook manual: proses ulang callback yang amount_mismatch /
+     * gagal, idempoten via lockForUpdate + dedupe processed_at.
+     */
+    public function retry(PaymentWebhookCallback $callback, PaymentGatewayService $payments): array
+    {
+        return DB::transaction(function () use ($callback, $payments): array {
+            $locked = PaymentWebhookCallback::whereKey($callback->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->processed_at !== null && $locked->processing_result === PaymentStatusMachine::RESULT_APPLIED) {
+                return ['code' => 200, 'message' => 'Sudah diproses, tidak perlu diulang.'];
+            }
+
+            $group = PaymentGroup::whereKey($locked->payment_group_id)->lockForUpdate()->first();
+
+            if (! $group) {
+                return ['code' => 404, 'message' => 'Grup pembayaran tidak ditemukan.'];
+            }
+
+            $incoming = PaymentStatusMachine::resolve($locked->status);
+
+            if ($incoming === null) {
+                return ['code' => 422, 'message' => 'Status callback tidak dikenali.'];
+            }
+
+            $expected = Money::of($group->grand_total);
+            $reported = is_numeric($locked->reported_amount) ? (float) $locked->reported_amount : null;
+            $tolerance = Money::of(PaymentGatewayService::amountTolerance());
+
+            if ($reported !== null && abs(Money::of($reported)->subtract($expected)->minor) > $tolerance->minor) {
+                $locked->forceFill(['processing_result' => 'amount_mismatch', 'processed_at' => now()])->save();
+
+                return ['code' => 200, 'message' => 'Selisih nominal masih ada, tidak diterapkan.'];
+            }
+
+            $decision = PaymentStatusMachine::decide($group->status, $incoming);
+
+            if (! $decision->shouldApply()) {
+                $locked->forceFill(['processing_result' => $decision->result, 'processed_at' => now()])->save();
+
+                return ['code' => 200, 'message' => 'Tidak ada perubahan status.'];
+            }
+
+            $this->applier->applyWithinLock($group, $incoming, is_array($locked->payload) ? $locked->payload : []);
+
+            $locked->forceFill([
+                'processed_at' => now(),
+                'processing_result' => PaymentStatusMachine::RESULT_APPLIED,
+            ])->save();
+
+            return ['code' => 200, 'message' => 'Callback diproses ulang.'];
+        }, 3);
+    }
 }

@@ -47,6 +47,29 @@ class PaymentGroup extends Model
         return $this->hasMany(PaymentWebhookCallback::class);
     }
 
+    /** Grup masih boleh dibuatkan ulang pembayaran gateway tanpa order baru. */
+    public function isRetryable(): bool
+    {
+        return in_array((string) $this->status, ['pending', 'failed', 'expired'], true);
+    }
+
+    /** Selisih nominal callback vs grand total (untuk dashboard rekonsiliasi). */
+    public function hasAmountMismatch(): bool
+    {
+        return $this->callbacks()
+            ->where('processing_result', 'amount_mismatch')
+            ->exists();
+    }
+
+    public function markReconciled(?string $note = null): void
+    {
+        $this->forceFill([
+            'last_reconciled_at' => now(),
+            'reconciliation_attempts' => ((int) $this->reconciliation_attempts) + 1,
+            'reconciliation_note' => $note !== null ? mb_substr($note, 0, 500) : $this->reconciliation_note,
+        ])->save();
+    }
+
     public static function generateNumber(): string
     {
         do {

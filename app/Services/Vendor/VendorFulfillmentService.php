@@ -139,6 +139,96 @@ final class VendorFulfillmentService
     }
 
     /**
+     * Bulk fulfillment: kirim banyak pesanan sekaligus. Tiap pesanan diproses
+     * dalam transaksinya sendiri (atomicity per order) via ship().
+     *
+     * @param  list<int>  $orderIds
+     * @return array{ok: list<int>, fail: array<int,string>, shipments: list<int>}
+     */
+    public function bulkShip(array $orderIds, array $payload): array
+    {
+        $ok = [];
+        $fail = [];
+        $shipments = [];
+
+        foreach (array_values(array_unique(array_map('intval', $orderIds))) as $id) {
+            if ($id <= 0) {
+                continue;
+            }
+
+            try {
+                $order = Order::query()->where('shop_id', $this->scope->shopId())->whereKey($id)->firstOrFail();
+                $shipments[] = (int) $this->ship($order, $payload)->getKey();
+                $ok[] = $id;
+            } catch (\Throwable $e) {
+                $fail[$id] = $e instanceof ValidationException
+                    ? (string) collect($e->errors())->flatten()->first()
+                    : 'Gagal mengirim pesanan.';
+            }
+        }
+
+        return ['ok' => $ok, 'fail' => $fail, 'shipments' => $shipments];
+    }
+
+    /**
+     * Ubah status massal (confirmed/processing/packed) memakai state machine.
+     *
+     * @param  list<int>  $orderIds
+     * @return array{ok: list<int>, fail: array<int,string>}
+     */
+    public function bulkStatus(array $orderIds, string $status, ?string $note = null): array
+    {
+        $to = match ($status) {
+            'confirmed' => OrderStatus::Confirmed,
+            'processing' => OrderStatus::Processing,
+            'packed' => OrderStatus::Packed,
+            default => null,
+        };
+
+        if ($to === null) {
+            throw ValidationException::withMessages(['status' => 'Status massal tidak valid.']);
+        }
+
+        $scoped = Order::query()->where('shop_id', $this->scope->shopId())
+            ->whereIn('id', array_values(array_unique(array_map('intval', $orderIds))))
+            ->pluck('id')->all();
+
+        return app(OrderWorkflowService::class)->bulkTransition($scoped, $to, $this->scope->userId(), $note);
+    }
+
+    /** Data label massal dari order_shipments existing. */
+    public function labelsFor(array $orderIds): array
+    {
+        return OrderShipment::query()
+            ->whereIn('order_id', array_values(array_unique(array_map('intval', $orderIds))))
+            ->whereHas('order', fn ($q) => $q->where('shop_id', $this->scope->shopId()))
+            ->with('order:id,order_number,shop_id')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (OrderShipment $s): array => array_merge($s->labelData(), [
+                'nomor_pesanan' => (string) ($s->order?->order_number ?? '-'),
+            ]))
+            ->all();
+    }
+
+    /** Baris ekspor CSV fulfillment (header + rows). */
+    public function exportRows(array $orderIds): array
+    {
+        $header = ['Nomor Pesanan', 'Kurir', 'Layanan', 'No. Resi', 'Status', 'Biaya'];
+
+        $rows = OrderShipment::query()
+            ->whereIn('order_id', array_values(array_unique(array_map('intval', $orderIds))))
+            ->whereHas('order', fn ($q) => $q->where('shop_id', $this->scope->shopId()))
+            ->with('order:id,order_number')
+            ->orderBy('created_at')
+            ->get()
+            ->map(fn (OrderShipment $s): array => $s->toExportRow())
+            ->all();
+
+        return [$header, ...$rows];
+    }
+
+    /**
      * Customer back-in-stock signals for this shop's catalogue. A restock
      * request belongs to the product, so ownership is proven through the
      * product's shop rather than a shop column that does not exist.

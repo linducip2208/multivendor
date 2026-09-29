@@ -39,14 +39,16 @@ final class PosService
 
             $subTotal = Money::zero();
             $taxTotal = Money::zero();
+            $discountTotal = Money::zero();
 
             foreach ($lines as $line) {
                 $subTotal = $subTotal->add($line['sub_total']);
                 $taxTotal = $taxTotal->add($line['tax']);
+                $discountTotal = $discountTotal->add($line['discount']);
             }
 
             $discount = Money::of($payload['discount'] ?? 0)->maxZero()->min($subTotal);
-            $total = $subTotal->add($taxTotal)->subtract($discount)->maxZero();
+            $total = $subTotal->add($taxTotal)->subtract($discountTotal)->subtract($discount)->maxZero();
 
             $order = Order::query()->create([
                 'order_number' => $this->orderNumber($hold),
@@ -54,7 +56,7 @@ final class PosService
                 'shop_id' => $shop->getKey(),
                 'sub_total' => $subTotal->toDecimal(),
                 'tax' => $taxTotal->toDecimal(),
-                'discount' => $discount->toDecimal(),
+                'discount' => $discount->add($discountTotal)->toDecimal(),
                 'total' => $total->toDecimal(),
                 'shipping_cost' => Money::zero()->toDecimal(),
                 'payment_method' => VendorScope::clean($payload['payment_method'] ?? 'cash', 40),
@@ -62,6 +64,8 @@ final class PosService
                 'order_status' => $hold ? OrderStatus::Pending->stored() : OrderStatus::Delivered->stored(),
                 'fulfillment_status' => $hold ? 'unfulfilled' : 'fulfilled',
                 'source' => 'pos',
+                'pos_shift_id' => isset($payload['pos_shift_id']) ? (int) $payload['pos_shift_id'] : null,
+                'pos_register_id' => isset($payload['pos_register_id']) ? (int) $payload['pos_register_id'] : null,
                 'note' => 'POS: '.VendorScope::clean($payload['customer_name'] ?? 'Pelanggan walk-in', 200),
             ]);
 
@@ -179,7 +183,17 @@ final class PosService
             }
 
             $key = $productId.'-'.($variantId ?? 0);
-            $merged[$key] = ($merged[$key] ?? 0) + $quantity;
+
+            if (! isset($merged[$key])) {
+                $merged[$key] = ['quantity' => 0, 'discount' => 0.0, 'tax_rate' => null];
+            }
+
+            $merged[$key]['quantity'] += $quantity;
+            $merged[$key]['discount'] += max(0.0, (float) ($item['discount'] ?? 0));
+
+            if ($merged[$key]['tax_rate'] === null && isset($item['tax_rate']) && is_numeric($item['tax_rate'])) {
+                $merged[$key]['tax_rate'] = (float) $item['tax_rate'];
+            }
         }
 
         if ($merged === []) {
@@ -188,7 +202,8 @@ final class PosService
 
         $resolved = [];
 
-        foreach ($merged as $key => $quantity) {
+        foreach ($merged as $key => $row) {
+            $quantity = (int) $row['quantity'];
             [$productId, $variantId] = array_map('intval', explode('-', (string) $key));
             $variantId = $variantId === 0 ? null : $variantId;
 
@@ -201,15 +216,15 @@ final class PosService
                 throw ValidationException::withMessages(['items' => 'Produk tidak ditemukan pada toko Anda.']);
             }
 
-            $price = Money::of($product->effective_price)->maxZero();
+            $price = Money::of($product->getEffectivePrice())->maxZero();
             $subTotal = $price->multiply($quantity);
-            $tax = Money::of($product->tax)->maxZero()->isZero()
-                ? Money::zero()
-                : Money::of($subTotal->multiply(Money::of($product->tax)->toFloat())->toFloat());
-
-            if ($product->tax_type === 'exclusive') {
-                $tax = Money::of($subTotal->multiply(Money::of($product->tax)->toFloat())->toFloat());
-            }
+            // Diskon per item (kolom order_items.discount existing) + pajak per item.
+            $itemDiscount = Money::of($row['discount'] ?? 0)->maxZero()->min($subTotal);
+            $net = $subTotal->subtract($itemDiscount);
+            $taxRate = $row['tax_rate'] !== null
+                ? max(0.0, (float) $row['tax_rate'])
+                : max(0.0, (float) $product->tax);
+            $tax = $net->isPositive() && $taxRate > 0 ? $net->multiply($taxRate / 100) : Money::zero();
 
             $resolved[] = [
                 'product_id' => $productId,
@@ -217,7 +232,7 @@ final class PosService
                 'quantity' => $quantity,
                 'price' => $price,
                 'tax' => $tax,
-                'discount' => Money::zero(),
+                'discount' => $itemDiscount,
                 'sub_total' => $subTotal,
             ];
         }
@@ -262,5 +277,121 @@ final class PosService
         } while (Order::query()->where('order_number', $number)->exists());
 
         return $number;
+    }
+
+    /** Buka shift kasir (pos_shifts existing) dengan lock anti-duplikat. */
+    public function openShift(int $registerId, float $openingCash, ?string $note = null): \App\Models\PosShift
+    {
+        return DB::transaction(function () use ($registerId, $openingCash, $note): \App\Models\PosShift {
+            $existing = \App\Models\PosShift::query()
+                ->where('pos_register_id', $registerId)
+                ->where('status', 'open')
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            return \App\Models\PosShift::query()->create([
+                'pos_register_id' => $registerId,
+                'cashier_id' => $this->scope->userId(),
+                'status' => 'open',
+                'opening_cash' => Money::of($openingCash)->maxZero()->toDecimal(),
+                'expected_cash' => Money::of($openingCash)->maxZero()->toDecimal(),
+                'counted_cash' => 0,
+                'variance' => 0,
+                'sales_total' => 0,
+                'transaction_count' => 0,
+                'note' => $note !== null ? VendorScope::clean($note, 500) : null,
+                'opened_at' => now(),
+            ]);
+        }, 3);
+    }
+
+    /** Tutup shift + hitung selisih kas (counted vs expected). */
+    public function closeShift(\App\Models\PosShift $shift, float $countedCash, ?string $note = null): \App\Models\PosShift
+    {
+        return DB::transaction(function () use ($shift, $countedCash, $note): \App\Models\PosShift {
+            $locked = \App\Models\PosShift::query()->lockForUpdate()->findOrFail($shift->getKey());
+
+            abort_if((string) $locked->status !== 'open', 422, 'Shift sudah ditutup.');
+
+            $sales = Money::of(Order::query()->where('pos_shift_id', $locked->getKey())->where('payment_status', 'paid')->sum('total'));
+            $expected = Money::of($locked->opening_cash)->add($sales);
+            $counted = Money::of($countedCash)->maxZero();
+
+            $locked->forceFill([
+                'status' => 'closed',
+                'sales_total' => $sales->toDecimal(),
+                'transaction_count' => (int) Order::query()->where('pos_shift_id', $locked->getKey())->count(),
+                'expected_cash' => $expected->toDecimal(),
+                'counted_cash' => $counted->toDecimal(),
+                'variance' => $counted->subtract($expected)->toDecimal(),
+                'note' => $note !== null ? VendorScope::clean($note, 500) : $locked->note,
+                'closed_at' => now(),
+            ])->save();
+
+            return $locked->fresh();
+        }, 3);
+    }
+
+    /** Retur POS kembali ke stok (increment + movement type=return). */
+    public function returnToStock(OrderItem $item, int $quantity, ?string $note = null): OrderItem
+    {
+        return DB::transaction(function () use ($item, $quantity, $note): OrderItem {
+            $locked = OrderItem::query()->lockForUpdate()->findOrFail($item->getKey());
+            $order = Order::query()->lockForUpdate()->findOrFail($locked->order_id);
+
+            abort_if((int) $order->shop_id !== $this->scope->shopId(), 403);
+
+            $quantity = max(1, min($quantity, (int) $locked->quantity));
+
+            $product = Product::query()->where('shop_id', $this->scope->shopId())->lockForUpdate()->find($locked->product_id);
+
+            if ($product) {
+                $product->increment('current_stock', $quantity);
+
+                DB::table('stock_movements')->insert([
+                    'warehouse_id' => null,
+                    'product_id' => $product->getKey(),
+                    'product_variant_id' => $locked->product_variant_id,
+                    'type' => 'return',
+                    'quantity' => $quantity,
+                    'balance_after' => (int) $product->current_stock + $quantity,
+                    'reference_type' => 'order',
+                    'reference_id' => $order->getKey(),
+                    'note' => 'Retur POS ke stok. '.VendorScope::clean($note ?? '', 180),
+                    'created_by' => $this->scope->userId(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $locked->order->statusHistory()->create([
+                'status' => (string) $order->order_status,
+                'changed_by' => $this->scope->userId(),
+                'note' => 'Retur POS '.$quantity.' unit kembali ke stok.',
+            ]);
+
+            return $locked->fresh();
+        }, 3);
+    }
+
+    /** Data barkode massal dari sku/barcode existing. */
+    public function barcodeRows(array $productIds): array
+    {
+        return Product::query()
+            ->where('shop_id', $this->scope->shopId())
+            ->whereIn('id', array_values(array_unique(array_map('intval', $productIds))))
+            ->get(['id', 'name', 'sku', 'barcode', 'price'])
+            ->map(fn (Product $p): array => [
+                'id' => (int) $p->getKey(),
+                'nama' => (string) $p->name,
+                'sku' => (string) ($p->sku ?: 'SKU-'.$p->getKey()),
+                'barcode' => (string) ($p->barcode ?: $p->sku ?: ('P'.$p->getKey())),
+                'harga' => (float) $p->price,
+            ])
+            ->all();
     }
 }

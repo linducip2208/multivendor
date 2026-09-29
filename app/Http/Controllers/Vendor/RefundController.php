@@ -52,6 +52,8 @@ class RefundController extends Controller
             'counts' => $counts,
             'decisions' => self::DECISIONS,
             'currency' => Currency::config(),
+            'reasonAnalytics' => \App\Services\RefundWorkflowService::analyticsForShop($shopId),
+            'reasonLabels' => \App\Services\RefundWorkflowService::reasonCatalog(),
         ]);
     }
 
@@ -97,6 +99,8 @@ class RefundController extends Controller
             'counts' => $counts,
             'value' => Money::sum($returns->getCollection()->pluck('amount')),
             'currency' => Currency::config(),
+            'reasonAnalytics' => \App\Services\RefundWorkflowService::analyticsForShop($shopId),
+            'reasonLabels' => \App\Services\RefundWorkflowService::reasonCatalog(),
         ]);
     }
 }

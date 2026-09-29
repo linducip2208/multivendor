@@ -29,13 +29,22 @@ class OrderController extends Controller
 
         $order->load(['shop', 'items.product', 'items.variant', 'statusHistory', 'transaction', 'refunds', 'returns']);
 
-        return view('storefront.orders.show', compact('order'));
+        return view('storefront.orders.show', [
+            'order' => $order,
+            'invoiceNumber' => $order->invoiceNumber(),
+            'returnReasons' => \App\Models\OrderReturn::reasonLabels(),
+        ]);
     }
 
     public function requestRefund(Request $request, OrderItem $orderItem, RefundWorkflowService $refunds): RedirectResponse
     {
-        $validated = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:2000']]);
-        $refunds->request($orderItem, auth()->id(), $validated['reason']);
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'in:'.implode(',', array_keys(\App\Models\OrderReturn::reasonLabels()))],
+            'reason_detail' => ['nullable', 'string', 'min:10', 'max:2000'],
+        ]);
+
+        $detail = $validated['reason_detail'] ?? \App\Models\OrderReturn::reasonLabels()[$validated['reason']];
+        $refunds->request($orderItem, auth()->id(), '['.$validated['reason'].'] '.$detail);
 
         return back()->with('success', 'Permintaan refund telah dikirim ke penjual untuk ditinjau.');
     }

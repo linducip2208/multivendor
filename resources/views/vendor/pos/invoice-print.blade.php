@@ -26,9 +26,13 @@
 
         <div class="small mb-2">
             <div class="d-flex justify-content-between"><span>Struk</span><span class="fw-medium">{{ $order->order_number }}</span></div>
+            <div class="d-flex justify-content-between"><span>Invoice</span><span class="fw-medium">{{ $order->invoiceNumber() }}</span></div>
             <div class="d-flex justify-content-between"><span>Tanggal</span><span>{{ $order->created_at->format('d/m/Y H:i') }}</span></div>
             <div class="d-flex justify-content-between"><span>Kasir</span><span>{{ $order->shop?->vendor?->name ?? auth('vendor')->user()->name }}</span></div>
             <div class="d-flex justify-content-between"><span>Pelanggan</span><span>{{ $order->customer?->name ?? 'Langsung' }}</span></div>
+            @if ($order->pos_shift_id)
+                <div class="d-flex justify-content-between"><span>Shift</span><span>#{{ $order->pos_shift_id }}</span></div>
+            @endif
         </div>
 
         <hr>
@@ -40,6 +44,12 @@
                         <td>
                             <div class="fw-medium">{{ $item->product?->name ?? 'Produk' }}</div>
                             <small class="text-muted">{{ $item->quantity }} × {{ \App\Support\Currency::format($item->price) }}</small>
+                            @if ((float) ($item->discount ?? 0) > 0)
+                                <div><small class="text-success">Diskon item: -{{ \App\Support\Currency::format($item->discount) }}</small></div>
+                            @endif
+                            @if ((float) ($item->tax ?? 0) > 0)
+                                <div><small class="text-muted">Pajak item: {{ \App\Support\Currency::format($item->tax) }}</small></div>
+                            @endif
                         </td>
                         <td class="text-end align-middle text-nowrap">{{ \App\Support\Currency::format($item->sub_total) }}</td>
                     </tr>

@@ -234,6 +234,29 @@
 
                                             <ul class="sf-stack" data-shipping-rates style="gap:8px;margin-top:12px;list-style:none;padding:0"></ul>
 
+                                            <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-top:10px">
+                                                <label class="sf-small sf-row" style="gap:6px;align-items:center">
+                                                    <input type="checkbox" name="shipping_methods[{{ $shopKey }}][insurance]" value="1"
+                                                        @checked((bool) old("shipping_methods.{$shopKey}.insurance"))>
+                                                    Tambah asuransi pengiriman
+                                                </label>
+                                                <div class="sf-field">
+                                                    <label class="sf-label" for="sf-length-{{ $shopKey }}">P × L × T (cm, opsional)</label>
+                                                    <div class="sf-row" style="gap:4px">
+                                                        <input class="sf-input" id="sf-length-{{ $shopKey }}" type="number" step="0.1" min="0" max="500" name="shipping_methods[{{ $shopKey }}][length]" value="{{ old("shipping_methods.{$shopKey}.length") }}" placeholder="P">
+                                                        <input class="sf-input" type="number" step="0.1" min="0" max="500" name="shipping_methods[{{ $shopKey }}][width]" value="{{ old("shipping_methods.{$shopKey}.width") }}" placeholder="L">
+                                                        <input class="sf-input" type="number" step="0.1" min="0" max="500" name="shipping_methods[{{ $shopKey }}][height]" value="{{ old("shipping_methods.{$shopKey}.height") }}" placeholder="T">
+                                                    </div>
+                                                    <span class="sf-tiny sf-muted">Berat volumetrik dihitung otomatis; kurir cadangan dipakai bila utama gagal.</span>
+                                                </div>
+                                            </div>
+
+                                            <div class="sf-field" style="margin-top:10px">
+                                                <label class="sf-label" for="sf-shop-note-{{ $shopKey }}">Catatan untuk {{ $group['shop']?->name ?? 'toko ini' }} (opsional)</label>
+                                                <textarea class="sf-textarea" id="sf-shop-note-{{ $shopKey }}" name="shop_notes[{{ $shopKey }}]" rows="2" maxlength="1000"
+                                                    placeholder="Contoh: bungkus kado untuk toko ini">{{ old("shop_notes.{$shopKey}") }}</textarea>
+                                            </div>
+
                                             @if ($shopError)
                                                 <span class="sf-error" style="display:block;margin-top:8px">{{ $shopError }}</span>
                                             @endif
@@ -289,6 +312,12 @@
                                               placeholder="Contoh: titip ke satpam bila rumah kosong">{{ old('note') }}</textarea>
                                     @error('note')<span class="sf-error">{{ $message }}</span>@enderror
                                 </div>
+
+                                <label class="sf-small sf-row" style="gap:6px;align-items:center;margin-top:10px">
+                                    <input type="checkbox" name="insurance" value="1" @checked((bool) old('insurance'))>
+                                    Tambah asuransi untuk semua pengiriman (premi dihitung dari nilai barang)
+                                </label>
+                                <p class="sf-tiny sf-muted sf-mb-0">Nomor invoice bernomor seri otomatis (INV-...) diterbitkan per pesanan toko.</p>
                             </div>
                         </section>
                     </div>

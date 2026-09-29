@@ -176,6 +176,23 @@ class RefundWorkflowService
         return $this->execute($refund, (float) $refund->amount, $actorId, (string) $refund->idempotency_key);
     }
 
+    /** Katalog alasan retur terstruktur (validasi + analitik). */
+    public static function reasonCatalog(): array
+    {
+        return \App\Models\OrderReturn::reasonLabels();
+    }
+
+    public static function normalizeReason(?string $reason): string
+    {
+        return \App\Models\OrderReturn::normalizeReason($reason);
+    }
+
+    /** Analitik alasan retur per toko memakai kolom reason existing. */
+    public static function analyticsForShop(int $shopId): array
+    {
+        return \App\Models\OrderReturn::analyticsForShop($shopId);
+    }
+
     private function prepare(
         OrderItem $item,
         float|int|string|null $amount,

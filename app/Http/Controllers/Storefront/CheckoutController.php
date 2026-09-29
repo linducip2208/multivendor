@@ -66,10 +66,18 @@ class CheckoutController extends Controller
             'shipping_methods.*.courier' => 'nullable|string|max:50',
             'shipping_methods.*.service' => 'nullable|string|max:100',
             'shipping_methods.*.destination' => 'nullable|string|max:100',
+            'shipping_methods.*.insurance' => 'nullable|boolean',
+            'shipping_methods.*.zone_id' => 'nullable|integer',
+            'shipping_methods.*.length' => 'nullable|numeric|min:0|max:500',
+            'shipping_methods.*.width' => 'nullable|numeric|min:0|max:500',
+            'shipping_methods.*.height' => 'nullable|numeric|min:0|max:500',
             'payment_provider_id' => 'required|integer|exists:providers,id',
             'payment_channel' => 'nullable|array',
             'idempotency_key' => 'nullable|string|max:80',
             'note' => 'nullable|string|max:2000',
+            'shop_notes' => 'nullable|array',
+            'shop_notes.*' => 'nullable|string|max:1000',
+            'insurance' => 'nullable|boolean',
             'coupon_code' => 'nullable|string|max:50',
         ]);
 
@@ -91,9 +99,18 @@ class CheckoutController extends Controller
         if ($idempotencyKey !== null) {
             $replay = Order::where('customer_id', $customer->id)
                 ->where('idempotency_key', $idempotencyKey)
+                ->with('paymentGroup.provider')
                 ->first();
 
             if ($replay) {
+                // Resume pembayaran gagal tanpa order baru: jika grup masih
+                // retryable, buatkan ulang transaksi gateway untuk grup yang sama.
+                $resumed = $this->retryFailedGroup($replay, $provider, $payments, $customer);
+
+                if ($resumed !== null) {
+                    return $resumed;
+                }
+
                 return $this->resumeOrder($replay);
             }
         }
@@ -113,7 +130,9 @@ class CheckoutController extends Controller
                     }
                 }
 
-                $quote = $calculator->calculate($customer, $cartItems, $shippingMethods, $validated['coupon_code'] ?? null, $address->toArray());
+                $quote = $calculator->calculate($customer, $cartItems, $shippingMethods, $validated['coupon_code'] ?? null, $address->toArray(), [
+                    'insurance' => (bool) ($validated['insurance'] ?? false),
+                ]);
 
                 $group = PaymentGroup::create([
                     'payment_number' => PaymentGroup::generateNumber(), 'customer_id' => $customer->id, 'provider_id' => $provider->id,
@@ -133,6 +152,16 @@ class CheckoutController extends Controller
                         ->subtract($shopQuote->couponDiscount)
                         ->maxZero();
 
+                    $shopNote = Order::formatShopNote(
+                        (string) $shopQuote->shop->name,
+                        isset($validated['shop_notes'][$shopQuote->shop->id]) ? (string) $validated['shop_notes'][$shopQuote->shop->id] : null,
+                    );
+                    $combinedNote = trim(implode("\n", array_filter([
+                        $validated['note'] ?? null,
+                        $shopNote,
+                        ($shopQuote->insurance ?? 0) > 0 ? '[Asuransi pengiriman: Rp'.number_format((float) $shopQuote->insurance, 0, ',', '.').']' : null,
+                    ]))) ?: null;
+
                     $order = Order::create([
                         'payment_group_id' => $group->id, 'order_number' => Order::generateOrderNumber(), 'customer_id' => $customer->id,
                         'shop_id' => $shopQuote->shop->id, 'coupon_code' => $quote['coupon']?->code,
@@ -142,7 +171,7 @@ class CheckoutController extends Controller
                         'shipping_method' => $selection['courier'] ?? null, 'shipping_service' => $selection['service'] ?? null,
                         'shipping_address' => $address->only(['label', 'receiver_name', 'receiver_phone', 'address', 'city', 'province', 'postal_code']),
                         'payment_method' => $provider->api_format, 'payment_status' => PaymentStatus::Unpaid->value,
-                        'order_status' => OrderStatus::Pending->stored(), 'note' => $validated['note'] ?? null,
+                        'order_status' => OrderStatus::Pending->stored(), 'note' => $combinedNote,
                     ]);
 
                     $first = false;
@@ -248,6 +277,9 @@ class CheckoutController extends Controller
         $data = $request->validate([
             'shop_id' => 'required|integer|exists:shops,id', 'destination' => 'required|string|max:100',
             'courier' => 'required|string|max:50', 'provider_id' => 'required|integer',
+            'insurance' => 'nullable|boolean', 'goods_value' => 'nullable|numeric|min:0',
+            'length' => 'nullable|numeric|min:0|max:500', 'width' => 'nullable|numeric|min:0|max:500',
+            'height' => 'nullable|numeric|min:0|max:500', 'zone_id' => 'nullable|integer',
         ]);
 
         $provider = Provider::ofType('shipping')->active()->find($data['provider_id']);
@@ -261,9 +293,43 @@ class CheckoutController extends Controller
             return response()->json(['success' => false, 'message' => 'Data pengiriman belum lengkap.'], 422);
         }
 
-        return response()->json($shipping->getShippingRates($provider, [
+        $actual = $cart->sum(fn ($item) => max(1, (int) $item->product->weight) * $item->quantity);
+        $weight = $shipping->billableWeight($actual, $data);
+
+        $quote = $shipping->fallbackQuote($provider, [
             'origin' => $origin, 'destination' => $data['destination'], 'courier' => $data['courier'],
-            'weight' => $cart->sum(fn ($item) => max(1, (int) $item->product->weight) * $item->quantity),
+            'weight' => $weight,
+        ]);
+
+        if (! ($quote['success'] ?? false)) {
+            $zoneCost = $shipping->zoneTableQuote(
+                (float) $cart->sum(fn ($item) => Money::of($item->product->getEffectivePrice())->multiply((int) $item->quantity)->toFloat()),
+                $data['zone_id'] ?? null,
+            );
+
+            if ($zoneCost === null) {
+                return response()->json(['success' => false, 'message' => 'Tarif pengiriman tidak tersedia, coba kurir lain.'], 422);
+            }
+
+            $quote = ['success' => true, 'rates' => [[
+                'courier' => 'ZONA', 'service' => 'Tabel zona', 'description' => 'Tarif tabel zona',
+                'cost' => $zoneCost, 'etd' => '',
+            ]], 'courier' => 'zona', 'tried' => []];
+        }
+
+        $goods = isset($data['goods_value'])
+            ? (float) $data['goods_value']
+            : (float) $cart->sum(fn ($item) => Money::of($item->product->getEffectivePrice())->multiply((int) $item->quantity)->toFloat());
+
+        return response()->json(array_merge($quote, [
+            'weight_actual' => $actual,
+            'weight_billable' => $weight,
+            'weight_volumetric' => $shipping->volumetricWeight(
+                isset($data['length']) ? (float) $data['length'] : null,
+                isset($data['width']) ? (float) $data['width'] : null,
+                isset($data['height']) ? (float) $data['height'] : null,
+            ),
+            'insurance_fee' => ! empty($data['insurance']) ? $shipping->insuranceFee($goods) : 0.0,
         ]));
     }
 
@@ -300,6 +366,18 @@ class CheckoutController extends Controller
 
     private function resumeOrder(Order $order)
     {
+        $order->loadMissing('paymentGroup');
+
+        // Jika grup masih retryable, coba buatkan ulang pembayaran gateway
+        // untuk grup yang sama (tanpa order baru) sebelum menyerah.
+        if ($order->isPaymentRetryable() && $order->paymentGroup?->provider) {
+            $retry = $this->recreateGatewayPayment($order->paymentGroup);
+
+            if ($retry !== null) {
+                return $retry;
+            }
+        }
+
         $response = $order->paymentGroup?->gateway_response;
         $response = is_array($response) ? $response : [];
 
@@ -312,6 +390,88 @@ class CheckoutController extends Controller
         }
 
         return redirect()->route('orders.show', $order)->with('info', 'Pesanan ini sudah pernah dibuat.');
+    }
+
+    /**
+     * Resume pembayaran gagal: pakai idempotency_key existing, tanpa order baru.
+     * Mengembalikan redirect gateway baru bila berhasil, null bila tidak bisa.
+     */
+    private function retryFailedGroup(Order $replay, Provider $provider, PaymentGatewayService $payments, $customer)
+    {
+        $replay->loadMissing('paymentGroup.orders.items.product');
+
+        $group = $replay->paymentGroup;
+
+        if (! $group || ! $group->isRetryable()) {
+            return null;
+        }
+
+        // Samakan provider bila pelanggan memilih gateway berbeda saat retry.
+        if ((int) $group->provider_id !== (int) $provider->id) {
+            $group->forceFill(['provider_id' => $provider->id])->save();
+            $group->refresh();
+        }
+
+        return $this->recreateGatewayPayment($group, $payments, $customer);
+    }
+
+    private function recreateGatewayPayment(PaymentGroup $group, ?PaymentGatewayService $payments = null, $customer = null)
+    {
+        $payments ??= app(PaymentGatewayService::class);
+        $customer ??= auth()->user();
+
+        try {
+            $locked = DB::transaction(function () use ($group) {
+                $inner = PaymentGroup::whereKey($group->getKey())->lockForUpdate()->firstOrFail();
+
+                if (! $inner->isRetryable()) {
+                    return null;
+                }
+
+                $inner->forceFill([
+                    'status' => PaymentStatus::Pending->value,
+                    'expired_at' => now()->addMinutes($this->expiryMinutes()),
+                ])->save();
+
+                return $inner->fresh(['orders.items.product', 'provider']);
+            }, 3);
+
+            if ($locked === null) {
+                return null;
+            }
+
+            $provider = $locked->provider;
+
+            if (! $provider) {
+                return null;
+            }
+
+            $payment = $payments->createPayment($provider, [
+                'order_id' => $locked->payment_number, 'amount' => $locked->grand_total,
+                'channel' => 'default',
+                'customer' => ['name' => $customer->name ?? '', 'email' => $customer->email ?? '', 'phone' => $customer->phone ?? ''],
+                'items' => $this->paymentItems($locked->orders),
+                'success_url' => route('orders.index'),
+                'callback_url' => route('webhook.payment', $provider),
+            ]);
+
+            if (! ($payment['success'] ?? false)) {
+                return null;
+            }
+
+            $locked->forceFill([
+                'gateway_reference' => $payment['transaction_id'] ?? $payment['invoice_id'] ?? $payment['reference'] ?? $locked->gateway_reference,
+                'gateway_response' => is_array($payment['raw'] ?? null) ? $payment['raw'] : null,
+            ])->save();
+
+            if (! empty($payment['redirect_url'])) {
+                return redirect()->away($payment['redirect_url'])->with('success', 'Pembayaran sebelumnya gagal. Silakan lanjutkan pembayaran baru tanpa membuat pesanan baru.');
+            }
+
+            return redirect()->route('orders.index')->with('success', 'Tautan pembayaran baru telah dibuat untuk pesanan Anda.');
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     private function idempotencyKey(Request $request, array $validated): ?string

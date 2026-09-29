@@ -120,6 +120,35 @@ class Order extends Model
         return $this->belongsTo(PosShift::class, 'pos_shift_id');
     }
 
+    /** Nomor seri invoice turunan dari nomor order (tanpa tabel baru). */
+    public function invoiceNumber(): string
+    {
+        $base = (string) ($this->order_number ?: 'ORD-'.$this->getKey());
+
+        return str_starts_with($base, 'INV-') ? $base : 'INV-'.$base;
+    }
+
+    /** Catatan per toko ditempel pada kolom note existing. */
+    public static function formatShopNote(string $shopName, ?string $note): ?string
+    {
+        $note = is_string($note) ? trim($note) : '';
+
+        if ($note === '') {
+            return null;
+        }
+
+        return '[Toko '.$shopName.'] '.mb_substr($note, 0, 1500);
+    }
+
+    /** Status grup pembayaran yang masih boleh dicoba ulang tanpa order baru. */
+    public function isPaymentRetryable(): bool
+    {
+        $status = (string) ($this->paymentGroup?->status ?? '');
+
+        return in_array($status, ['pending', 'failed', 'expired'], true)
+            && in_array((string) $this->order_status, ['pending', 'failed'], true);
+    }
+
     public static function generateOrderNumber(): string
     {
         $prefix = \App\Models\SystemSetting::get('order_prefix', 'ORD');
