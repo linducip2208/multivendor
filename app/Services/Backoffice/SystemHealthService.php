@@ -689,6 +689,142 @@ final class SystemHealthService
     }
 
     /**
+     * Peringatan anomali niaga (aditif, read-only): lonjakan order, gagal bayar,
+     * dan stok minus. Bentuk sama seperti alerts() agar Blade Tabler reuse.
+     *
+     * @return list<array{key: string, level: string, label: string, detail: string}>
+     */
+    public function anomalyAlerts(int $days = 7): array
+    {
+        $days = max(2, min(30, $days));
+        $alerts = [];
+
+        try {
+            $today = now()->startOfDay();
+            $todayOrders = (int) DB::table('orders')->where('created_at', '>=', $today)->count();
+            $pastOrders = (int) DB::table('orders')
+                ->where('created_at', '>=', now()->subDays($days)->startOfDay())
+                ->where('created_at', '<', $today)
+                ->count();
+            $avgOrders = $pastOrders / $days;
+
+            if ($avgOrders > 0 && $todayOrders >= max($avgOrders * 2, $avgOrders + 10)) {
+                $alerts[] = [
+                    'key' => 'order_spike',
+                    'level' => 'warning',
+                    'label' => 'Lonjakan order',
+                    'detail' => "Hari ini {$todayOrders} order vs rata-rata ".round($avgOrders, 1)."/hari ({$days} hari terakhir).",
+                ];
+            }
+        } catch (\Throwable) {
+            // Tabel belum termigrasi — lewati deteksi ini.
+        }
+
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('transactions')) {
+                $today = now()->startOfDay();
+                $failedToday = (int) DB::table('transactions')
+                    ->where('status', 'failed')
+                    ->where('created_at', '>=', $today)
+                    ->count();
+                $failedPast = (int) DB::table('transactions')
+                    ->where('status', 'failed')
+                    ->where('created_at', '>=', now()->subDays($days)->startOfDay())
+                    ->where('created_at', '<', $today)
+                    ->count();
+                $avgFailed = $failedPast / $days;
+
+                if ($failedToday > 0 && ($avgFailed <= 0 || $failedToday >= max($avgFailed * 2, $avgFailed + 5))) {
+                    $alerts[] = [
+                        'key' => 'payment_failed',
+                        'level' => 'danger',
+                        'label' => 'Gagal bayar melonjak',
+                        'detail' => "Transaksi gagal hari ini: {$failedToday} (rata-rata ".round($avgFailed, 1)."/hari).",
+                    ];
+                }
+            }
+        } catch (\Throwable) {
+            // Abaikan bila skema transaksi berbeda.
+        }
+
+        try {
+            $negativeProducts = (int) DB::table('products')->where('current_stock', '<', 0)->count();
+            $negativeLedger = 0;
+            if (\Illuminate\Support\Facades\Schema::hasTable('product_stocks')) {
+                $negativeLedger = (int) DB::table('product_stocks')->where('on_hand', '<', 0)->count();
+            }
+
+            if ($negativeProducts + $negativeLedger > 0) {
+                $alerts[] = [
+                    'key' => 'negative_stock',
+                    'level' => 'danger',
+                    'label' => 'Stok minus terdeteksi',
+                    'detail' => "{$negativeProducts} produk + {$negativeLedger} baris gudang berstok negatif. Perlu opname.",
+                ];
+            }
+        } catch (\Throwable) {
+            // Abaikan bila kolom stok berbeda.
+        }
+
+        if ($alerts === []) {
+            $alerts[] = ['key' => 'ok', 'level' => 'success', 'label' => 'Tidak ada anomali', 'detail' => 'Order, pembayaran, dan stok dalam batas normal.'];
+        }
+
+        return $alerts;
+    }
+
+    /**
+     * Kirim peringatan anomali ke admin memakai skema notifications existing
+     * (morph: id uuid, type, notifiable_type/id, data). Kembalikan jumlah terkirim.
+     */
+    public function notifyAnomalyAdmins(int $days = 7): int
+    {
+        $sent = 0;
+
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('notifications')) {
+                return 0;
+            }
+
+            $findings = array_values(array_filter(
+                $this->anomalyAlerts($days),
+                fn (array $alert): bool => in_array($alert['level'], ['warning', 'danger'], true),
+            ));
+
+            if ($findings === []) {
+                return 0;
+            }
+
+            $admins = \App\Models\User::query()->where('role', 'admin')->pluck('id')->all();
+
+            foreach ($admins as $adminId) {
+                foreach ($findings as $alert) {
+                    DB::table('notifications')->insert([
+                        'id' => (string) \Illuminate\Support\Str::uuid(),
+                        'type' => 'App\\Notifications\\AnomalyAlert',
+                        'notifiable_type' => \App\Models\User::class,
+                        'notifiable_id' => $adminId,
+                        'data' => json_encode([
+                            'title' => '[Anomali] '.$alert['label'],
+                            'body' => $alert['detail'],
+                            'level' => $alert['level'],
+                            'key' => $alert['key'],
+                            'at' => now()->toDateTimeString(),
+                        ], JSON_UNESCAPED_UNICODE),
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                    $sent++;
+                }
+            }
+        } catch (\Throwable) {
+            return $sent;
+        }
+
+        return $sent;
+    }
+
+    /**
      * Alert kesehatan operasional: daftar temuan + level.
      * Murni dari health() yang sudah ada + status backup terjadwal.
      *

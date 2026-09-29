@@ -85,4 +85,41 @@
             </x-admin.card>
         </div>
     </div>
+    @isset($forecast)
+        <x-admin.card title="Prediksi stok habis" icon="chart-line" class="mt-3" :padding="false">
+            <x-slot:actions>
+                <span class="text-secondary small">Laju jual 30 hari · saran restock 30 hari ke depan</span>
+            </x-slot:actions>
+
+            <x-admin.table dense>
+                <x-slot:table>
+                    \App\Support\TableBuilder::make()
+                        ->columns([
+                            'product' => ['label' => 'Produk', 'width' => '30%'],
+                            'rate' => ['label' => 'Laju/hari', 'align' => 'end'],
+                            'left' => ['label' => 'Sisa hari', 'align' => 'end'],
+                            'stockout' => ['label' => 'Estimasi habis', 'align' => 'end'],
+                            'restock' => ['label' => 'Saran restock', 'align' => 'end'],
+                            'state' => ['label' => 'Status', 'align' => 'end'],
+                        ])
+                        ->rows(
+                            collect($forecast)->map(fn (array $row) => [
+                                'product' => '<span class="fw-medium d-block text-truncate">'.e($row['name']).'</span><span class="text-secondary small">Stok '.e(Currency::number($row['stock'])).' · terjual '.e(Currency::number($row['sold'])).'/30 hari</span>',
+                                'rate' => e(number_format($row['daily_rate'], 2, ',', '.')),
+                                'left' => $row['days_left'] === null ? '—' : e(number_format($row['days_left'], 1, ',', '.')),
+                                'stockout' => $row['stockout_at'] ? '<span class="fw-medium">'.e(\Carbon\Carbon::parse($row['stockout_at'])->format('d M Y')).'</span>' : '—',
+                                'restock' => '<span class="fw-medium">'.e(Currency::number($row['suggested_restock'])).' unit</span>',
+                                'state' => match ($row['state']) {
+                                    'out_of_stock' => '<span class="badge bg-danger-lt text-danger">Habis</span>',
+                                    'critical' => '<span class="badge bg-danger-lt text-danger">Kritis ≤7 hari</span>',
+                                    'low' => '<span class="badge bg-warning-lt text-warning">Menipis ≤30 hari</span>',
+                                    default => '<span class="badge bg-success-lt text-success">Aman</span>',
+                                },
+                            ])->all()
+                        )
+                        ->empty('Belum ada data forecast. Forecast muncul setelah ada penjualan.')
+                </x-slot:table>
+            </x-admin.table>
+        </x-admin.card>
+    @endisset
 @endsection

@@ -16,7 +16,7 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request, VendorDashboardService $dashboard): View
+    public function index(Request $request, VendorDashboardService $dashboard, \App\Services\Vendor\VendorInventoryService $inventory, \App\Services\Backoffice\SystemHealthService $health): View
     {
         [$from, $to] = $this->resolveRange($request);
         $data = $dashboard->summary($from, $to);
@@ -34,6 +34,8 @@ class DashboardController extends Controller
             'orderStatus' => $data['order_status'],
             'bestProducts' => $data['best_products'],
             'lowStock' => $data['low_stock'],
+            'forecast' => $inventory->forecast(30, 8),
+            'anomalyAlerts' => $health->anomalyAlerts(7),
             'pendingFulfillment' => $data['pending_fulfillment'],
             'pendingPayouts' => $data['pending_payouts'],
             'reviews' => $data['reviews'],

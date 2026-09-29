@@ -264,6 +264,61 @@
         </div>
     </div>
 
+    @isset($forecast)
+        <div class="row g-3 mt-0">
+            <div class="col-12 col-xl-8">
+                <x-admin.card title="Prediksi stok habis" icon="chart-line" :padding="false">
+                    <x-slot:actions>
+                        <a href="{{ route('vendor.analytics.products') }}" class="btn btn-sm btn-ghost-light">Analitik produk</a>
+                    </x-slot:actions>
+
+                    <x-admin.table dense>
+                        <x-slot:table>
+                            \App\Support\TableBuilder::make()
+                                ->columns([
+                                    'product' => ['label' => 'Produk'],
+                                    'left' => ['label' => 'Sisa hari', 'align' => 'end'],
+                                    'restock' => ['label' => 'Saran restock', 'align' => 'end'],
+                                    'state' => ['label' => 'Status', 'align' => 'end'],
+                                ])
+                                ->rows(
+                                    collect($forecast)->take(8)->map(fn (array $row) => [
+                                        'product' => '<span class="fw-medium d-block text-truncate">'.e($row['name']).'</span><span class="text-secondary small">Stok '.e($__int($row['stock'])).($row['stockout_at'] ? ' · habis ± '.\Carbon\Carbon::parse($row['stockout_at'])->format('d M Y') : '').'</span>',
+                                        'left' => $row['days_left'] === null ? '—' : e(number_format($row['days_left'], 1, ',', '.')),
+                                        'restock' => '<span class="fw-medium">'.e($__int($row['suggested_restock'])).' unit</span>',
+                                        'state' => match ($row['state']) {
+                                            'out_of_stock' => '<span class="badge bg-danger-lt text-danger">Habis</span>',
+                                            'critical' => '<span class="badge bg-danger-lt text-danger">Kritis</span>',
+                                            'low' => '<span class="badge bg-warning-lt text-warning">Menipis</span>',
+                                            default => '<span class="badge bg-success-lt text-success">Aman</span>',
+                                        },
+                                    ])->all()
+                                )
+                                ->empty('Belum ada data forecast.')
+                        </x-slot:table>
+                    </x-admin.table>
+                </x-admin.card>
+            </div>
+
+            <div class="col-12 col-xl-4">
+                <x-admin.card title="Peringatan anomali" icon="alert-triangle">
+                    @isset($anomalyAlerts)
+                        @foreach ($anomalyAlerts as $alert)
+                            <div class="d-flex align-items-start gap-2 py-2 {{ $loop->last ? '' : 'border-bottom' }}">
+                                <x-admin.badge
+                                    :text="$alert['label']"
+                                    :color="$alert['level'] === 'danger' ? 'danger' : ($alert['level'] === 'warning' ? 'warning' : 'success')"
+                                    pill
+                                />
+                                <span class="text-secondary small">{{ $alert['detail'] }}</span>
+                            </div>
+                        @endforeach
+                    @endisset
+                </x-admin.card>
+            </div>
+        </div>
+    @endisset
+
     <div class="row g-3 mt-0">
         <div class="col-12 col-lg-4">
             <x-admin.card title="Komposisi status pesanan" icon="activity">

@@ -230,4 +230,185 @@ class ProductController extends Controller
             $result['updated'].' produk diperbarui. Total nilai katalog '.Currency::format($result['after']->toFloat()).'.'
         );
     }
+
+    // ── Perdalaman katalog (aksi baru; metode existing tidak diubah) ──
+    // Catatan: rute untuk aksi di bawah ini dipasang oleh pemilik routes/*.php;
+    // sebelum rute ada, aksi tetap dapat dipanggil terprogram dan teruji.
+
+    /** Simpan/tambah gambar milik satu varian (maks. 5 gambar per varian). */
+    public function simpanGambarVarian(Request $request, Product $product, ProductVariant $varian): RedirectResponse
+    {
+        $this->pastikanMilikToko($product, $varian);
+
+        $validated = $request->validate([
+            'gambar' => ['required', 'array', 'max:5'],
+            'gambar.*' => ['image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('product_variants', 'images')) {
+            return back()->with('error', 'Kolom gambar varian belum tersedia. Jalankan migrasi katalog media dahulu.');
+        }
+
+        $lama = $varian->galeri();
+        $baru = $lama;
+
+        foreach ($request->file('gambar', []) as $berkas) {
+            if (count($baru) >= 5) {
+                break;
+            }
+
+            $baru[] = $berkas->store('products/variants', 'public');
+        }
+
+        $varian->forceFill(['images' => array_values($baru)])->save();
+
+        return back()->with('success', 'Gambar varian disimpan. Galeri halaman produk ikut varian yang dipilih pembeli.');
+    }
+
+    /** Hapus satu gambar milik varian berdasarkan posisinya. */
+    public function hapusGambarVarian(Request $request, Product $product, ProductVariant $varian): RedirectResponse
+    {
+        $this->pastikanMilikToko($product, $varian);
+
+        $validated = $request->validate([
+            'posisi' => ['required', 'integer', 'min:0', 'max:20'],
+        ]);
+
+        $daftar = $varian->galeri();
+
+        if (! isset($daftar[$validated['posisi']])) {
+            return back()->with('error', 'Gambar tidak ditemukan.');
+        }
+
+        unset($daftar[$validated['posisi']]);
+        $varian->forceFill(['images' => array_values($daftar)])->save();
+
+        return back()->with('success', 'Gambar varian dihapus. Bila kosong, galeri kembali memakai foto utama produk.');
+    }
+
+    /** Terbitkan kunci lisensi digital untuk satu pembelian (mis. pesanan manual). */
+    public function terbitkanLisensiDigital(Request $request, Product $product): RedirectResponse
+    {
+        $shop = auth('vendor')->user()->shop;
+        if ($product->shop_id !== $shop->id) {
+            abort(403);
+        }
+
+        if (! $product->butuhLisensiDigital()) {
+            return back()->with('error', 'Produk digital membutuhkan berkas unduhan (digital_file) sebelum lisensi diterbitkan.');
+        }
+
+        $validated = $request->validate([
+            'order_item_id' => ['nullable', 'integer', 'min:1'],
+            'maks_unduh' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $lisensi = $product->buatLisensiDigital(
+            $validated['order_item_id'] ?? null,
+            (int) ($validated['maks_unduh'] ?? 5)
+        );
+
+        if ($lisensi === null) {
+            return back()->with('error', 'Lisensi gagal diterbitkan. Pastikan migrasi katalog media sudah berjalan.');
+        }
+
+        return back()->with('success', 'Lisensi digital diterbitkan: '.$lisensi->license_key);
+    }
+
+    /** Buat/perbarui koleksi tematik terkurasi milik platform (mis. "Back to School"). */
+    public function simpanKoleksiTematik(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'nama' => ['required', 'string', 'max:160'],
+            'slug' => ['nullable', 'string', 'max:190'],
+            'deskripsi' => ['nullable', 'string', 'max:2000'],
+            'mulai_tampil' => ['nullable', 'date'],
+            'selesai_tampil' => ['nullable', 'date', 'after_or_equal:mulai_tampil'],
+        ]);
+
+        if (! \Illuminate\Support\Facades\Schema::hasTable('thematic_collections')) {
+            return back()->with('error', 'Tabel koleksi tematik belum tersedia. Jalankan migrasi katalog media dahulu.');
+        }
+
+        $slug = trim((string) ($validated['slug'] ?? ''));
+        if ($slug === '') {
+            $slug = Str::slug($validated['nama']) ?: 'koleksi';
+        }
+
+        $dasar = $slug;
+        $angka = 1;
+        while (\Illuminate\Support\Facades\DB::table('thematic_collections')->where('slug', $slug)->exists()) {
+            $angka++;
+            $slug = $dasar.'-'.$angka;
+        }
+
+        \Illuminate\Support\Facades\DB::table('thematic_collections')->insert([
+            'name' => $validated['nama'],
+            'slug' => $slug,
+            'description' => $validated['deskripsi'] ?? null,
+            'is_active' => true,
+            'starts_at' => $validated['mulai_tampil'] ?? null,
+            'ends_at' => $validated['selesai_tampil'] ?? null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Koleksi "'.$validated['nama'].'" dibuat dan dijadwalkan tampil sesuai tanggal yang diisi.');
+    }
+
+    /** Masukkan produk toko sendiri ke sebuah koleksi tematik. */
+    public function tambahProdukKeKoleksi(Request $request, Product $product): RedirectResponse
+    {
+        $shop = auth('vendor')->user()->shop;
+        if ($product->shop_id !== $shop->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'koleksi_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::table('thematic_collection_product')->updateOrInsert(
+                ['thematic_collection_id' => $validated['koleksi_id'], 'product_id' => $product->id],
+                ['sort_order' => 0, 'created_at' => now(), 'updated_at' => now()]
+            );
+        } catch (\Throwable) {
+            return back()->with('error', 'Produk gagal dimasukkan ke koleksi.');
+        }
+
+        return back()->with('success', 'Produk dimasukkan ke koleksi tematik.');
+    }
+
+    /** Keluarkan produk toko sendiri dari sebuah koleksi tematik. */
+    public function lepasProdukDariKoleksi(Request $request, Product $product): RedirectResponse
+    {
+        $shop = auth('vendor')->user()->shop;
+        if ($product->shop_id !== $shop->id) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'koleksi_id' => ['required', 'integer', 'min:1'],
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::table('thematic_collection_product')
+                ->where('thematic_collection_id', $validated['koleksi_id'])
+                ->where('product_id', $product->id)
+                ->delete();
+        } catch (\Throwable) {
+            return back()->with('error', 'Produk gagal dilepas dari koleksi.');
+        }
+
+        return back()->with('success', 'Produk dilepas dari koleksi tematik.');
+    }
+
+    private function pastikanMilikToko(Product $product, ProductVariant $varian): void
+    {
+        $shop = auth('vendor')->user()->shop;
+        if ($product->shop_id !== $shop->id || (int) $varian->product_id !== (int) $product->id) {
+            abort(403);
+        }
+    }
 }

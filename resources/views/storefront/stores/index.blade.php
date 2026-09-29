@@ -47,14 +47,51 @@
                 @endif
             </form>
 
+            @php
+                // Toko terdekat: urutkan berdasar kota/provinsi pelanggan, fallback urutan existing.
+                $refCity = trim((string) request('city', ''));
+                $refProvince = '';
+                try {
+                    $defAddr = auth()->check() ? auth()->user()->addresses()->where('is_default', true)->first() : null;
+                    $refCity = $refCity !== '' ? $refCity : trim((string) ($defAddr?->city ?? ''));
+                    $refProvince = trim((string) ($defAddr?->province ?? ''));
+                } catch (\Throwable $e) {
+                    $refCity = trim((string) request('city', ''));
+                }
+                $nearReasons = [];
+                $orderedShops = $shops->getCollection();
+                try {
+                    $nearest = app(\App\Services\Analytics\StockAnalyticsService::class)->nearestShops($refCity ?: null, $refProvince ?: null, 200);
+                    $rank = collect($nearest)->pluck('score', 'id');
+                    $nearReasons = collect($nearest)->pluck('reason', 'id')->all();
+                    if ($rank->isNotEmpty()) {
+                        $orderedShops = $orderedShops->sortBy(
+                            fn ($s) => [$rank->has($s->id) ? -$rank[$s->id] : 0, $s->name]
+                        )->values();
+                    }
+                } catch (\Throwable $e) {
+                    $orderedShops = $shops->getCollection();
+                }
+            @endphp
+
             @if ($shops->total() > 0)
                 <p class="sf-small sf-muted">
                     <span class="sf-bold" style="color:var(--sf-text)">{{ \App\Support\Currency::number($shops->total()) }}</span>
                     toko tersedia
+                    @if ($refCity !== '')
+                        · diurutkan terdekat dari <span class="sf-bold" style="color:var(--sf-text)">{{ $refCity }}</span>
+                    @endif
                 </p>
 
                 <div class="sf-stores" style="margin-top:12px">
-                    @foreach ($shops as $shop)
+                    @foreach ($orderedShops as $shop)
+                        @php
+                            $shopLat = $shop->latitude !== null ? (float) $shop->latitude : null;
+                            $shopLng = $shop->longitude !== null ? (float) $shop->longitude : null;
+                            $shopMap = \App\Services\Analytics\AnalyticsService::mapEmbedUrl($shopLat, $shopLng);
+                            $shopReason = $nearReasons[$shop->id] ?? null;
+                            $shopRadius = $shop->getAttribute('service_radius_km');
+                        @endphp
                         <a href="{{ route('shop.show', $shop->slug) }}" class="sf-store">
                             @if ($shop->logo_url)
                                 <img src="{{ $shop->logo_url }}" alt="" class="sf-store__logo" loading="lazy" width="52" height="52" decoding="async">
@@ -75,7 +112,22 @@
                                     @if ($shop->city)
                                         {{ $shop->city }}
                                     @endif
+                                    @if ($shopReason && $shopReason !== 'Lainnya')
+                                        · {{ $shopReason }}
+                                    @endif
                                 </span>
+                                @if ($shopMap)
+                                    <details class="sf-small" style="margin-top:6px" onclick="event.stopPropagation()">
+                                        <summary class="sf-muted" style="cursor:pointer" onclick="event.stopPropagation()">Lihat peta</summary>
+                                        <iframe
+                                            src="{{ $shopMap }}"
+                                            width="100%" height="180" style="border:0;border-radius:8px;margin-top:6px"
+                                            loading="lazy" title="Peta {{ $shop->name }}"></iframe>
+                                        @if ($shopRadius)
+                                            <span class="sf-muted">Radius layanan ±{{ $shopRadius }} km.</span>
+                                        @endif
+                                    </details>
+                                @endif
                             </span>
                         </a>
                     @endforeach

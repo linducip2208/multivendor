@@ -46,10 +46,10 @@ class ReportController extends Controller
         ]);
     }
 
-    public function productsAnalytics(Request $request): View
+    public function productsAnalytics(Request $request, \App\Services\Vendor\VendorInventoryService $inventory): View
     {
         return view('vendor.analytics.products', $this->analytics->products(DateRange::fromRequest($request)) + [
-            'currency' => Currency::config(),
+            'forecast' => $inventory->forecast(30, 15),
         ]);
     }
 

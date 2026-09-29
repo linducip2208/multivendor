@@ -380,6 +380,98 @@ final class VendorInventoryService
             ->get();
     }
 
+    /**
+     * Prediksi stok habis toko ini (aditif, read-only): laju jual dari
+     * order_items + saran restock + tanggal estimasi. Tidak mengubah mutasi.
+     *
+     * @return list<array{id: int, name: string, sku: string, stock: int, sold: int, daily_rate: float, days_left: float|null, stockout_at: string|null, suggested_restock: int, state: string}>
+     */
+    public function forecast(int $days = 30, int $limit = 20): array
+    {
+        $shopId = $this->scope->shopId();
+        $days = max(1, min(365, $days));
+        $limit = max(1, min(100, $limit));
+        $from = now()->subDays($days - 1)->startOfDay();
+        $to = now()->endOfDay();
+
+        $sold = DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('orders.shop_id', $shopId)
+            ->whereIn('orders.order_status', AnalyticsService::revenueOrderStatuses())
+            ->whereBetween('orders.created_at', [$from, $to])
+            ->where('order_items.product_id', '>', 0)
+            ->groupBy('order_items.product_id')
+            ->selectRaw('order_items.product_id, SUM(order_items.quantity) as sold')
+            ->get()
+            ->keyBy('product_id');
+
+        return Product::query()
+            ->where('shop_id', $shopId)
+            ->orderBy('current_stock')
+            ->limit(500)
+            ->get(['id', 'name', 'sku', 'current_stock'])
+            ->map(function (Product $product) use ($sold, $days): array {
+                $stock = (int) $product->current_stock;
+                $units = (int) ($sold[$product->id]->sold ?? 0);
+                $rate = round($units / $days, 4);
+                $daysLeft = $rate > 0 && $stock > 0 ? round($stock / $rate, 1) : ($stock <= 0 ? 0.0 : null);
+
+                return [
+                    'id' => (int) $product->id,
+                    'name' => (string) $product->name,
+                    'sku' => (string) ($product->sku ?? ''),
+                    'stock' => $stock,
+                    'sold' => $units,
+                    'daily_rate' => $rate,
+                    'days_left' => $daysLeft,
+                    'stockout_at' => $daysLeft !== null ? now()->addDays((int) floor($daysLeft))->toDateString() : null,
+                    'suggested_restock' => $rate > 0 ? max(0, (int) ceil($rate * 30 - $stock)) : 0,
+                    'state' => $stock <= 0 ? 'out_of_stock' : ($daysLeft !== null && $daysLeft <= 7 ? 'critical' : ($daysLeft !== null && $daysLeft <= 30 ? 'low' : 'healthy')),
+                ];
+            })
+            ->sortBy(fn (array $row): float => $row['days_left'] ?? PHP_FLOAT_MAX)
+            ->values()
+            ->take($limit)
+            ->all();
+    }
+
+    /**
+     * @return array{id: int, name: string, sku: string, stock: int, sold: int, daily_rate: float, days_left: float|null, stockout_at: string|null, suggested_restock: int, state: string}
+     */
+    public function forecastFor(Product $product, int $days = 30): array
+    {
+        abort_if((int) $product->shop_id !== $this->scope->shopId(), 403);
+
+        $days = max(1, min(365, $days));
+        $from = now()->subDays($days - 1)->startOfDay();
+        $to = now()->endOfDay();
+
+        $sold = (int) DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('orders.shop_id', $this->scope->shopId())
+            ->where('order_items.product_id', $product->getKey())
+            ->whereIn('orders.order_status', AnalyticsService::revenueOrderStatuses())
+            ->whereBetween('orders.created_at', [$from, $to])
+            ->sum('order_items.quantity');
+
+        $stock = (int) $product->current_stock;
+        $rate = round($sold / $days, 4);
+        $daysLeft = $rate > 0 && $stock > 0 ? round($stock / $rate, 1) : ($stock <= 0 ? 0.0 : null);
+
+        return [
+            'id' => (int) $product->getKey(),
+            'name' => (string) $product->name,
+            'sku' => (string) ($product->sku ?? ''),
+            'stock' => $stock,
+            'sold' => $sold,
+            'daily_rate' => $rate,
+            'days_left' => $daysLeft,
+            'stockout_at' => $daysLeft !== null ? now()->addDays((int) floor($daysLeft))->toDateString() : null,
+            'suggested_restock' => $rate > 0 ? max(0, (int) ceil($rate * 30 - $stock)) : 0,
+            'state' => $stock <= 0 ? 'out_of_stock' : ($daysLeft !== null && $daysLeft <= 7 ? 'critical' : ($daysLeft !== null && $daysLeft <= 30 ? 'low' : 'healthy')),
+        ];
+    }
+
     // ── Logistik lanjutan (aditif) ──
 
     /** Gudang toko ini yang melayani ambil di tempat. */

@@ -125,6 +125,104 @@ final class StockAnalyticsService extends AnalyticsService
     }
 
     /**
+     * Prediksi stok habis: laju jual dari order_items + saran restock + tanggal estimasi.
+     * Read-only: tidak mengubah mutasi apa pun.
+     *
+     * @return list<array{id: int, name: string, sku: string, shop: string, stock: int, sold: int, daily_rate: float, days_left: float|null, stockout_at: string|null, suggested_restock: int, state: string}>
+     */
+    public function forecastStockouts(DateRange $range, int $limit = 20): array
+    {
+        return $this->remember('stock-forecast', $range, function () use ($range, $limit): array {
+            $days = max(1, $range->days());
+
+            $sold = DB::table('order_items')
+                ->join('orders', 'orders.id', '=', 'order_items.order_id')
+                ->whereIn('orders.order_status', self::revenueOrderStatuses())
+                ->whereBetween('orders.created_at', [$range->from, $range->to])
+                ->where('order_items.product_id', '>', 0)
+                ->groupBy('order_items.product_id')
+                ->selectRaw('order_items.product_id, SUM(order_items.quantity) as sold')
+                ->get()
+                ->keyBy('product_id');
+
+            $rows = Product::query()
+                ->where('status', 'approved')
+                ->orderBy('current_stock')
+                ->limit(500)
+                ->get()
+                ->map(function (Product $product) use ($sold, $days): array {
+                    return $this->forecastRow(
+                        (int) $product->id,
+                        (string) $product->name,
+                        (string) ($product->sku ?? ''),
+                        (string) ($product->shop?->name ?? '-'),
+                        (int) $product->current_stock,
+                        (int) ($sold[$product->id]->sold ?? 0),
+                        $days,
+                    );
+                })
+                ->sortBy(fn (array $row): float => $row['days_left'] ?? PHP_FLOAT_MAX)
+                ->values()
+                ->take(max(1, min(100, $limit)))
+                ->all();
+
+            return $rows;
+        }, ['limit' => $limit]);
+    }
+
+    /**
+     * @return array{id: int, name: string, sku: string, shop: string, stock: int, sold: int, daily_rate: float, days_left: float|null, stockout_at: string|null, suggested_restock: int, state: string}
+     */
+    public function forecastForProduct(int $productId, DateRange $range): array
+    {
+        $product = Product::query()->findOrFail($productId);
+        $days = max(1, $range->days());
+
+        $sold = (int) DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('order_items.product_id', $productId)
+            ->whereIn('orders.order_status', self::revenueOrderStatuses())
+            ->whereBetween('orders.created_at', [$range->from, $range->to])
+            ->sum('order_items.quantity');
+
+        return $this->forecastRow(
+            (int) $product->id,
+            (string) $product->name,
+            (string) ($product->sku ?? ''),
+            (string) ($product->shop?->name ?? '-'),
+            (int) $product->current_stock,
+            $sold,
+            $days,
+        );
+    }
+
+    /**
+     * @return array{id: int, name: string, sku: string, shop: string, stock: int, sold: int, daily_rate: float, days_left: float|null, stockout_at: string|null, suggested_restock: int, state: string}
+     */
+    private function forecastRow(int $id, string $name, string $sku, string $shop, int $stock, int $sold, int $days): array
+    {
+        $rate = $days > 0 ? round($sold / $days, 4) : 0.0;
+        $daysLeft = $rate > 0 && $stock > 0 ? round($stock / $rate, 1) : ($stock <= 0 ? 0.0 : null);
+        $stockoutAt = $daysLeft !== null ? now()->addDays((int) floor($daysLeft))->toDateString() : null;
+        // Saran restock: tutup 30 hari penjualan ke depan dikurangi stok berjalan.
+        $suggested = $rate > 0 ? max(0, (int) ceil($rate * 30 - $stock)) : 0;
+
+        return [
+            'id' => $id,
+            'name' => $name,
+            'sku' => $sku,
+            'shop' => $shop,
+            'stock' => $stock,
+            'sold' => $sold,
+            'daily_rate' => $rate,
+            'days_left' => $daysLeft,
+            'stockout_at' => $stockoutAt,
+            'suggested_restock' => $suggested,
+            'state' => $stock <= 0 ? 'out_of_stock' : ($daysLeft !== null && $daysLeft <= 7 ? 'critical' : ($daysLeft !== null && $daysLeft <= 30 ? 'low' : 'healthy')),
+        ];
+    }
+
+    /**
      * @return list<array{id: int, name: string, code: string, city: string, skus: int, units: int, value: float}>
      */
     public function byWarehouse(): array

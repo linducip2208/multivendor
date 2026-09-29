@@ -624,6 +624,44 @@ final class StockService
     }
 
     /**
+     * Prediksi stok habis per produk (aditif, read-only): laju jual dari
+     * order_items + saran restock + tanggal estimasi. Tidak mengubah mutasi.
+     *
+     * @return array{product_id: int, stock: int, sold: int, window_days: int, daily_rate: float, days_left: float|null, stockout_at: string|null, suggested_restock: int, state: string}
+     */
+    public function forecastForProduct(int $productId, int $days = 30): array
+    {
+        $days = max(1, min(365, $days));
+        $from = now()->subDays($days - 1)->startOfDay();
+        $to = now()->endOfDay();
+
+        $product = Product::query()->findOrFail($productId);
+        $stock = (int) $product->current_stock;
+
+        $sold = (int) DB::table('order_items')
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->where('order_items.product_id', $productId)
+            ->whereIn('orders.order_status', \App\Services\Analytics\AnalyticsService::revenueOrderStatuses())
+            ->whereBetween('orders.created_at', [$from, $to])
+            ->sum('order_items.quantity');
+
+        $rate = round($sold / $days, 4);
+        $daysLeft = $rate > 0 && $stock > 0 ? round($stock / $rate, 1) : ($stock <= 0 ? 0.0 : null);
+
+        return [
+            'product_id' => (int) $product->id,
+            'stock' => $stock,
+            'sold' => $sold,
+            'window_days' => $days,
+            'daily_rate' => $rate,
+            'days_left' => $daysLeft,
+            'stockout_at' => $daysLeft !== null ? now()->addDays((int) floor($daysLeft))->toDateString() : null,
+            'suggested_restock' => $rate > 0 ? max(0, (int) ceil($rate * 30 - $stock)) : 0,
+            'state' => $stock <= 0 ? 'out_of_stock' : ($daysLeft !== null && $daysLeft <= 7 ? 'critical' : ($daysLeft !== null && $daysLeft <= 30 ? 'low' : 'healthy')),
+        ];
+    }
+
+    /**
      * Saran alokasi gudang otomatis (aditif, read-only): tanpa mengunci stok,
      * kembalikan gudang terbaik + rincian ketersediaan per produk.
      *

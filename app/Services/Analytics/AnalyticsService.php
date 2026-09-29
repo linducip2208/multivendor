@@ -146,4 +146,147 @@ abstract class AnalyticsService
 
         return $values;
     }
+
+    // ── Geo & pin peta (aditif, read-only) ──
+
+    /** Jarak garis lurus (haversine) dalam kilometer. */
+    public static function haversineKm(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earth = 6371.0;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+
+        $arc = asin(min(1.0, sqrt(
+            pow(sin($dLat / 2), 2)
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * pow(sin($dLng / 2), 2)
+        )));
+
+        return round($earth * 2 * $arc, 3);
+    }
+
+    /**
+     * Validasi pin lat/lng + radius layanan (bila didukung pemasok radius).
+     *
+     * @return array{valid: bool, within_radius: bool|null, distance_km: float|null, message: string}
+     */
+    public static function validatePinRadius(
+        ?float $latitude,
+        ?float $longitude,
+        ?float $centerLatitude = null,
+        ?float $centerLongitude = null,
+        ?int $radiusKm = null,
+    ): array {
+        if ($latitude === null || $longitude === null) {
+            return ['valid' => false, 'within_radius' => null, 'distance_km' => null, 'message' => 'Pin peta belum dipasang (lat/lng kosong).'];
+        }
+
+        if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
+            return ['valid' => false, 'within_radius' => null, 'distance_km' => null, 'message' => 'Koordinat di luar rentang yang sah.'];
+        }
+
+        if ($centerLatitude === null || $centerLongitude === null || $radiusKm === null) {
+            return ['valid' => true, 'within_radius' => null, 'distance_km' => null, 'message' => 'Pin sah. Validasi radius tidak didukung (radius kosong).'];
+        }
+
+        $distance = self::haversineKm($centerLatitude, $centerLongitude, $latitude, $longitude);
+        $within = $distance <= (float) $radiusKm;
+
+        return [
+            'valid' => true,
+            'within_radius' => $within,
+            'distance_km' => $distance,
+            'message' => $within
+                ? "Pin dalam radius layanan ({$distance} km dari {$radiusKm} km)."
+                : "Pin di luar radius layanan ({$distance} km dari {$radiusKm} km).",
+        ];
+    }
+
+    /**
+     * URL embed peta OpenStreetMap tanpa API key (iframe-ready).
+     */
+    public static function mapEmbedUrl(?float $latitude, ?float $longitude, int $zoom = 15): ?string
+    {
+        if ($latitude === null || $longitude === null) {
+            return null;
+        }
+
+        $delta = max(0.002, 0.06 / max(1, $zoom / 5));
+        $bbox = implode(',', [
+            number_format($longitude - $delta, 7, '.', ''),
+            number_format($latitude - $delta, 7, '.', ''),
+            number_format($longitude + $delta, 7, '.', ''),
+            number_format($latitude + $delta, 7, '.', ''),
+        ]);
+
+        return "https://www.openstreetmap.org/export/embed.html?bbox={$bbox}&layer=mapnik&marker="
+            .number_format($latitude, 7, '.', '').','.number_format($longitude, 7, '.', '');
+    }
+
+    /**
+     * Toko terdekat berdasar kota/provinsi pelanggan.
+     * Urutan: kota sama → provinsi sama → fallback existing (rating, nama).
+     *
+     * @return list<array{id: int, name: string, slug: string, city: string|null, province: string|null, rating: float, score: float, reason: string, latitude: float|null, longitude: float|null, map_url: string|null, shop: \App\Models\Shop}>
+     */
+    public function nearestShops(?string $city, ?string $province, int $limit = 12): array
+    {
+        $city = trim((string) ($city ?? ''));
+        $province = trim((string) ($province ?? ''));
+        $limit = max(1, min(100, $limit));
+
+        try {
+            $shops = \App\Models\Shop::query()
+                ->where('status', 'active')
+                ->orderByDesc('rating_average')
+                ->orderBy('name')
+                ->limit(max(200, $limit * 10))
+                ->get();
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $ranked = $shops->map(function (\App\Models\Shop $shop) use ($city, $province): array {
+            $shopCity = trim((string) ($shop->getAttribute('city') ?? ''));
+            $shopProvince = trim((string) ($shop->getAttribute('province') ?? ''));
+            $score = 0.0;
+            $reason = 'Lainnya';
+
+            if ($city !== '' && $shopCity !== '' && mb_strtolower($shopCity) === mb_strtolower($city)) {
+                $score += 100.0;
+                $reason = 'Sekota dengan Anda';
+            } elseif ($province !== '' && $shopProvince !== '' && mb_strtolower($shopProvince) === mb_strtolower($province)) {
+                $score += 50.0;
+                $reason = 'Seprovinsi dengan Anda';
+            }
+
+            $score += min(20.0, (float) ($shop->getAttribute('rating_average') ?? 0) * 4);
+
+            if ($shop->getAttribute('latitude') !== null && $shop->getAttribute('longitude') !== null) {
+                $score += 5.0;
+            }
+
+            $latitude = $shop->getAttribute('latitude') !== null ? (float) $shop->getAttribute('latitude') : null;
+            $longitude = $shop->getAttribute('longitude') !== null ? (float) $shop->getAttribute('longitude') : null;
+
+            return [
+                'id' => (int) $shop->getKey(),
+                'name' => (string) $shop->name,
+                'slug' => (string) $shop->slug,
+                'city' => $shopCity !== '' ? $shopCity : null,
+                'province' => $shopProvince !== '' ? $shopProvince : null,
+                'rating' => (float) ($shop->getAttribute('rating_average') ?? 0),
+                'score' => round($score, 2),
+                'reason' => $reason,
+                'latitude' => $latitude,
+                'longitude' => $longitude,
+                'map_url' => self::mapEmbedUrl($latitude, $longitude),
+                'shop' => $shop,
+            ];
+        })->sortBy([fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: strcmp($a['name'], $b['name'])])
+            ->values()
+            ->take($limit)
+            ->all();
+
+        return $ranked;
+    }
 }
