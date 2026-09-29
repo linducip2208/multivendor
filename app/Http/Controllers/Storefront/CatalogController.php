@@ -78,6 +78,7 @@ class CatalogController extends Controller
             'shippingEstimate' => $shippingEstimate,
             'breadcrumbItems' => $breadcrumb,
             'variantPayload' => $variantPayload,
+            'trenHarga' => app(\App\Services\Catalog\TrenHarga::class)->untukProduk((int) $product->id),
             'metaTitle' => $product->meta_title ?: $product->name,
             'metaDescription' => $product->meta_description
                 ?: \Illuminate\Support\Str::limit(strip_tags((string) ($product->short_description ?: $product->description)), 155),
@@ -231,19 +232,25 @@ class CatalogController extends Controller
 
     public function flashSale(Request $request)
     {
-        $deal = \App\Models\FlashDeal::query()
+        $aktif = \App\Models\FlashDeal::query()
             ->where('status', true)
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->orderByBestDiscount()
             ->with('products.shop')
-            ->first();
+            ->get();
+
+        // Bila beberapa deal bertabrakan, menangkan satu secara deterministik
+        // (unggulan > diskon terbesar > paling cepat selesai).
+        $deal = \App\Models\FlashDeal::selesaikanOverlap($aktif);
+        $antrean = \App\Models\FlashDeal::antreanTerjadwal(3);
 
         $breadcrumb = [['label' => 'Flash Sale', 'href' => null]];
 
         return view('storefront.flash-sale', [
             'deal' => $deal,
             'products' => $deal?->products->filter()->take(24) ?? collect(),
+            'antrean' => $antrean,
             'breadcrumbItems' => $breadcrumb,
             'metaTitle' => 'Flash Sale',
             'metaDescription' => 'Flash sale '.config('app.name').' — harga terbaik hanya dalam waktu terbatas.',

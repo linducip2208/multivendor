@@ -43,6 +43,21 @@
                     icon="flame"
                 />
             @endif
+
+            @if (($antrean ?? collect())->isNotEmpty())
+                <div class="sf-panel" style="margin-top:24px">
+                    <p class="sf-bold sf-mb-0">Jadwal flash sale berikutnya</p>
+                    <p class="sf-small sf-muted" style="margin-top:4px">Antrean terjadwal — harga kilat akan dibuka otomatis saat waktunya tiba.</p>
+                    <div class="sf-row sf-row--wrap" style="gap:10px;margin-top:12px">
+                        @foreach ($antrean as $jadwal)
+                            <span class="sf-chip">
+                                <x-storefront.icon name="clock" :size="13" />
+                                {{ $jadwal->title }} &middot; mulai {{ $jadwal->start_date?->format('d M Y H:i') }}
+                            </span>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     </section>
 

@@ -126,6 +126,27 @@
                     <p class="sf-tiny sf-muted sf-mb-0" style="margin-top:6px">Harga sudah termasuk pajak produk yang ditampilkan.</p>
                 </div>
 
+                @if (($trenHarga['titik'] ?? []) !== [])
+                    <div class="sf-panel" style="padding:16px" aria-label="Tren harga produk">
+                        <div class="sf-row sf-row--wrap" style="gap:8px;align-items:baseline">
+                            <p class="sf-bold sf-mb-0">Tren harga 30 hari</p>
+                            @if (($trenHarga['arah'] ?? 'stabil') === 'turun')
+                                <span class="sf-badge sf-badge--success">Turun {{ abs((float) ($trenHarga['perubahan_persen'] ?? 0)) }}%</span>
+                            @elseif (($trenHarga['arah'] ?? 'stabil') === 'naik')
+                                <span class="sf-badge sf-badge--warning">Naik {{ abs((float) ($trenHarga['perubahan_persen'] ?? 0)) }}%</span>
+                            @else
+                                <span class="sf-badge sf-badge--info">Stabil</span>
+                            @endif
+                        </div>
+                        <p class="sf-small sf-muted" style="margin:8px 0 0">
+                            Terendah {{ \App\Support\Currency::format((float) ($trenHarga['terendah'] ?? 0)) }}
+                            &middot; rata-rata {{ \App\Support\Currency::format((float) ($trenHarga['rata_rata'] ?? 0)) }}
+                            &middot; tertinggi {{ \App\Support\Currency::format((float) ($trenHarga['tertinggi'] ?? 0)) }}
+                            ({{ \App\Support\Currency::number((float) ($trenHarga['jumlah_transaksi'] ?? 0)) }} transaksi tercatat).
+                        </p>
+                    </div>
+                @endif
+
                 @if ($shortHtml)
                     <div class="sf-prose sf-small">{!! $shortHtml !!}</div>
                 @endif

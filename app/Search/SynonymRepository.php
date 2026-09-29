@@ -41,6 +41,88 @@ class SynonymRepository
         return self::map();
     }
 
+    /**
+     * Normalisasi istilah agar pengelolaan sinonim konsisten
+     * (huruf kecil, tanpa tanda baca, spasi tunggal).
+     */
+    public static function normalisasiIstilah(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        $value = preg_replace('/[^\p{L}\p{N}\s]+/u', ' ', $value) ?? '';
+        $value = trim(preg_replace('/\s+/u', ' ', $value) ?? '');
+
+        return mb_substr($value, 0, 120);
+    }
+
+    /**
+     * Validasi satu baris sinonim sebelum disimpan. Mengembalikan daftar
+     * pesan kesalahan berbahasa Indonesia (kosong bila valid).
+     *
+     * @param  mixed  $synonyms
+     * @return list<string>
+     */
+    public static function validasiBaris(string $term, mixed $synonyms): array
+    {
+        $errors = [];
+        $term = self::normalisasiIstilah($term);
+
+        if ($term === '') {
+            $errors[] = 'Istilah utama wajib diisi.';
+        } elseif (mb_strlen($term) < 2) {
+            $errors[] = 'Istilah utama minimal 2 karakter.';
+        }
+
+        $daftar = is_string($synonyms)
+            ? preg_split('/[,;\n]+/u', $synonyms) ?: []
+            : (array) $synonyms;
+
+        $bersih = [];
+        foreach ($daftar as $item) {
+            $item = self::normalisasiIstilah((string) $item);
+            if ($item !== '' && $item !== $term) {
+                $bersih[$item] = true;
+            }
+        }
+
+        if ($bersih === []) {
+            $errors[] = 'Isi minimal satu sinonim yang berbeda dari istilah utama.';
+        }
+
+        if (count($bersih) > 20) {
+            $errors[] = 'Maksimal 20 sinonim per istilah agar pencarian tetap cepat.';
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Usulan sinonim baru dari istilah populer yang belum tercakup:
+     * diambil dari analitik pencarian, diurutkan dari yang paling sering.
+     *
+     * @return list<array{term: string, occurrences: int}>
+     */
+    public static function usulanDariAnalytics(int $batas = 10): array
+    {
+        $map = self::map();
+        $out = [];
+
+        foreach (SearchAnalytics::topQueries(30, 100) as $row) {
+            $term = self::normalisasiIstilah((string) ($row['term'] ?? ''));
+
+            if ($term === '' || isset($map[$term])) {
+                continue;
+            }
+
+            $out[] = ['term' => $term, 'occurrences' => (int) ($row['occurrences'] ?? 0)];
+
+            if (count($out) >= max(1, $batas)) {
+                break;
+            }
+        }
+
+        return $out;
+    }
+
     public static function phrase(string $token): ?string
     {
         $map = self::map();

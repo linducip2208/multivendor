@@ -141,6 +141,82 @@ class Product extends Model
         return $stock > 0 && $stock <= (int) $this->low_stock_threshold;
     }
 
+    /**
+     * Gandakan produk beserta variannya memakai kolom yang sudah ada.
+     * Salinan selalu berstatus menunggu persetujuan dan tidak tayang,
+     * sehingga tidak ada produk ganda yang lolos tanpa moderasi.
+     */
+    public function duplikasikan(): Product
+    {
+        $salinan = $this->replicate([
+            'slug', 'sku', 'barcode', 'sold_count', 'view_count',
+            'rating_average', 'rating_count', 'approved_by', 'approved_at',
+        ]);
+
+        $dasar = trim((string) $this->name).' (Salinan)';
+        $salinan->name = $dasar;
+        $salinan->slug = static::slugUnik(\Illuminate\Support\Str::slug($dasar) ?: 'produk');
+        $salinan->sku = null;
+        $salinan->barcode = null;
+        $salinan->status = 'pending';
+        $salinan->published = false;
+        $salinan->approved_by = null;
+        $salinan->approved_at = null;
+        $salinan->sold_count = 0;
+        $salinan->view_count = 0;
+        $salinan->rating_average = 0;
+        $salinan->rating_count = 0;
+        $salinan->save();
+
+        foreach ($this->relationLoaded('variants') ? $this->variants : $this->variants()->get() as $varian) {
+            $salinanVarian = $varian->replicate(['sku']);
+            $salinanVarian->product_id = $salinan->id;
+            $salinanVarian->sku = null;
+            $salinanVarian->save();
+        }
+
+        return $salinan->refresh();
+    }
+
+    public static function slugUnik(string $dasar): string
+    {
+        $slug = $dasar;
+        $angka = 1;
+
+        while (static::query()->where('slug', $slug)->exists()) {
+            $angka++;
+            $slug = $dasar.'-'.$angka;
+        }
+
+        return $slug;
+    }
+
+    /**
+     * Arsip ringan memakai kolom existing: tidak tayang + ditangguhkan.
+     * Penjadwalan tayang otomatis (published_at) belum didukung model,
+     * jadi arsip selalu manual lewat metode ini.
+     */
+    public function arsipkan(): bool
+    {
+        return (bool) $this->forceFill([
+            'published' => false,
+            'status' => 'suspended',
+        ])->save();
+    }
+
+    public function pulihkanDariArsip(): bool
+    {
+        return (bool) $this->forceFill([
+            'published' => false,
+            'status' => 'pending',
+        ])->save();
+    }
+
+    public function diarsipkan(): bool
+    {
+        return ! (bool) $this->published && (string) $this->status === 'suspended';
+    }
+
     public function hasActiveSpecialPrice(): bool
     {
         if ($this->special_price === null) {

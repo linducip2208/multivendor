@@ -104,6 +104,19 @@
                             label="Lihat semua produk"
                             icon="search"
                         />
+                        @if (($saranNolHasil ?? []) !== [])
+                            <div class="sf-panel" style="margin-top:16px">
+                                <p class="sf-tiny sf-bold sf-muted sf-mb-0" style="text-transform:uppercase;letter-spacing:.08em">Mungkin maksud Anda</p>
+                                <div class="sf-row sf-row--wrap" style="gap:8px;margin-top:10px">
+                                    @foreach ($saranNolHasil as $saran)
+                                        <a href="{{ $saran['url'] ?? route('search', ['q' => $saran['term']]) }}" class="sf-chip">
+                                            <x-storefront.icon name="search" :size="13" /> {{ $saran['term'] }}
+                                        </a>
+                                    @endforeach
+                                </div>
+                                <p class="sf-tiny sf-muted sf-mb-0" style="margin-top:10px">Saran diambil otomatis dari pencarian populer pelanggan lain.</p>
+                            </div>
+                        @endif
                     @else
                         <div class="sf-products" data-sf-product-grid>
                             @foreach ($products as $product)

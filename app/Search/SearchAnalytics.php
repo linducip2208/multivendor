@@ -182,6 +182,81 @@ class SearchAnalytics
         }
     }
 
+    /**
+     * Saran otomatis saat pencarian tidak menghasilkan apa-apa: cari istilah
+     * populer dari analitik yang mirip dengan kata kunci gagal, lalu lengkapi
+     * dengan istilah zero-result yang paling sering dicari pelanggan lain.
+     *
+     * @return list<array{term: string, url: string|null, occurrences: int}>
+     */
+    public static function saranUntukNolHasil(string $term, int $batas = 5): array
+    {
+        $normal = TextNormalizer::normalize($term);
+
+        if ($normal === '' || ! self::tableReady()) {
+            return [];
+        }
+
+        $batas = max(1, min(10, $batas));
+        $populer = self::topQueries(30, 100);
+
+        if ($populer === []) {
+            return [];
+        }
+
+        $kataKunci = array_values(array_filter(preg_split('/\s+/u', $normal) ?: []));
+        $skor = [];
+
+        foreach ($populer as $row) {
+            $calon = (string) ($row['term'] ?? '');
+
+            if ($calon === '' || $calon === $normal) {
+                continue;
+            }
+
+            $nilai = 0.0;
+
+            if (str_contains($calon, $normal) || str_contains($normal, $calon)) {
+                $nilai = 90.0;
+            } else {
+                foreach ($kataKunci as $kata) {
+                    if (mb_strlen($kata) >= 3 && str_contains($calon, $kata)) {
+                        $nilai += 25.0;
+                    }
+                }
+
+                similar_text($normal, $calon, $persen);
+                $nilai += (float) $persen / 4;
+            }
+
+            // Istilah yang memang menghasilkan produk diprioritaskan.
+            if ((int) ($row['hits'] ?? 0) > 0) {
+                $nilai += 15.0;
+            }
+
+            $skor[] = ['term' => $calon, 'occurrences' => (int) ($row['occurrences'] ?? 0), 'skor' => $nilai];
+        }
+
+        usort($skor, static fn (array $a, array $b): int => $b['skor'] <=> $a['skor'] ?: $b['occurrences'] <=> $a['occurrences']);
+
+        $out = [];
+        foreach (array_slice($skor, 0, $batas) as $item) {
+            if ($item['skor'] <= 1.0 && $out !== []) {
+                continue;
+            }
+
+            try {
+                $url = route('search', ['q' => $item['term']]);
+            } catch (Throwable) {
+                $url = null;
+            }
+
+            $out[] = ['term' => $item['term'], 'url' => $url, 'occurrences' => $item['occurrences']];
+        }
+
+        return $out;
+    }
+
     public static function hash(?string $value): ?string
     {
         if ($value === null || $value === '') {

@@ -59,11 +59,27 @@ class InnovativeController extends Controller
     }
 
     // Price History API for product detail
+    // Diperdalam: kembalikan titik harian + ringkasan tren (terendah,
+    // tertinggi, rata-rata, arah) memakai TrenHarga agar konsisten dengan PDP.
     public function priceHistory(Product $product) {
-        $history = \App\Models\OrderItem::where('product_id',$product->id)
-            ->whereHas('order',fn($q)=>$q->where('order_status','!=','canceled'))
-            ->selectRaw('DATE(created_at) as date, AVG(price) as avg_price')
-            ->groupBy('date')->orderBy('date','desc')->take(30)->get();
-        return response()->json($history);
+        $tren = app(\App\Services\Catalog\TrenHarga::class)->untukProduk((int) $product->id);
+
+        return response()->json([
+            'titik' => $tren['titik'],
+            'ringkasan' => [
+                'terkini' => $tren['terkini'],
+                'terendah' => $tren['terendah'],
+                'tertinggi' => $tren['tertinggi'],
+                'rata_rata' => $tren['rata_rata'],
+                'perubahan_persen' => $tren['perubahan_persen'],
+                'arah' => $tren['arah'],
+                'jumlah_transaksi' => $tren['jumlah_transaksi'],
+            ],
+            // Kompatibilitas mundur: respons lama berupa array titik {date, avg_price}.
+            'riwayat' => collect($tren['titik'])->map(fn (array $t): array => [
+                'date' => $t['tanggal'],
+                'avg_price' => $t['harga'],
+            ])->all(),
+        ]);
     }
 }

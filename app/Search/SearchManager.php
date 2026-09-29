@@ -100,6 +100,33 @@ class SearchManager
         return $this->degradedDriver;
     }
 
+    /**
+     * Bobot boosting peringkat yang sedang berlaku (config-driven).
+     * Kunci sama dengan `search.ranking.weights`; nilainya angka.
+     *
+     * @return array<string, float>
+     */
+    public function bobotPeringkat(): array
+    {
+        $bawaan = [
+            'sku_exact' => 1200, 'barcode_exact' => 1150, 'name_exact' => 1000,
+            'name_prefix' => 700, 'name_contains' => 480, 'token_name_prefix' => 220,
+            'token_coverage' => 150, 'phrase_bonus' => 320, 'category_match' => 120,
+            'brand_match' => 110, 'shop_match' => 90, 'attribute_match' => 70,
+            'popularity' => 26, 'rating' => 6, 'freshness' => 24,
+            'in_stock' => 45, 'featured' => 18,
+        ];
+
+        $konfigurasi = (array) config('search.ranking.weights', []);
+        $out = [];
+
+        foreach ($bawaan as $kunci => $nilai) {
+            $out[$kunci] = (float) ($konfigurasi[$kunci] ?? $nilai);
+        }
+
+        return $out;
+    }
+
     private function fallbackDriver(): SearchDriver
     {
         $fallback = (string) config('search.fallback', 'database');

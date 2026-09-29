@@ -34,6 +34,93 @@ class FlashDeal extends Model
     {
         $query->orderByRaw(static::bestDiscountExpression().' '.($direction === 'asc' ? 'asc' : 'desc'));
     }
+
+    /**
+     * @param \Illuminate\Database\Eloquent\Builder<FlashDeal> $query
+     */
+    public function scopeAktif($query)
+    {
+        return $query->where('status', true);
+    }
+
+    /**
+     * @param \Illuminate\Database\Eloquent\Builder<FlashDeal> $query
+     */
+    public function scopeBerlangsung($query)
+    {
+        return $query->where('status', true)
+            ->where('start_date', '<=', now())
+            ->where('end_date', '>=', now());
+    }
+
+    /**
+     * Antrean terjadwal: deal aktif yang waktu mulainya masih di depan,
+     * diurutkan dari yang paling dekat.
+     *
+     * @param \Illuminate\Database\Eloquent\Builder<FlashDeal> $query
+     */
+    public function scopeTerjadwal($query)
+    {
+        return $query->where('status', true)
+            ->where('start_date', '>', now())
+            ->orderBy('start_date');
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, FlashDeal>
+     */
+    public static function antreanTerjadwal(int $batas = 3): \Illuminate\Support\Collection
+    {
+        return static::query()->terjadwal()->limit(max(1, $batas))->get();
+    }
+
+    /**
+     * Resolusi overlap: bila beberapa deal berjalan bersamaan, pilih satu
+     * pemenang dengan prioritas: unggulan (featured) dulu, lalu diskon
+     * efektif terbesar, lalu yang paling cepat selesai, lalu yang paling
+     * dulu mulai. Deterministik dan bisa diuji tanpa database.
+     *
+     * @param  iterable<FlashDeal>  $deals
+     */
+    public static function selesaikanOverlap(iterable $deals): ?FlashDeal
+    {
+        $terbaik = null;
+        $kunciTerbaik = null;
+
+        foreach ($deals as $deal) {
+            if (! $deal instanceof self) {
+                continue;
+            }
+
+            $kunci = [
+                $deal->featured ? 0 : 1,
+                -1 * $deal->bestDiscountPercentage(),
+                (string) ($deal->end_date?->format('Y-m-d H:i:s') ?? '9999'),
+                (string) ($deal->start_date?->format('Y-m-d H:i:s') ?? '9999'),
+                (int) ($deal->getKey() ?? 0),
+            ];
+
+            if ($kunciTerbaik === null || $kunci < $kunciTerbaik) {
+                $kunciTerbaik = $kunci;
+                $terbaik = $deal;
+            }
+        }
+
+        return $terbaik;
+    }
+
+    /**
+     * Apakah jendela waktu deal ini bertabrakan dengan deal lain.
+     */
+    public function bertabrakanDengan(FlashDeal $lain): bool
+    {
+        if ($this->start_date === null || $this->end_date === null
+            || $lain->start_date === null || $lain->end_date === null) {
+            return false;
+        }
+
+        return $this->start_date <= $lain->end_date && $lain->start_date <= $this->end_date;
+    }
     protected function casts(): array
     {
         return [
