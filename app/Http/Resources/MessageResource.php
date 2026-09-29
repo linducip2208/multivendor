@@ -24,7 +24,7 @@ class MessageResource extends JsonResource
             'read_at' => ApiResponse::iso($this->read_at),
             'author' => $this->whenLoaded('author', fn () => $this->author === null ? null : [
                 'id' => (int) $this->author->id,
-                'name' => $this->author->name,
+                'name' => $this->author->name ?? null,
                 'avatar' => $this->author->avatar ?? null,
                 'role' => $this->author->role ?? null,
             ]),

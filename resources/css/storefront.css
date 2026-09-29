@@ -25,6 +25,7 @@
     --sf-brand: var(--tblr-primary, #4f46e5);
     --sf-brand-600: #4338ca;
     --sf-brand-700: #3730a3;
+    --sf-brand-strong: #4338ca;
     --sf-brand-contrast: #ffffff;
     --sf-accent: var(--tblr-orange, #f97316);
     --sf-success: var(--tblr-success, #059669);
@@ -122,6 +123,7 @@ body.sf {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
     overflow-wrap: break-word;
+    overflow-x: clip;
 }
 
 body.sf.is-locked { overflow: hidden; }
@@ -397,6 +399,7 @@ p { margin: 0 0 1em; }
 .sf-mega {
     position: absolute;
     left: 0; right: 0;
+    max-width: 100%;
     background: var(--sf-surface-raised);
     border: 1px solid var(--sf-border);
     border-radius: var(--sf-radius);
@@ -1311,6 +1314,7 @@ p { margin: 0 0 1em; }
 @media (min-width: 992px) { .sf-cartlayout { grid-template-columns: minmax(0, 1fr) 360px; gap: 32px; } }
 
 .sf-cartline { display: grid; grid-template-columns: 84px 1fr auto; gap: 14px; align-items: center; padding-block: 16px; border-bottom: 1px solid var(--sf-border); }
+.sf-cartline > * { min-width: 0; }
 .sf-cartline__img { width: 84px; height: 84px; object-fit: cover; border-radius: var(--sf-radius-sm); background: var(--sf-bg-muted); }
 .sf-cartline__name { font-size: .9rem; font-weight: 500; margin-bottom: 4px; display: block; }
 .sf-cartline__meta { font-size: .78rem; color: var(--sf-text-muted); }
@@ -1327,7 +1331,7 @@ p { margin: 0 0 1em; }
 .sf-summary__label { color: var(--sf-text-muted); }
 .sf-summary__value--discount { color: var(--sf-danger); }
 
-.sf-steps { display: flex; align-items: center; gap: 0; margin-bottom: 24px; }
+.sf-steps { display: flex; align-items: center; gap: 0; margin-bottom: 24px; flex-wrap: wrap; row-gap: 10px; }
 .sf-step { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--sf-text-subtle); font-weight: 600; }
 .sf-step__num {
     width: 26px; height: 26px;
@@ -1412,7 +1416,7 @@ p { margin: 0 0 1em; }
    16. Tables
    ====================================================================== */
 
-.sf-tablewrap { overflow-x: auto; border: 1px solid var(--sf-border); border-radius: var(--sf-radius); background: var(--sf-surface); }
+.sf-tablewrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--sf-border); border-radius: var(--sf-radius); background: var(--sf-surface); max-width: 100%; }
 .sf-table { width: 100%; border-collapse: collapse; font-size: .875rem; min-width: 640px; }
 .sf-table th {
     text-align: left;
@@ -1605,7 +1609,7 @@ body.sf-has-bottomnav { padding-bottom: calc(64px + env(safe-area-inset-bottom))
    20. Prose (blog, descriptions, legal pages)
    ====================================================================== */
 
-.sf-prose { max-width: 72ch; line-height: 1.75; color: var(--sf-text); }
+.sf-prose { max-width: 72ch; line-height: 1.75; color: var(--sf-text); overflow-wrap: anywhere; }
 .sf-prose > * + * { margin-top: 1.1em; }
 .sf-prose h2 { margin-top: 1.8em; font-size: 1.5rem; }
 .sf-prose h3 { margin-top: 1.5em; font-size: 1.2rem; }
@@ -1620,7 +1624,7 @@ body.sf-has-bottomnav { padding-bottom: calc(64px + env(safe-area-inset-bottom))
     border-radius: 0 var(--sf-radius-sm) var(--sf-radius-sm) 0;
     color: var(--sf-text-muted);
 }
-.sf-prose table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.sf-prose table { width: 100%; border-collapse: collapse; font-size: .9rem; display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .sf-prose th, .sf-prose td { padding: 9px 12px; border: 1px solid var(--sf-border); text-align: left; }
 .sf-prose th { background: var(--sf-bg-subtle); }
 

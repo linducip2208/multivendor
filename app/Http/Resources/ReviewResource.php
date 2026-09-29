@@ -25,7 +25,7 @@ class ReviewResource extends JsonResource
             'product' => new ProductResource($this->whenLoaded('product')),
             'customer' => $this->whenLoaded('customer', fn () => $this->customer === null ? null : [
                 'id' => (int) $this->customer->id,
-                'name' => $this->customer->name,
+                'name' => $this->customer->name ?? null,
                 'avatar' => $this->customer->avatar ?? null,
             ]),
         ];

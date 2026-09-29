@@ -53,8 +53,8 @@ class OrderResource extends JsonResource
                 'refund_status' => $item->refund_status ?? null,
                 'product' => $item->product === null ? null : [
                     'id' => (int) $item->product->id,
-                    'name' => $item->product->name,
-                    'slug' => $item->product->slug,
+                    'name' => $item->product->name ?? null,
+                    'slug' => $item->product->slug ?? null,
                     'thumbnail' => $item->product->thumbnail ?? null,
                 ],
             ])->all()),

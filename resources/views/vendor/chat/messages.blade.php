@@ -1,7 +1,7 @@
 @extends('layouts.vendor')
 @include('vendor.partials.helpers')
 
-@section('title', 'Chat dengan '.$participants->first()->user->name)
+@section('title', 'Chat dengan '.($participants->first()?->user?->name ?? 'Pelanggan'))
 @section('subtitle', $conversation->subject)
 
 @section('breadcrumb', [

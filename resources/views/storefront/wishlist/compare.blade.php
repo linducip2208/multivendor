@@ -45,13 +45,13 @@
                                 <th scope="col" style="min-width:150px">Produk</th>
                                 @foreach ($entries as $entry)
                                     <th scope="col" style="min-width:200px;vertical-align:top">
-                                        <a href="{{ $entry->product->storefront_url }}" class="sf-clamp-2"
-                                           style="display:-webkit-box;color:var(--sf-text)">{{ $entry->product->name }}</a>
+                                        <a href="{{ $entry->product?->storefront_url ?? route('products.index') }}" class="sf-clamp-2"
+                                           style="display:-webkit-box;color:var(--sf-text)">{{ $entry->product?->name ?? 'Produk' }}</a>
                                         <form method="POST" action="{{ route('compare.remove', ['item' => $entry->id]) }}" style="margin-top:8px">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="sf-btn sf-btn--ghost sf-btn--sm"
-                                                    aria-label="Hapus {{ $entry->product->name }} dari perbandingan">
+                                                     aria-label="Hapus {{ $entry->product?->name ?? 'produk' }} dari perbandingan">
                                                 <x-storefront.icon name="trash" :size="14" /> Hapus
                                             </button>
                                         </form>
@@ -64,9 +64,9 @@
                                 <th scope="row">Gambar</th>
                                 @foreach ($entries as $entry)
                                     <td>
-                                        <a href="{{ $entry->product->storefront_url }}" aria-label="Lihat {{ $entry->product->name }}">
-                                            @if ($entry->product->thumbnail_url)
-                                                <img src="{{ $entry->product->thumbnail_url }}" alt="{{ $entry->product->name }}"
+                                        <a href="{{ $entry->product?->storefront_url ?? route('products.index') }}" aria-label="Lihat {{ $entry->product?->name ?? 'produk' }}">
+                                            @if ($entry->product?->thumbnail_url)
+                                                <img src="{{ $entry->product?->thumbnail_url }}" alt="{{ $entry->product?->name ?? 'Produk' }}"
                                                      loading="lazy" width="160" height="160" decoding="async"
                                                      style="width:100%;max-width:160px;aspect-ratio:1;object-fit:cover;border-radius:var(--sf-radius-sm);background:var(--sf-bg-muted)">
                                             @else
@@ -96,8 +96,8 @@
                                 <th scope="row">Toko</th>
                                 @foreach ($entries as $entry)
                                     <td>
-                                        @if ($entry->product->shop)
-                                            <a href="{{ route('shop.show', $entry->product->shop->slug) }}">{{ $entry->product->shop->name }}</a>
+                                        @if ($entry->product?->shop?->slug)
+                                            <a href="{{ route('shop.show', $entry->product->shop->slug) }}">{{ $entry->product->shop->name ?? '-' }}</a>
                                         @else
                                             <span class="sf-muted">-</span>
                                         @endif
@@ -108,8 +108,8 @@
                                 <th scope="row">Kategori</th>
                                 @foreach ($entries as $entry)
                                     <td>
-                                        @if ($entry->product->category)
-                                            <a href="{{ route('categories.show', $entry->product->category->slug) }}">{{ $entry->product->category->name }}</a>
+                                        @if ($entry->product?->category?->slug)
+                                            <a href="{{ route('categories.show', $entry->product->category->slug) }}">{{ $entry->product->category->name ?? '-' }}</a>
                                         @else
                                             <span class="sf-muted">-</span>
                                         @endif
@@ -120,8 +120,8 @@
                                 <th scope="row">Merek</th>
                                 @foreach ($entries as $entry)
                                     <td>
-                                        @if ($entry->product->brand)
-                                            <a href="{{ route('brands.show', $entry->product->brand->slug) }}">{{ $entry->product->brand->name }}</a>
+                                        @if ($entry->product?->brand?->slug)
+                                            <a href="{{ route('brands.show', $entry->product->brand->slug) }}">{{ $entry->product->brand->name ?? '-' }}</a>
                                         @else
                                             <span class="sf-muted">-</span>
                                         @endif
@@ -170,7 +170,7 @@
                                 <th scope="row">Tautan</th>
                                 @foreach ($entries as $entry)
                                     <td>
-                                        <a href="{{ $entry->product->storefront_url }}" class="sf-btn sf-btn--primary sf-btn--sm">
+                                        <a href="{{ $entry->product?->storefront_url ?? route('products.index') }}" class="sf-btn sf-btn--primary sf-btn--sm">
                                             Lihat produk
                                         </a>
                                     </td>

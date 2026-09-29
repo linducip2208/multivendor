@@ -23,17 +23,25 @@ class ConversationResource extends JsonResource
             'order_id' => $this->order_id === null ? null : (int) $this->order_id,
             'unread_count' => $this->when(isset($this->unread_count), (int) $this->unread_count),
             'messages_count' => $this->when(isset($this->messages_count), (int) $this->messages_count),
-            'last_message' => $this->whenLoaded('messages', fn () => $this->messages->last() === null ? null : [
-                'id' => (int) $this->messages->last()->id,
-                'body' => $this->messages->last()->deleted_at === null ? $this->messages->last()->body : null,
-                'created_at' => ApiResponse::iso($this->messages->last()->created_at),
-            ]),
+            'last_message' => $this->whenLoaded('messages', function () {
+                $last = $this->messages->last();
+
+                if ($last === null) {
+                    return null;
+                }
+
+                return [
+                    'id' => (int) $last->id,
+                    'body' => $last->deleted_at === null ? $last->body : null,
+                    'created_at' => ApiResponse::iso($last->created_at),
+                ];
+            }),
             'messages' => MessageResource::collection($this->whenLoaded('messages')),
             'shop' => new ShopPublicResource($this->whenLoaded('shop')),
             'order' => $this->whenLoaded('order', fn () => $this->order === null ? null : [
                 'id' => (int) $this->order->id,
-                'order_number' => $this->order->order_number,
-                'status' => $this->order->order_status,
+                'order_number' => $this->order->order_number ?? null,
+                'status' => $this->order->order_status ?? null,
             ]),
             'first_reply_at' => ApiResponse::iso($this->first_reply_at),
             'last_message_at' => ApiResponse::iso($this->last_message_at),

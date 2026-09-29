@@ -67,7 +67,7 @@
                             <div class="sf-card__body">
                                 <h2 class="sf-footer__title" id="sf-order-vendor-{{ $shopId }}">
                                     @if ($items->first()?->product?->shop)
-                                        <a href="{{ route('shop.show', $items->first()->product->shop->slug) }}">{{ $items->first()->product->shop->name }}</a>
+                                        <a href="{{ $items->first()?->product?->shop?->slug ? route('shop.show', $items->first()->product->shop->slug) : route('products.index') }}">{{ $items->first()?->product?->shop?->name ?? 'Produk' }}</a>
                                     @else
                                         Produk
                                     @endif
@@ -91,7 +91,7 @@
                                                         <a href="{{ $item->product?->storefront_url ?? route('products.index') }}" class="sf-row" style="gap:10px">
                                                             <span style="width:44px;height:44px;border-radius:var(--sf-radius-xs);overflow:hidden;background:var(--sf-bg-muted);flex-shrink:0">
                                                                 @if ($item->product?->thumbnail_url)
-                                                                    <img src="{{ $item->product->thumbnail_url }}" alt="{{ $item->product->name }}"
+                                                                     <img src="{{ $item->product?->thumbnail_url }}" alt="{{ $item->product?->name ?? 'Produk' }}"
                                                                          loading="lazy" width="88" height="88" decoding="async"
                                                                          style="width:100%;height:100%;object-fit:cover">
                                                                 @else
@@ -127,7 +127,7 @@
                                         @if ($item->product?->product_type === 'digital')
                                             <div class="sf-row sf-row--wrap" style="gap:8px">
                                                 <span class="sf-small sf-clamp-2" style="flex:1 1 180px;min-width:0">
-                                                    {{ $item->product->name }}
+                                                    {{ $item->product?->name ?? 'Produk tidak tersedia' }}
                                                 </span>
                                                 <form method="POST" action="{{ route('download.otp', $item) }}">
                                                     @csrf
@@ -225,10 +225,10 @@
                     <section class="sf-panel" aria-labelledby="sf-order-meta">
                         <h2 class="sf-footer__title" id="sf-order-meta">Informasi pengiriman</h2>
                         <div class="sf-summary">
-                            @if ($order->shop)
+                            @if ($order->shop?->slug)
                                 <div class="sf-summary__row">
                                     <span class="sf-summary__label">Toko</span>
-                                    <a href="{{ route('shop.show', $order->shop->slug) }}">{{ $order->shop->name }}</a>
+                                    <a href="{{ route('shop.show', $order->shop->slug) }}">{{ $order->shop->name ?? 'Toko' }}</a>
                                 </div>
                             @endif
                             <div class="sf-summary__row">

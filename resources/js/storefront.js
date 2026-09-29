@@ -292,7 +292,7 @@ function initGallery() {
 
     const openLightbox = () => {
         if (!lightbox) return;
-        lightboxImg.src = main.querySelector('img')?.src ?? '';
+        if (lightboxImg) lightboxImg.src = main.querySelector('img')?.src ?? '';
         lightbox.hidden = false;
         document.body.classList.add('is-locked');
         lightbox.querySelector('[data-lightbox-close]')?.focus();
@@ -360,7 +360,13 @@ function initVariants() {
     const root = $('[data-sf-variants]');
     if (!root) return;
 
-    const payload = JSON.parse(root.dataset.sfVariants || '{}');
+    let payload = {};
+    try {
+        payload = JSON.parse(root.dataset.sfVariants || '{}');
+    } catch {
+        payload = {};
+    }
+    if (payload === null || typeof payload !== 'object') payload = {};
     const qtyInput = $('[data-sf-qty-input]');
     const priceEl = $('[data-sf-variant-price]');
     const stockEl = $('[data-sf-variant-stock]');
@@ -431,19 +437,30 @@ function initVariants() {
 
 function initWishlist() {
     $$('[data-sf-wishlist]').forEach((btn) => {
+        if (btn.dataset.sfWishlistBooted === '1') return;
+        btn.dataset.sfWishlistBooted = '1';
         btn.addEventListener('click', async (e) => {
             e.preventDefault();
             if (btn.dataset.signedOut === '1') {
                 toast('Masuk terlebih dahulu untuk menyimpan favorit.', 'info');
                 return;
             }
+            const url = btn.dataset.sfWishlist;
+            if (!url) {
+                toast('Tautan favorit tidak tersedia.', 'error');
+                return;
+            }
             btn.disabled = true;
             try {
-                const res = await fetch(btn.dataset.sfWishlist, {
+                const res = await fetch(url, {
                     method: 'POST',
                     headers: { 'X-CSRF-TOKEN': CSRF, Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                 });
-                const json = await res.json();
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    toast(json.message ?? 'Gagal memperbarui favorit.', 'error');
+                    return;
+                }
                 if (json.active) {
                     btn.setAttribute('aria-pressed', 'true');
                     toast(json.message ?? 'Ditambahkan ke favorit.', 'success');
@@ -466,6 +483,8 @@ function initWishlist() {
 
 function initAddToCart() {
     $$('[data-sf-add-cart-form]').forEach((form) => {
+        if (form.dataset.sfCartBooted === '1') return;
+        form.dataset.sfCartBooted = '1';
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (form.dataset.signedOut === '1') {
@@ -523,6 +542,7 @@ function initCountdowns() {
     const tick = () => {
         $$('[data-sf-countdown]').forEach((el) => {
             const end = new Date(el.dataset.sfCountdown).getTime();
+            if (Number.isNaN(end)) return;
             let diff = Math.max(0, Math.floor((end - Date.now()) / 1000));
             if (diff === 0) {
                 el.innerHTML = '<span class="sf-countdown__label">Berakhir</span>';
@@ -608,9 +628,16 @@ function initTheme() {
 
 function initCopy() {
     $$('[data-sf-copy]').forEach((btn) => {
+        if (btn.dataset.sfCopyBooted === '1') return;
+        btn.dataset.sfCopyBooted = '1';
         btn.addEventListener('click', async () => {
+            const text = btn.dataset.sfCopy ?? '';
+            if (!text) {
+                toast('Tidak ada teks untuk disalin.', 'error');
+                return;
+            }
             try {
-                await navigator.clipboard.writeText(btn.dataset.sfCopy);
+                await navigator.clipboard.writeText(text);
                 const old = btn.textContent;
                 btn.textContent = 'Tersalin';
                 setTimeout(() => (btn.textContent = old), 1600);
@@ -653,6 +680,8 @@ function initProductGridLoading() {
  * ------------------------------------------------------------------ */
 
 function boot() {
+    if (window.__sfBooted) return;
+    window.__sfBooted = true;
     initTheme();
     initSearch();
     initDrawers();

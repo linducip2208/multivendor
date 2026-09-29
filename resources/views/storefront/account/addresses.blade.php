@@ -88,13 +88,13 @@
                                 <div class="sf-field">
                                     <label class="sf-label" for="sf-acc-name">Nama penerima <span class="sf-required">*</span></label>
                                     <input class="sf-input" id="sf-acc-name" type="text" name="receiver_name" required
-                                           value="{{ old('receiver_name', auth()->user()->name) }}">
+                                           value="{{ old('receiver_name', auth()->user()?->name ?? '') }}">
                                     @error('receiver_name')<span class="sf-error">{{ $message }}</span>@enderror
                                 </div>
                                 <div class="sf-field">
                                     <label class="sf-label" for="sf-acc-phone">Nomor telepon <span class="sf-required">*</span></label>
                                     <input class="sf-input" id="sf-acc-phone" type="tel" name="receiver_phone" required
-                                           value="{{ old('receiver_phone', auth()->user()->phone) }}">
+                                           value="{{ old('receiver_phone', auth()->user()?->phone ?? '') }}">
                                     @error('receiver_phone')<span class="sf-error">{{ $message }}</span>@enderror
                                 </div>
                                 <div class="sf-field" style="grid-column:1/-1">

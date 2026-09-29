@@ -2,7 +2,7 @@
 
 @section('content')
     @php
-        $wallet = $wallet ?? auth()->user()->wallet;
+        $wallet = $wallet ?? auth()->user()?->wallet;
         $transactions = $transactions ?? null;
         $paginator = method_exists($transactions ?? null, 'links') || $transactions instanceof \Illuminate\Contracts\Pagination\Paginator
             ? $transactions
@@ -39,7 +39,7 @@
                         </p>
                         @if ((float) ($wallet?->pending_balance ?? 0) > 0)
                             <p class="sf-small sf-muted sf-mb-0" style="margin-top:6px">
-                                Saldo tertahan {{ \App\Support\Currency::format($wallet->pending_balance) }}
+                                Saldo tertahan {{ \App\Support\Currency::format($wallet?->pending_balance ?? 0) }}
                             </p>
                         @endif
                     </section>

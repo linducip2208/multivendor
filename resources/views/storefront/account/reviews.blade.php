@@ -42,7 +42,7 @@
                                             <div class="sf-row sf-row--wrap" style="gap:12px;align-items:flex-start">
                                                 <span style="width:60px;height:60px;border-radius:var(--sf-radius-sm);overflow:hidden;background:var(--sf-bg-muted);flex-shrink:0">
                                                     @if ($item->product?->thumbnail_url)
-                                                        <img src="{{ $item->product->thumbnail_url }}" alt="" width="120" height="120"
+                                                         <img src="{{ $item->product?->thumbnail_url }}" alt="" width="120" height="120"
                                                              loading="lazy" decoding="async" style="width:100%;height:100%;object-fit:cover">
                                                     @else
                                                         <span class="sf-row" style="justify-content:center;height:100%;color:var(--sf-text-subtle)">
@@ -99,7 +99,7 @@
                                         <article class="sf-review">
                                             <div class="sf-review__head">
                                                 @if ($review->product?->thumbnail_url)
-                                                    <img src="{{ $review->product->thumbnail_url }}" alt="" width="44" height="44"
+                                                     <img src="{{ $review->product?->thumbnail_url }}" alt="" width="44" height="44"
                                                          loading="lazy" decoding="async"
                                                          style="width:44px;height:44px;border-radius:var(--sf-radius-xs);object-fit:cover">
                                                 @endif

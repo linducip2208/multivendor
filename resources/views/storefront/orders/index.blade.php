@@ -67,7 +67,7 @@
                                     @foreach ($order->items->take(3) as $item)
                                         <span style="width:56px;height:56px;border-radius:var(--sf-radius-sm);overflow:hidden;background:var(--sf-bg-muted);flex-shrink:0">
                                             @if ($item->product?->thumbnail_url)
-                                                <img src="{{ $item->product->thumbnail_url }}" alt="{{ $item->product->name }}"
+                                                 <img src="{{ $item->product?->thumbnail_url }}" alt="{{ $item->product?->name ?? 'Produk' }}"
                                                      loading="lazy" width="112" height="112" decoding="async"
                                                      style="width:100%;height:100%;object-fit:cover">
                                             @else

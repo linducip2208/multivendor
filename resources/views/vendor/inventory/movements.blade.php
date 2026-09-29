@@ -42,7 +42,7 @@
                     ->rows(
                         $movements->map(fn ($movement) => [
                             'date' => e($movement->created_at?->format('d/m/Y H:i') ?? '-'),
-                            'product' => '<span class="fw-medium d-block text-truncate">'.e($movement->product?->name ?? 'Produk dihapus').'</span><span class="text-secondary small">'.e($movement->product?->sku).'</span>',
+                            'product' => '<span class="fw-medium d-block text-truncate">'.e($movement->product?->name ?? 'Produk dihapus').'</span><span class="text-secondary small">'.e($movement->product?->sku ?? '').'</span>',
                             'type' => $__status($movement->type, [
                                 'in' => ['Barang masuk', 'success'],
                                 'out' => ['Barang keluar', 'warning'],

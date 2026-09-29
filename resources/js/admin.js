@@ -422,6 +422,9 @@ function initSelect2() {
     const $ = window.jQuery;
 
     document.querySelectorAll('select[data-select2], select.select2, .select2-select').forEach((select) => {
+        if (select.dataset.select2Booted === '1') {
+            return;
+        }
         const name = select.getAttribute('name');
 
         try {
@@ -431,10 +434,12 @@ function initSelect2() {
                     theme: 'bootstrap-5',
                     allowClear: true,
                 });
+                select.dataset.select2Booted = '1';
                 return;
             }
 
             $(select).select2({ width: '100%', theme: 'bootstrap-5', allowClear: true });
+            select.dataset.select2Booted = '1';
         } catch (error) {
             return;
         }
@@ -447,8 +452,12 @@ function initTooltips() {
     }
 
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
+        if (element.dataset.tooltipBooted === '1') {
+            return;
+        }
         try {
             new window.bootstrap.Tooltip(element);
+            element.dataset.tooltipBooted = '1';
         } catch (error) {
             return;
         }
@@ -574,8 +583,10 @@ function initToasts() {
 
         node.setAttribute('data-toast-type', type);
         node.className = `toast show admin-toast admin-toast--${type}`;
-        node.querySelector('.toast-title').textContent = config.title || 'Notifikasi';
-        node.querySelector('.toast-body').textContent = config.message || '';
+        const titleNode = node.querySelector('.toast-title');
+        const bodyNode = node.querySelector('.toast-body');
+        if (titleNode) titleNode.textContent = config.title || 'Notifikasi';
+        if (bodyNode) bodyNode.textContent = config.message || '';
 
         container.appendChild(node);
 
@@ -615,6 +626,10 @@ function initToasts() {
 }
 
 onReady(() => {
+    if (window.__adminBooted) {
+        return;
+    }
+    window.__adminBooted = true;
     initSidebar();
     initTheme();
     initDensity();

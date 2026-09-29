@@ -40,7 +40,7 @@
                             ->rows(
                                 $order->items->map(fn ($item) => [
                                     'product' => '<span class="fw-medium d-block text-truncate">'.e($item->product?->name ?? 'Produk tidak tersedia').'</span>'
-                                        .($item->variant?->name ? '<span class="text-secondary small">'.e($item->variant->name).'</span>' : ''),
+                                        .($item->variant?->name ? '<span class="text-secondary small">'.e($item->variant?->name).'</span>' : ''),
                                     'quantity' => e(Currency::number($item->quantity)),
                                     'price' => '<span class="text-nowrap">'.e(Currency::format($item->price)).'</span>',
                                     'discount' => (float) $item->discount > 0 ? '-'.e(Currency::format($item->discount)) : '—',
