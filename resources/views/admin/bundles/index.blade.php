@@ -33,7 +33,8 @@
                         <tr>
                             <td class="fw-semibold">{{ $bundle['title'] }}</td>
                             <td class="text-end">
-                                <x-admin.badge :text="number_format($bundle['discount_percentage'], 1, ',', '.').'%" color="success" pill />
+                                @php $diskonBundel = number_format((float) $bundle['discount_percentage'], 1, ',', '.').'%'; @endphp
+                                <x-admin.badge :text="$diskonBundel" color="success" pill />
                             </td>
                             <td class="text-end">{{ number_format($bundle['product_count'], 0, ',', '.') }}</td>
                             <td class="text-nowrap">{{ $bundle['created_at'] }}</td>

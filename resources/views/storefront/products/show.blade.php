@@ -90,6 +90,32 @@
                 </div>
             </div>
 
+            {{-- Galeri video produk (video_url existing + shorts toko). Murni tampil, tanpa ubah harga/stok. --}}
+            @php
+                try { $sfVideos = \App\Services\Kepercayaan\SkorToko::videos($product); }
+                catch (\Throwable) { $sfVideos = []; }
+            @endphp
+            @if ($sfVideos !== [])
+                <div class="sf-video-strip" role="region" aria-label="Video produk" style="display:flex;gap:10px;overflow-x:auto;padding:4px 2px 10px;scroll-snap-type:x mandatory">
+                    @foreach ($sfVideos as $vi => $video)
+                        <figure class="sf-video-card" style="flex:0 0 200px;scroll-snap-align:start;margin:0;border:1px solid var(--sf-border, #e5e7eb);border-radius:var(--sf-radius-sm);overflow:hidden;background:var(--sf-bg)">
+                            @if ($video['embed'])
+                                <iframe src="{{ $video['embed'] }}" title="{{ $video['label'] }} — {{ $product->name }}"
+                                        width="200" height="300" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture"
+                                        allowfullscreen style="border:0;width:100%;aspect-ratio:9/14;display:block"></iframe>
+                            @else
+                                <video src="{{ $video['url'] }}" controls preload="metadata" playsinline
+                                       style="width:100%;aspect-ratio:9/14;display:block;background:#000" aria-label="{{ $video['label'] ?? 'Video produk' }}"></video>
+                            @endif
+                            <figcaption class="sf-tiny sf-muted" style="padding:6px 8px;display:flex;gap:6px;align-items:center">
+                                <x-storefront.icon name="play" :size="13" /> {{ $video['label'] }}
+                                @if ($video['kind'] === 'youtube')<span aria-hidden="true">· YouTube</span>@endif
+                            </figcaption>
+                        </figure>
+                    @endforeach
+                </div>
+            @endif
+
             <div class="sf-stack" style="gap:18px">
                 @if ($product->shop)
                     <a href="{{ route('shop.show', $product->shop->slug) }}" class="sf-row sf-small sf-muted" style="gap:6px;width:fit-content">
@@ -445,6 +471,8 @@
                             @endauth
                         </div>
                     @endif
+                    {{-- Voting Q&A (tersimpan lokal di peramban, tanpa akun). --}}
+                    <p class="sf-tiny sf-muted sf-mb-0">Nilai jawaban yang membantu — voting tersimpan di perangkat Anda.</p>
                 </div>
             </div>
         </div>
@@ -454,19 +482,32 @@
         @if (! empty($productQuestions))
             <section class="sf-container sf-section sf-section--tight" aria-labelledby="sf-pdp-faq-title">
                 <h2 class="sf-section-head__title" id="sf-pdp-faq-title">Pertanyaan seputar produk ini</h2>
-                <div class="sf-stack" style="gap:10px;max-width:720px">
-                    @foreach ($productQuestions as $item)
-                        @php
-                            $item = is_array($item) ? $item : (array) $item;
-                            $q = $item['q'] ?? $item['question'] ?? $item['name'] ?? null;
-                            $a = $item['a'] ?? $item['answer'] ?? $item['text'] ?? null;
-                        @endphp
-                        @if ($q && $a)
-                            <details class="sf-panel" style="padding:12px 16px">
-                                <summary class="sf-bold" style="cursor:pointer">{{ $q }}</summary>
-                                <p class="sf-small sf-muted sf-mb-0" style="margin-top:8px">{{ $a }}</p>
-                            </details>
-                        @endif
+                @php
+                    try { $sfQa = \App\Services\Kepercayaan\SkorToko::normalisasiQa($productQuestions); }
+                    catch (\Throwable) { $sfQa = []; }
+                @endphp
+                <div class="sf-stack" style="gap:10px;max-width:720px" data-sf-qa data-sf-product="{{ $product->id }}">
+                    @foreach ($sfQa as $item)
+                        <details class="sf-panel" style="padding:12px 16px" data-sf-qa-item="{{ $item['id'] }}">
+                            <summary class="sf-bold" style="cursor:pointer;list-style:none;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                                <span style="flex:1 1 auto;min-width:0">{{ $item['q'] }}</span>
+                                @if ($item['answered'])
+                                    <span class="sf-badge sf-badge--success">Dijawab penjual</span>
+                                @else
+                                    <span class="sf-badge sf-badge--warning">Menunggu jawaban</span>
+                                @endif
+                            </summary>
+                            @if ($item['a'])
+                                <p class="sf-small sf-muted sf-mb-0" style="margin-top:8px">{{ $item['a'] }}</p>
+                            @endif
+                            <div class="sf-row" style="gap:8px;margin-top:10px;align-items:center">
+                                <span class="sf-tiny sf-muted">Apakah ini membantu?</span>
+                                <button type="button" class="sf-btn sf-btn--outline sf-btn--sm" data-sf-qa-vote="{{ $item['id'] }}" aria-label="Nilai membantu untuk: {{ \Illuminate\Support\Str::limit($item['q'], 60) }}">
+                                    <x-storefront.icon name="check" :size="14" /> Membantu (<span data-sf-qa-count>{{ $item['votes'] }}</span>)
+                                </button>
+                                <span class="sf-tiny sf-muted" data-sf-qa-voted-msg hidden>Sudah dinilai ✓</span>
+                            </div>
+                        </details>
                     @endforeach
                 </div>
                 @php
@@ -602,6 +643,37 @@
 
 @push('scripts')
     <script>
+        (function () {
+            /* Voting Q&A: localStorage per produk, tanpa endpoint baru. */
+            try {
+                var qa = document.querySelector('[data-sf-qa]');
+                if (qa) {
+                    var pid = qa.getAttribute('data-sf-product') || '0';
+                    var storeKey = 'sf-qa-votes-' + pid;
+                    var voted = {};
+                    try { voted = JSON.parse(localStorage.getItem(storeKey) || '{}'); } catch (e) { voted = {}; }
+                    qa.querySelectorAll('[data-sf-qa-vote]').forEach(function (btn) {
+                        var id = btn.getAttribute('data-sf-qa-vote');
+                        var item = qa.querySelector('[data-sf-qa-item="' + id + '"]');
+                        var count = item ? item.querySelector('[data-sf-qa-count]') : null;
+                        var msg = item ? item.querySelector('[data-sf-qa-voted-msg]') : null;
+                        if (voted[id]) {
+                            btn.setAttribute('disabled', '');
+                            if (count) count.textContent = String(parseInt(count.textContent || '0', 10) + 1);
+                            if (msg) msg.hidden = false;
+                        }
+                        btn.addEventListener('click', function () {
+                            if (voted[id]) return;
+                            voted[id] = 1;
+                            try { localStorage.setItem(storeKey, JSON.stringify(voted)); } catch (e) {}
+                            if (count) count.textContent = String(parseInt(count.textContent || '0', 10) + 1);
+                            btn.setAttribute('disabled', '');
+                            if (msg) msg.hidden = false;
+                        });
+                    });
+                }
+            } catch (e) {}
+        })();
         (function () {
             var fields = document.querySelectorAll('[data-sf-variant-id]');
             var button = document.querySelector('[data-sf-add-cart]');
