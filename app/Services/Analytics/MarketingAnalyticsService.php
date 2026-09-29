@@ -204,7 +204,7 @@ final class MarketingAnalyticsService extends AnalyticsService
                 'id' => (int) $deal->id,
                 'title' => (string) $deal->title,
                 'status' => (bool) $deal->status,
-                'discount' => (int) $deal->discount_percentage,
+                'discount' => (int) round($deal->best_discount_percentage),
                 'starts_at' => (string) ($deal->start_date?->format('Y-m-d') ?? ''),
                 'ends_at' => (string) ($deal->end_date?->format('Y-m-d') ?? ''),
             ])

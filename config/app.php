@@ -86,6 +86,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Storefront SEO / GEO defaults
+    |--------------------------------------------------------------------------
+    |
+    | Consumed by the x-seo.head component + storefront layout fallback graph.
+    | Additive only: no existing key is renamed or removed.
+    |
+    */
+
+    'seo' => [
+        'default_description' => env('SEO_DEFAULT_DESCRIPTION', 'Belanja online multi-vendor: produk original, harga bersaing, pengiriman cepat ke seluruh Indonesia.'),
+        'geo_region' => env('SEO_GEO_REGION', 'ID'),
+        'geo_placename' => env('SEO_GEO_PLACENAME', 'Indonesia'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------
     |

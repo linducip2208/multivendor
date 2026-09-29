@@ -27,9 +27,12 @@
      */
     $siteName = $whitelabel['appName'] ?? config('app.name');
     $fullTitle = $title ? ($title === $siteName ? $siteName : $title.' — '.$siteName) : $siteName;
-    $desc = \Illuminate\Support\Str::limit(strip_tags((string) ($description ?? '')), 300, '…');
+    $fallbackDesc = config('app.seo.default_description', $siteName.' — belanja online multi-vendor: produk original, harga bersaing, pengiriman cepat.');
+    $rawDesc = trim((string) ($description ?? ''));
+    $desc = \Illuminate\Support\Str::limit(strip_tags($rawDesc !== '' ? $rawDesc : (string) $fallbackDesc), 300, '…');
     $canonicalUrl = $canonical ?? url()->current();
-    $imageUrl = $image ? (\Illuminate\Support\Str::startsWith($image, ['http://', 'https://']) ? $image : url($image)) : null;
+    $rawImage = $image ?? $whitelabel['logo'] ?? null;
+    $imageUrl = $rawImage ? (\Illuminate\Support\Str::startsWith($rawImage, ['http://', 'https://']) ? $rawImage : url($rawImage)) : null;
     $robots = $robots ?? 'index,follow,max-image-preview:large';
 
     // Resolve product price: explicit :product-price wins, then legacy :price,
@@ -54,6 +57,15 @@
 <meta name="description" content="{{ $desc }}">
 <link rel="canonical" href="{{ $canonicalUrl }}">
 <meta name="robots" content="{{ $robots }}">
+<meta name="author" content="{{ $siteName }}">
+<meta name="geo.region" content="{{ config('app.seo.geo_region', 'ID') }}">
+<meta name="geo.placename" content="{{ config('app.seo.geo_placename', 'Indonesia') }}">
+
+{{-- Performance: font origin hints (Bunny via vite.config.js). Preconnect in
+     <head> avoids an extra DNS+TLS round-trip on first paint; every image in
+     storefront views already carries explicit loading/decoding attrs. --}}
+<link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+<link rel="dns-prefetch" href="https://fonts.bunny.net">
 
 @if ($noindex)
     <meta name="googlebot" content="noindex, nofollow">

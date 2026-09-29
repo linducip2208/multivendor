@@ -633,6 +633,22 @@ function initConfirms() {
 }
 
 /* ------------------------------------------------------------------ *
+ * Product grid loading state (filter submit -> skeleton)
+ * ------------------------------------------------------------------ */
+
+function initProductGridLoading() {
+    const grid = $('[data-sf-product-grid]');
+    const loading = $('[data-sf-product-grid-loading]');
+    const form = $('[data-sf-filter-form]');
+    if (!grid || !loading || !form) return;
+
+    form.addEventListener('submit', () => {
+        grid.hidden = true;
+        loading.hidden = false;
+    });
+}
+
+/* ------------------------------------------------------------------ *
  * Boot
  * ------------------------------------------------------------------ */
 
@@ -649,6 +665,7 @@ function boot() {
     initCountdowns();
     initCarousels();
     initFacets();
+    initProductGridLoading();
     initCopy();
     initConfirms();
 }

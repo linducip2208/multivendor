@@ -37,6 +37,34 @@ class ProductPolicy
         return $this->ownsShopRecord($user, (int) $product->shop_id);
     }
 
+    public function create(User $user): bool
+    {
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if (! $user->isVendor()) {
+            return false;
+        }
+
+        return (int) ($user->shop?->id ?? 0) > 0;
+    }
+
+    public function delete(User $user, Product $product): bool
+    {
+        return $this->update($user, $product);
+    }
+
+    public function restore(User $user, Product $product): bool
+    {
+        return $this->update($user, $product);
+    }
+
+    public function forceDelete(User $user, Product $product): bool
+    {
+        return $user->isAdmin();
+    }
+
     private function ownsShopRecord(User $user, int $shopId): bool
     {
         if (! $user->isVendor() || $shopId <= 0) {

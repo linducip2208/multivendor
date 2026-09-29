@@ -34,9 +34,9 @@
                         @endphp
                         <article class="sf-card">
                             <div class="sf-card__body">
-                                <a href="{{ $group->product?->storefront_url ?? route('products.index') }}" tabindex="-1" aria-hidden="true">
+                                <a href="{{ $group->product?->storefront_url ?? route('products.index') }}" aria-label="Lihat {{ $group->product?->name ?? 'produk grup' }}">
                                     @if ($group->product?->thumbnail_url)
-                                        <img src="{{ $group->product->thumbnail_url }}" alt="" width="560" height="420" loading="lazy" decoding="async"
+                                        <img src="{{ $group->product->thumbnail_url }}" alt="{{ $group->product->name ?? 'Produk grup' }}" width="560" height="420" loading="lazy" decoding="async"
                                              style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--sf-radius-sm);background:var(--sf-bg-muted)">
                                     @else
                                         <span class="sf-row" style="aspect-ratio:4/3;border-radius:var(--sf-radius-sm);background:var(--sf-bg-muted);justify-content:center;color:var(--sf-text-subtle)">

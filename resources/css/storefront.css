@@ -1,52 +1,52 @@
 /*
 |--------------------------------------------------------------------------
-| Storefront Design System
+| Storefront branding extension (Tabler family)
 |--------------------------------------------------------------------------
 |
-| This stylesheet is intentionally INDEPENDENT from Tabler/Bootstrap. The
-| backoffice (admin, vendor, delivery) uses Tabler via tabler.css; the customer
-| storefront uses this file only. The two design systems must never leak into
-| one another — see docs/architecture/ui-architecture.md.
+| This stylesheet is a BRANDING EXTENSION over Tabler design tokens — not a
+| competing system. Layout, tables, forms and admin/vendor backoffice use
+| Tabler via tabler.css (`--tblr-*` variables); the customer storefront
+| re-uses those tokens below and only adds marketplace-specific components
+| (product cards, gallery, buybar, bottom-nav) prefixed with `sf-`.
 |
-| Everything is token driven so a tenant theme only needs to override the
-| custom properties in `:root` (or `data-theme` on <html>).
+| Token precedence: Tabler first (`var(--tblr-*, fallback)`), tenant brand
+| overrides via `:root` / `data-theme` on <html>.
 |
-| This file is deliberately dependency-free: no Tailwind, no Bootstrap, no
-| Tabler. The storefront ships its own ~35 kB of CSS and its own JS so the
-| customer-facing payload never inherits backoffice styling or a utility-class
-| purge pipeline.
+| Dependency-free at runtime: no Tailwind, no Bootstrap, no icon CDN. The
+| storefront ships its own CSS + vanilla JS so the customer payload never
+| inherits backoffice utility pipelines.
 |
 */
 
-/* Design token fallback declaration (kept outside @theme because this file no
-   longer imports Tailwind). */
+/* Design token bridge: Tabler tokens first, storefront fallback second.
+   A tenant theme only needs to override the --sf-* custom properties. */
 :root {
-    /* Brand — overridden per tenant at runtime */
-    --sf-brand: #4f46e5;
+    /* Brand — Tabler primary, tenant-overridable */
+    --sf-brand: var(--tblr-primary, #4f46e5);
     --sf-brand-600: #4338ca;
     --sf-brand-700: #3730a3;
     --sf-brand-contrast: #ffffff;
-    --sf-accent: #f97316;
-    --sf-success: #059669;
-    --sf-warning: #d97706;
-    --sf-danger: #dc2626;
-    --sf-info: #0284c7;
+    --sf-accent: var(--tblr-orange, #f97316);
+    --sf-success: var(--tblr-success, #059669);
+    --sf-warning: var(--tblr-warning, #d97706);
+    --sf-danger: var(--tblr-danger, #dc2626);
+    --sf-info: var(--tblr-info, #0284c7);
 
-    /* Surfaces */
-    --sf-bg: #ffffff;
+    /* Surfaces — Tabler body/card bg */
+    --sf-bg: var(--tblr-body-bg, #ffffff);
     --sf-bg-subtle: #f7f8fb;
-    --sf-bg-muted: #eef1f6;
-    --sf-surface: #ffffff;
-    --sf-surface-raised: #ffffff;
+    --sf-bg-muted: var(--tblr-bg-surface-secondary, #eef1f6);
+    --sf-surface: var(--tblr-card-bg, var(--tblr-body-bg, #ffffff));
+    --sf-surface-raised: var(--tblr-card-bg, var(--tblr-body-bg, #ffffff));
 
-    /* Text */
-    --sf-text: #0f172a;
-    --sf-text-muted: #64748b;
-    --sf-text-subtle: #94a3b8;
+    /* Text — Tabler body/secondary/muted */
+    --sf-text: var(--tblr-body-color, #0f172a);
+    --sf-text-muted: var(--tblr-secondary, #64748b);
+    --sf-text-subtle: var(--tblr-muted, #94a3b8);
     --sf-text-inverse: #ffffff;
 
-    /* Lines */
-    --sf-border: #e5e9f0;
+    /* Lines — Tabler border */
+    --sf-border: var(--tblr-border-color, #e5e9f0);
     --sf-border-strong: #cbd5e1;
 
     /* Radii */
@@ -804,6 +804,20 @@ p { margin: 0 0 1em; }
 
 .sf-sold { font-size: .72rem; color: var(--sf-text-subtle); }
 
+/* Unified card footer actions (compare + detail). Tabler-ghost style. */
+.sf-pcard__actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 2px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--sf-border);
+}
+.sf-pcard__actions .sf-btn--sm { padding: 6px 9px; font-size: .75rem; }
+.sf-pcard__title:focus-visible,
+.sf-pcard__media:focus-visible,
+.sf-pcard__shop:focus-visible { outline: 2px solid var(--sf-brand); outline-offset: 2px; border-radius: var(--sf-radius-xs); }
+
 /* ======================================================================
    8. Carousel / scroller
    ====================================================================== */
@@ -1516,8 +1530,12 @@ p { margin: 0 0 1em; }
     padding-bottom: env(safe-area-inset-bottom);
 }
 @media (min-width: 992px) { .sf-bottomnav { display: none; } }
-body.sf-has-bottomnav { padding-bottom: 60px; }
+body.sf-has-bottomnav { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 @media (min-width: 992px) { body.sf-has-bottomnav { padding-bottom: 0; } }
+/* Keep page content clear of the sticky mobile buybar (PDP). */
+@media (max-width: 991px) {
+    body:has(.sf-buybar) .sf-footer { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+}
 
 .sf-bottomnav__item {
     display: flex;

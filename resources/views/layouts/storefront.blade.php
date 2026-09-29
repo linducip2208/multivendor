@@ -22,10 +22,40 @@
 
     @if (($jsonLd ?? null))
         <x-seo.json-ld :data="$jsonLd" />
+    @else
+        {{-- Fallback structured data so EVERY public storefront page (home,
+             landing, static pages without a controller-built graph) still emits
+             a valid Organization + WebSite graph via x-seo components. --}}
+        @php
+            $sfBrand = $whitelabel['appName'] ?? config('app.name');
+            $sfLogo = $whitelabel['logo'] ?? null;
+            $sfFallbackLd = [
+                '@context' => 'https://schema.org',
+                '@graph' => [
+                    [
+                        '@type' => 'Organization',
+                        '@id' => url('/').'#organization',
+                        'name' => $sfBrand,
+                        'url' => url('/'),
+                    ] + ($sfLogo ? ['logo' => \Illuminate\Support\Str::startsWith($sfLogo, ['http://', 'https://']) ? $sfLogo : url($sfLogo)] : []),
+                    [
+                        '@type' => 'WebSite',
+                        '@id' => url('/').'#website',
+                        'url' => url('/'),
+                        'name' => $sfBrand,
+                        'publisher' => ['@id' => url('/').'#organization'],
+                        'inLanguage' => str_replace('-', '_', app()->getLocale()),
+                    ],
+                ],
+            ];
+        @endphp
+        <x-seo.json-ld :data="$sfFallbackLd" />
     @endif
 
     {{-- Fonts are bundled via Bunny in vite.config.js (laravel-vite-plugin fonts);
          no external Google Fonts link — avoids a duplicate font double-load. --}}
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+    <link rel="dns-prefetch" href="https://fonts.bunny.net">
 
     <style>
         :root {

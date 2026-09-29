@@ -64,9 +64,9 @@
                                 <th scope="row">Gambar</th>
                                 @foreach ($entries as $entry)
                                     <td>
-                                        <a href="{{ $entry->product->storefront_url }}" tabindex="-1" aria-hidden="true">
+                                        <a href="{{ $entry->product->storefront_url }}" aria-label="Lihat {{ $entry->product->name }}">
                                             @if ($entry->product->thumbnail_url)
-                                                <img src="{{ $entry->product->thumbnail_url }}" alt=""
+                                                <img src="{{ $entry->product->thumbnail_url }}" alt="{{ $entry->product->name }}"
                                                      loading="lazy" width="160" height="160" decoding="async"
                                                      style="width:100%;max-width:160px;aspect-ratio:1;object-fit:cover;border-radius:var(--sf-radius-sm);background:var(--sf-bg-muted)">
                                             @else

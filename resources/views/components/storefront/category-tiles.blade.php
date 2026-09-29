@@ -8,7 +8,7 @@
                     @if ($category->icon && is_string($category->icon) && str_starts_with($category->icon, '<svg'))
                         {!! $category->icon !!}
                     @elseif ($category->image_url)
-                        <img src="{{ $category->image_url }}" alt="" style="width:100%;height:100%;object-fit:contain" loading="lazy" decoding="async">
+                        <img src="{{ $category->image_url }}" alt="{{ $category->name }}" style="width:100%;height:100%;object-fit:contain" loading="lazy" decoding="async">
                     @else
                         <x-storefront.icon name="grid" :size="22" />
                     @endif

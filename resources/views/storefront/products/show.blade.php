@@ -559,7 +559,7 @@
     @endunless
 
     <div class="sf-lightbox" hidden>
-        <img src="" alt="" width="1200" height="1200">
+        <img src="" alt="{{ $product->name }}" width="1200" height="1200">
         <button type="button" class="sf-btn sf-btn--outline sf-lightbox__close" data-lightbox-close aria-label="Tutup tampilan gambar">
             <x-storefront.icon name="close" :size="18" /> Tutup
         </button>

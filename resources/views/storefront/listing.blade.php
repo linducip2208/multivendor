@@ -57,10 +57,13 @@
                             icon="percent"
                         />
                     @else
-                        <div class="sf-products">
+                        <div class="sf-products" data-sf-product-grid>
                             @foreach ($products as $product)
                                 <x-storefront.product-card :product="$product" />
                             @endforeach
+                        </div>
+                        <div data-sf-product-grid-loading hidden>
+                            <x-storefront.product-grid-skeleton :count="8" />
                         </div>
 
                         <x-storefront.pagination :paginator="$products" />

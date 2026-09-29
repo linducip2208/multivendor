@@ -21,4 +21,23 @@ export default defineConfig({
             ignored: ['**/storage/framework/views/**'],
         },
     },
+    build: {
+        // Performance: keep storefront first-paint lean. Vendor chunk split
+        // avoids re-downloading the whole bundle when only storefront.js
+        // changes; no sourcemaps in production keeps payloads small.
+        target: 'es2020',
+        sourcemap: false,
+        cssCodeSplit: true,
+        assetsInlineLimit: 4096,
+        chunkSizeWarningLimit: 600,
+        rollupOptions: {
+            output: {
+                manualChunks(id) {
+                    if (id.includes('node_modules')) {
+                        return 'vendor';
+                    }
+                },
+            },
+        },
+    },
 });

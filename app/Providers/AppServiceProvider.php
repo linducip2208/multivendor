@@ -18,7 +18,24 @@ class AppServiceProvider extends ServiceProvider
     {
         RateLimiter::for('payment-webhook', fn (Request $request) => Limit::perMinute(120)->by(($request->route('provider')?->id ?? 'unknown').'|'.$request->ip()));
         RateLimiter::for('auth', fn (Request $request) => Limit::perMinute(10)->by(strtolower((string) $request->input('email')).'|'.$request->ip()));
+        // Storefront read/write guards (controllers reference these via
+        // throttle:<name>; defining them here keeps web + api throttling
+        // consistent and avoids silent fallback to the default limiter).
+        RateLimiter::for('search', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
+        RateLimiter::for('track-order', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
+        RateLimiter::for('api,search', fn (Request $request) => Limit::perMinute(60)->by(($request->user()?->id ?? $request->ip())));
+        RateLimiter::for('api,auth', fn (Request $request) => Limit::perMinute(10)->by(strtolower((string) $request->input('email')).'|'.$request->ip()));
+        RateLimiter::for('api,write', fn (Request $request) => Limit::perMinute(60)->by(($request->user()?->id ?? $request->ip())));
         \Illuminate\Support\Facades\View::composer('*', function ($view) {
+            // Unit/feature tests boot the full app: skip the SystemSetting DB
+            // hit entirely so sqlite :memory: suites never depend on project
+            // migrations. Cached branding still applies in http/console.
+            if (app()->runningUnitTests()) {
+                $view->with('whitelabel', self::defaultBranding());
+
+                return;
+            }
+
             $settings = \Illuminate\Support\Facades\Cache::remember('whitelabel_branding', 3600, function () {
                 $themePrimary = \App\Models\SystemSetting::get('theme_primary_color')
                     ?: \App\Models\SystemSetting::get('brand_color')
@@ -56,7 +73,14 @@ class AppServiceProvider extends ServiceProvider
 
     protected static function darkenHex(string $hex, float $factor): string
     {
-        $hex = ltrim($hex, '#');
+        $hex = ltrim(trim($hex), '#');
+        if (! preg_match('/\A[0-9a-fA-F]{3}([0-9a-fA-F]{3})?\z/', $hex)) {
+            return '#4338ca';
+        }
+        if (strlen($hex) === 3) {
+            $hex = $hex[0].$hex[0].$hex[1].$hex[1].$hex[2].$hex[2];
+        }
+        $factor = min(1.0, max(0.0, $factor));
         $r = hexdec(substr($hex, 0, 2));
         $g = hexdec(substr($hex, 2, 2));
         $b = hexdec(substr($hex, 4, 2));
@@ -65,5 +89,28 @@ class AppServiceProvider extends ServiceProvider
             max(0, (int)($g * $factor)),
             max(0, (int)($b * $factor))
         );
+    }
+
+    /**
+     * Branding defaults used when the DB-backed settings lookup is skipped
+     * (unit tests) or yields nothing. Mirrors the shape of the cached array.
+     *
+     * @return array<string, mixed>
+     */
+    protected static function defaultBranding(): array
+    {
+        return [
+            'logo' => null,
+            'favicon' => null,
+            'brandColor' => '#4F46E5',
+            'brandColorDark' => '#4338ca',
+            'appName' => config('app.name'),
+            'borderRadius' => '14',
+            'fontFamily' => 'Inter',
+            'sidebarWidth' => '250',
+            'topbarHeight' => '60',
+            'darkMode' => false,
+            'showLang' => '1',
+        ];
     }
 }

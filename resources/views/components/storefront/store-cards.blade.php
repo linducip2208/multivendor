@@ -5,7 +5,7 @@
         @foreach ($shops as $shop)
             <a href="{{ route('shop.show', $shop->slug) }}" class="sf-store">
                 @if ($shop->logo_url)
-                    <img src="{{ $shop->logo_url }}" alt="" class="sf-store__logo" loading="lazy" width="52" height="52" decoding="async">
+                    <img src="{{ $shop->logo_url }}" alt="Logo {{ $shop->name }}" class="sf-store__logo" loading="lazy" width="52" height="52" decoding="async">
                 @else
                     <span class="sf-store__logo sf-row" style="justify-content:center">
                         <x-storefront.icon name="store" :size="22" />
