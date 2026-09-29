@@ -36,6 +36,92 @@ use Illuminate\Support\Str;
 
 class CompleteDemoSeeder extends Seeder
 {
+    private array $judulKupon = [
+        'Voucher Diskon Belanja Hemat', 'Promo Gratis Ongkir Spesial', 'Voucher Tebus Murah Akhir Bulan',
+        'Diskon Spesial Pengguna Baru', 'Kupon Belanja Gajian Hemat', 'Promo Cuci Gudang Serba Murah',
+        'Voucher Cashback Belanja Online', 'Diskon Spesial Harbolnas', 'Kupon Hemat Minimal Belanja',
+        'Promo Potongan Harga Kilat',
+    ];
+
+    private array $kataFlashSale = ['Elektronik', 'Fashion', 'Gajian', 'Harbolnas', 'Serba Murah', 'Cuci Gudang', 'Akhir Tahun', 'Tebus Murah', 'Spesial', 'Super Hemat'];
+
+    private array $subjudulBanner = [
+        'Diskon sampai 70% untuk semua produk pilihan hari ini.',
+        'Gratis ongkir ke seluruh Indonesia dengan belanja minimal Rp50 ribu.',
+        'Promo gajian: potongan harga dan cashback menanti Anda.',
+        'Koleksi terbaru sudah tiba, stok terbatas buruan serbu.',
+        'Tebus murah produk favorit, hanya berlaku hari ini.',
+        'Belanja makin hemat dengan voucher dan promo kilat setiap jam.',
+    ];
+
+    private array $kutipanBlog = [
+        'Simak panduan lengkap memulai bisnis online khusus untuk pemula di Indonesia.',
+        'Strategi terbukti menaikkan omzet toko online Anda dalam 30 hari.',
+        'Jangan salah pilih, ini tips memilih layanan pembayaran yang aman dan murah.',
+    ];
+
+    private array $judulNotifikasi = [
+        'Promo Gajian Telah Tiba', 'Pesanan Anda Sedang Dikirim', 'Voucher Diskon Menanti Anda',
+        'Produk Favorit Kembali Stok', 'Jangan Lewatkan Flash Sale', 'Pembayaran Anda Berhasil',
+    ];
+
+    private array $deskripsiNotifikasi = [
+        'Nikmati diskon spesial dan gratis ongkir untuk pembelian hari ini saja.',
+        'Pesanan Anda sudah dikemas dan akan segera dikirim oleh kurir.',
+        'Klaim voucher diskon sebelum kehabisan, berlaku untuk semua kategori.',
+        'Produk yang Anda incar sudah tersedia kembali, segera checkout sebelum habis.',
+        'Promo kilat dimulai dalam satu jam, siapkan keranjang belanja Anda.',
+        'Terima kasih, pembayaran Anda sudah kami terima dan pesanan diproses.',
+    ];
+
+    private array $subjekTiket = [
+        'Pesanan belum sampai', 'Barang yang diterima tidak sesuai', 'Gagal melakukan pembayaran',
+        'Minta ubah alamat pengiriman', 'Akun tidak bisa login', 'Komplain ongkos kirim',
+        'Cara mengajukan pengembalian dana', 'Stok produk tidak sesuai',
+    ];
+
+    private array $deskripsiTiket = [
+        'Halo, pesanan saya sudah tiga hari belum sampai padahal statusnya dikirim. Mohon bantuannya.',
+        'Barang yang saya terima warnanya berbeda dengan foto di katalog. Bagaimana cara menukarnya?',
+        'Saya sudah coba bayar tiga kali tapi selalu gagal. Saldo sudah terpotong, mohon dicek.',
+        'Saya salah tulis alamat, bisakah alamat pengiriman diubah sebelum barang dikirim?',
+        'Akun saya tidak bisa masuk sejak kemarin, kode OTP tidak masuk ke HP saya.',
+        'Ongkos kirim yang muncul di checkout lebih mahal dari perkiraan. Mohon penjelasannya.',
+    ];
+
+    private array $balasanTiket = [
+        'Terima kasih laporannya, pesanan Anda sedang kami cek ke pihak kurir dan akan segera kami kabari.',
+        'Mohon maaf atas kendalanya, dana Anda akan kami kembalikan maksimal 3 hari kerja.',
+        'Pengajuan Anda sudah kami teruskan ke tim terkait, mohon tunggu kabar selanjutnya.',
+    ];
+
+    private array $ulasanProduk = [
+        'Barang bagus, packing rapi dan pengiriman cepat. Recommended seller.',
+        'Sesuai foto dan deskripsi, kualitas mantap dengan harga terjangkau.',
+        'Pengiriman cepat banget, baru pesan kemarin hari ini sudah sampai.',
+        'Awalnya ragu, ternyata barangnya original dan berfungsi dengan baik.',
+        'Pelayanan ramah, barang dikemas aman pakai bubble wrap tebal.',
+        'Harga paling murah dibanding toko lain, kualitas tetap oke.',
+        'Barangnya lumayan, cuma pengiriman agak lama tapi overall puas.',
+        'Sudah beli kedua kalinya di toko ini, tidak pernah kecewa.',
+        'Warna sedikit berbeda dari foto tapi kualitasnya bagus, tetap bintang lima.',
+        'Respon cepat, barang sesuai pesanan. Pasti order lagi di sini.',
+    ];
+
+    private array $captionSosmed = [
+        'Promo spesial hari ini! Stok terbatas, siapa cepat dia dapat.',
+        'Produk best seller kembali tersedia, buruan checkout sebelum kehabisan.',
+        'Diskon spesial pengikut toko, klaim vouchernya sekarang.',
+        'Unboxing paket hari ini, kualitas dijamin original 100%.',
+        'Racuni dompetmu: koleksi terbaru dengan harga bersahabat.',
+        'Testimoni pembeli puas, giliran Anda yang belanja sekarang.',
+    ];
+
+    private function pilih(array $daftar): string
+    {
+        return $daftar[array_rand($daftar)];
+    }
+
     public function run(): void
     {
         $this->command->info('=== COMPLETE DEMO DATA SEEDER ===');
@@ -83,7 +169,7 @@ class CompleteDemoSeeder extends Seeder
         $this->command->info('Creating 1000 coupons...');
         for ($i = 1; $i <= 1000; $i++) {
             Coupon::firstOrCreate(['code' => 'CPN' . str_pad($i, 5, '0', STR_PAD_LEFT)], [
-                'title' => fake()->sentence(3),
+                'title' => $this->pilih($this->judulKupon),
                 'coupon_type' => ['percentage', 'fixed', 'free_shipping'][rand(0, 2)],
                 'discount_value' => rand(5, 50),
                 'min_purchase' => rand(10000, 500000),
@@ -101,7 +187,7 @@ class CompleteDemoSeeder extends Seeder
         $this->command->info('Creating flash deals...');
         for ($i = 1; $i <= 50; $i++) {
             $deal = FlashDeal::create([
-                'title' => 'Flash Deal #' . $i . ' - ' . fake()->words(2, true),
+                'title' => 'Promo Kilat #' . $i . ' - ' . $this->pilih($this->kataFlashSale) . ' ' . $this->pilih($this->kataFlashSale),
                 'start_date' => now()->subDays(rand(0, 3)),
                 'end_date' => now()->addDays(rand(1, 7)),
                 'status' => true,
@@ -132,8 +218,8 @@ class CompleteDemoSeeder extends Seeder
         $positions = ['hero', 'sidebar', 'footer', 'popup'];
         for ($i = 1; $i <= 100; $i++) {
             Banner::create([
-                'title' => 'Banner #' . $i,
-                'subtitle' => fake()->sentence(),
+                'title' => 'Banner Promo #' . $i,
+                'subtitle' => $this->pilih($this->subjudulBanner),
                 'image' => 'https://picsum.photos/seed/banner' . $i . '/800/400',
                 'link' => rand(1, 2) === 1 ? 'https://example.com' : null,
                 'position' => $positions[array_rand($positions)],
@@ -172,11 +258,11 @@ class CompleteDemoSeeder extends Seeder
                 'title' => $title,
                 'slug' => $slug,
                 'content' => $content,
-                'excerpt' => fake()->sentence(15),
+                'excerpt' => $this->pilih($this->kutipanBlog),
                 'is_published' => true,
                 'published_at' => now()->subDays(rand(0, 365)),
-                'meta_title' => fake()->sentence(),
-                'meta_description' => fake()->sentence(10),
+                'meta_title' => $title . ' | Tips Belanja & Bisnis Online',
+                'meta_description' => $this->pilih($this->kutipanBlog),
             ]);
             $post->categories()->attach(rand(1, 3) === 1 ? $blogCat2->id : $blogCat->id);
         }
@@ -185,8 +271,8 @@ class CompleteDemoSeeder extends Seeder
         $this->command->info('Creating push notifications...');
         for ($i = 1; $i <= 100; $i++) {
             PushNotification::create([
-                'title' => fake()->sentence(4),
-                'description' => fake()->sentence(10),
+                'title' => $this->pilih($this->judulNotifikasi),
+                'description' => $this->pilih($this->deskripsiNotifikasi),
                 'target_type' => ['all', 'customer', 'vendor'][rand(0, 2)],
                 'sent' => rand(1, 2) === 1,
                 'sent_at' => rand(1, 2) === 1 ? now()->subDays(rand(0, 30)) : null,
@@ -203,14 +289,14 @@ class CompleteDemoSeeder extends Seeder
         for ($i = 1; $i <= 100; $i++) {
             $ticket = SupportTicket::create([
                 'customer_id' => $allCustomers->random()->id,
-                'subject' => fake()->sentence(),
+                'subject' => $this->pilih($this->subjekTiket),
                 'type' => ['order', 'product', 'payment', 'account', 'other'][rand(0, 4)],
                 'priority' => ['low', 'medium', 'high', 'urgent'][rand(0, 3)],
-                'description' => fake()->paragraph(),
+                'description' => $this->pilih($this->deskripsiTiket),
                 'status' => ['open', 'in_progress', 'resolved', 'closed'][rand(0, 3)],
             ]);
             if (rand(1, 2) === 1) {
-                SupportTicketReply::create(['support_ticket_id' => $ticket->id, 'user_id' => 1, 'message' => fake()->paragraph()]);
+                SupportTicketReply::create(['support_ticket_id' => $ticket->id, 'user_id' => 1, 'message' => $this->pilih($this->balasanTiket)]);
             }
         }
 
@@ -221,7 +307,7 @@ class CompleteDemoSeeder extends Seeder
                 'product_id' => $products->random()->id,
                 'customer_id' => $allCustomers->random()->id,
                 'rating' => rand(1, 5),
-                'comment' => fake()->sentence(rand(3, 15)),
+                'comment' => $this->pilih($this->ulasanProduk),
                 'status' => true,
             ]);
         }
@@ -284,7 +370,7 @@ class CompleteDemoSeeder extends Seeder
             SocialFeed::create([
                 'product_id' => $products->random()->id,
                 'shop_id' => $shops->random()->id,
-                'caption' => fake()->sentence(),
+                'caption' => $this->pilih($this->captionSosmed),
                 'is_active' => true,
                 'views' => rand(100, 10000),
                 'likes' => rand(10, 1000),

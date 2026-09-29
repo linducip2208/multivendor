@@ -25,7 +25,7 @@ final class ApiResponse
 
     public static function success(
         mixed $data = null,
-        string $message = 'OK',
+        string $message = 'Berhasil',
         int $status = 200,
         array $meta = [],
         array $headers = []
@@ -33,12 +33,12 @@ final class ApiResponse
         return self::envelope(true, $data, $message, null, $status, $meta, $headers);
     }
 
-    public static function created(mixed $data = null, string $message = 'Created', array $meta = [], array $headers = []): JsonResponse
+    public static function created(mixed $data = null, string $message = 'Berhasil dibuat', array $meta = [], array $headers = []): JsonResponse
     {
         return self::success($data, $message, 201, $meta, $headers);
     }
 
-    public static function noContent(string $message = 'Deleted', array $headers = []): JsonResponse
+    public static function noContent(string $message = 'Berhasil dihapus', array $headers = []): JsonResponse
     {
         return self::success(null, $message, 200, [], $headers);
     }
@@ -60,7 +60,7 @@ final class ApiResponse
         return new JsonResponse($payload, $status, $body->headers->all(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
-    public static function paginated(Paginator $paginator, mixed $data, string $message = 'OK', array $filters = [], ?string $sort = null): JsonResponse
+    public static function paginated(Paginator $paginator, mixed $data, string $message = 'Berhasil', array $filters = [], ?string $sort = null): JsonResponse
     {
         return self::success($data, $message, 200, self::metaFrom($paginator, $filters, $sort));
     }
@@ -157,7 +157,7 @@ final class ApiResponse
         return self::money($value);
     }
 
-    public static function normalise(mixed $payload, ?Request $request, string $fallbackMessage = 'OK', int $status = 200): JsonResponse
+    public static function normalise(mixed $payload, ?Request $request, string $fallbackMessage = 'Berhasil', int $status = 200): JsonResponse
     {
         $meta = self::meta();
         $data = $payload;

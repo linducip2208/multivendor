@@ -15,6 +15,6 @@ class WithdrawApprovedMail extends Mailable
 
     public function build()
     {
-        return $this->subject('Withdraw Disetujui')->view('mail.withdraw-approved');
+        return $this->subject('Penarikan Dana Disetujui')->view('mail.withdraw-approved');
     }
 }

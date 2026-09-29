@@ -153,13 +153,13 @@ class OrderTransactionSeeder extends Seeder
                 'customer_id' => $customer->id, 'shop_id' => $shop->id,
                 'sub_total' => $product->getEffectivePrice(), 'total' => $product->getEffectivePrice(),
                 'payment_method' => 'transfer', 'payment_status' => 'unpaid',
-                'order_status' => 'canceled', 'cancel_reason' => 'Customer request',
+                'order_status' => 'canceled', 'cancel_reason' => 'Permintaan pembeli',
                 'canceled_at' => $dates['created_at']->copy()->addHours(rand(1, 24)),
                 'created_at' => $dates['created_at'], 'updated_at' => $dates['created_at'],
             ]);
             OrderItem::create(['order_id' => $order->id, 'product_id' => $product->id, 'quantity' => 1, 'price' => $product->getEffectivePrice(), 'sub_total' => $product->getEffectivePrice()]);
             OrderStatusHistory::create(['order_id' => $order->id, 'status' => 'pending', 'changed_by' => $customer->id, 'created_at' => $dates['created_at']]);
-            OrderStatusHistory::create(['order_id' => $order->id, 'status' => 'canceled', 'changed_by' => $customer->id, 'note' => 'Customer request', 'created_at' => $dates['created_at']->copy()->addHours(rand(1, 24))]);
+            OrderStatusHistory::create(['order_id' => $order->id, 'status' => 'canceled', 'changed_by' => $customer->id, 'note' => 'Permintaan pembeli', 'created_at' => $dates['created_at']->copy()->addHours(rand(1, 24))]);
             $bar2->advance();
         }
         $bar2->finish();
