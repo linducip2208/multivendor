@@ -35,6 +35,11 @@
         />
     </x-admin.card>
 
+    <x-admin.alert type="info" :dismissible="true" title="Cashback & stack tebus" icon="cash">
+        Kampanye jenis <strong>Cashback</strong> kembali sebagai saldo dompet/poin secara idempoten dalam batas periode.
+        Poin loyalitas dapat digabung kupon dalam satu checkout (kupon dulu, lalu poin — total tak pernah minus).
+    </x-admin.alert>
+
     <x-admin.card title="Daftar Kampanye" icon="target" flush>
         <div class="table-responsive">
             <table class="table admin-table mb-0 table-hover">

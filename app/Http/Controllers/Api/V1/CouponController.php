@@ -70,4 +70,40 @@ class CouponController extends ApiController
 
         return $this->ok(new CouponResource($coupon));
     }
+
+    /**
+     * Pratinjau gabungan tebus poin + kupon satu checkout (aturan stack aman,
+     * total tak pernah minus). Aditif — tanpa mengubah endpoint existing.
+     */
+    public function pratinjauStack(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'code' => 'required|string|max:50',
+            'order_total' => 'required|numeric|min:0',
+            'points' => 'nullable|integer|min:0|max:1000000',
+        ]);
+
+        $coupon = Coupon::where('code', strtoupper(trim($data['code'])))->first();
+
+        if ($coupon === null || ! $coupon->isValid($request->user()?->id)) {
+            return ApiResponse::error(
+                ErrorCodes::COUPON_INVALID,
+                'Kupon tidak aktif, kedaluwarsa, atau kuotanya habis.',
+                422,
+                ['code' => ['Kupon tidak dapat digunakan.']]
+            );
+        }
+
+        $simulasi = app(\App\Services\Marketing\CampaignService::class)->simulasiStackCheckout(
+            (float) $data['order_total'],
+            $coupon,
+            (int) ($data['points'] ?? 0),
+        );
+
+        return $this->ok([
+            'coupon' => new CouponResource($coupon),
+            'simulasi' => $simulasi,
+            'payable' => ApiResponse::money($simulasi['total_bayar']),
+        ], 'Pratinjau gabungan kupon + poin');
+    }
 }

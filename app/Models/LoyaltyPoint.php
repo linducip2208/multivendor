@@ -157,6 +157,66 @@ class LoyaltyPoint extends Model
         }
     }
 
+    /**
+     * Nilai tukar poin untuk stack checkout: dibatasi saldo milik dan sisa
+     * bayar setelah kupon. Tak pernah membuat total minus.
+     *
+     * @return array{poin_dipakai: int, nilai: float, sisa_bayar: float}
+     */
+    public function nilaiTukarUntukStack(int $poinDiminta, float $sisaBayar, float $nilaiPerPoin = 1.0): array
+    {
+        $nilaiPerPoin = $nilaiPerPoin > 0 ? $nilaiPerPoin : 1.0;
+        $sisaBayar = max(0.0, $sisaBayar);
+        $saldo = max(0, (int) ($this->points ?? 0));
+
+        $poin = max(0, min($poinDiminta, $saldo, (int) floor($sisaBayar / $nilaiPerPoin)));
+        $nilai = round($poin * $nilaiPerPoin, 2);
+
+        return [
+            'poin_dipakai' => $poin,
+            'nilai' => $nilai,
+            'sisa_bayar' => round(max(0.0, $sisaBayar - $nilai), 2),
+        ];
+    }
+
+    /**
+     * Kredit cashback sebagai poin loyalitas, idempoten per order.
+     *
+     * Memakai pasangan kolom existing (reference_type=cashback,
+     * reference_id=order, terverifikasi ke migrasi 2026_06_09_000021):
+     * kredit kedua untuk order yang sama dikembalikan sebagai sudah_ada.
+     *
+     * @return array{dikredit: bool, sudah_ada: bool, poin: int, saldo: int, status: string}
+     */
+    public function kreditCashback(User $customer, int $poin, int $orderId, ?string $deskripsi = null): array
+    {
+        $customerId = (int) $customer->getKey();
+        $poin = max(0, $poin);
+
+        if ($poin <= 0 || $orderId <= 0) {
+            return ['dikredit' => false, 'sudah_ada' => false, 'poin' => 0, 'saldo' => (int) ($this->points ?? 0), 'status' => 'nominal tidak valid'];
+        }
+
+        $deskripsi ??= 'Cashback order #'.$orderId;
+
+        $ada = LoyaltyTransaction::query()
+            ->where('customer_id', $customerId)
+            ->where('reference_type', 'cashback')
+            ->where('reference_id', $orderId)
+            ->first();
+
+        if ($ada) {
+            $saldo = (int) (static::where('customer_id', $customerId)->value('points') ?? 0);
+
+            return ['dikredit' => false, 'sudah_ada' => true, 'poin' => (int) $ada->points, 'saldo' => $saldo, 'status' => 'sudah dikredit sebelumnya'];
+        }
+
+        static::earn($customer, $poin, $deskripsi, 'cashback', $orderId);
+        $saldo = (int) (static::where('customer_id', $customerId)->value('points') ?? 0);
+
+        return ['dikredit' => true, 'sudah_ada' => false, 'poin' => $poin, 'saldo' => $saldo, 'status' => 'dikredit sebagai poin'];
+    }
+
     public static function earn(User $customer, int $points, string $description = null, string $refType = null, int $refId = null): void
     {
         $lp = static::firstOrCreate(['customer_id' => $customer->id], ['points' => 0]);

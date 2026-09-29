@@ -389,6 +389,93 @@ class AccountController extends Controller
         }
     }
 
+    /** Riwayat cashback saya: dompet (reference_key cashback-*) + poin earn cashback (read-only). */
+    public function dataCashbackSaya(): array
+    {
+        try {
+            $user = auth()->user();
+            if (! $user) {
+                return ['riwayat' => [], 'total_dompet' => 0.0, 'total_poin' => 0];
+            }
+            $customerId = (int) $user->id;
+            $riwayat = [];
+
+            try {
+                $dompetId = \App\Models\Wallet::query()->where('user_id', $customerId)->value('id');
+                if ($dompetId) {
+                    foreach (\App\Models\WalletTransaction::query()->where('wallet_id', $dompetId)->where('reference_type', 'cashback')->latest('id')->limit(10)->get() as $tx) {
+                        $riwayat[] = ['jenis' => 'dompet', 'nominal' => (float) $tx->amount, 'label' => (string) ($tx->description ?? 'Cashback'), 'at' => (string) ($tx->created_at?->format('d M Y H:i') ?? '')];
+                    }
+                }
+            } catch (\Throwable) {
+            }
+
+            $totalPoin = 0;
+            try {
+                foreach (\App\Models\LoyaltyTransaction::query()->where('customer_id', $customerId)->where('type', 'earn')->where('reference_type', 'cashback')->latest('id')->limit(10)->get() as $tx) {
+                    $totalPoin += (int) $tx->points;
+                    $riwayat[] = ['jenis' => 'poin', 'nominal' => (int) $tx->points, 'label' => (string) ($tx->description ?? 'Cashback poin'), 'at' => (string) ($tx->created_at?->format('d M Y H:i') ?? '')];
+                }
+            } catch (\Throwable) {
+            }
+
+            $totalDompet = 0.0;
+            foreach ($riwayat as $row) {
+                if (($row['jenis'] ?? '') === 'dompet') {
+                    $totalDompet += (float) $row['nominal'];
+                }
+            }
+
+            return ['riwayat' => array_slice($riwayat, 0, 10), 'total_dompet' => $totalDompet, 'total_poin' => $totalPoin];
+        } catch (\Throwable) {
+            return ['riwayat' => [], 'total_dompet' => 0.0, 'total_poin' => 0];
+        }
+    }
+
+    /**
+     * Data bagikan referral: tautan + pesan + poster SVG + tombol salin.
+     * QR tidak tersedia (tak ada paket QR/barcode terinstal) — pakai tautan
+     * + tombol salin + poster unduhan.
+     */
+    public function dataBagikanReferral(): array
+    {
+        try {
+            $user = auth()->user();
+            if (! $user) {
+                return ['tautan' => null, 'kode' => null, 'pesan' => null, 'poster_svg' => null, 'qr_tersedia' => false];
+            }
+            $affiliate = \App\Models\Affiliate::where('user_id', (int) $user->id)->first();
+            if (! $affiliate && ! empty($user->referral_code)) {
+                $affiliate = \App\Models\Affiliate::findByCode((string) $user->referral_code);
+            }
+
+            if (! $affiliate) {
+                $kode = (string) ($user->referral_code ?? '');
+                if ($kode === '') {
+                    return ['tautan' => null, 'kode' => null, 'pesan' => null, 'poster_svg' => null, 'qr_tersedia' => false];
+                }
+                try {
+                    $dasar = route('products.index');
+                } catch (\Throwable) {
+                    $dasar = url('/products');
+                }
+                $tautan = rtrim($dasar, '?&').(str_contains($dasar, '?') ? '&' : '?').'ref='.urlencode($kode);
+
+                return ['tautan' => $tautan, 'kode' => $kode, 'pesan' => 'Belanja lewat tautanku '.$tautan.' — pakai kode referral '.$kode.'!', 'poster_svg' => null, 'qr_tersedia' => false];
+            }
+
+            return [
+                'tautan' => $affiliate->tautanBagikan(),
+                'kode' => (string) $affiliate->code,
+                'pesan' => $affiliate->pesanBagikan(),
+                'poster_svg' => $affiliate->posterSvg(),
+                'qr_tersedia' => $affiliate->qrTersedia(),
+            ];
+        } catch (\Throwable) {
+            return ['tautan' => null, 'kode' => null, 'pesan' => null, 'poster_svg' => null, 'qr_tersedia' => false];
+        }
+    }
+
     private function unreadCount(int $userId): int
     {
         try {

@@ -211,6 +211,85 @@
                             </div>
                         </section>
                     @endif
+
+                    @php
+                        try { $bagikan = app(\App\Http\Controllers\Storefront\AccountController::class)->dataBagikanReferral(); }
+                        catch (\Throwable $e) { $bagikan = ['tautan' => null, 'kode' => null, 'pesan' => null, 'poster_svg' => null, 'qr_tersedia' => false]; }
+                        try { $cashbackSaya = app(\App\Http\Controllers\Storefront\AccountController::class)->dataCashbackSaya(); }
+                        catch (\Throwable $e) { $cashbackSaya = ['riwayat' => [], 'total_dompet' => 0.0, 'total_poin' => 0]; }
+                    @endphp
+
+                    @if (! empty($bagikan['tautan']))
+                        <section class="sf-card" aria-labelledby="sf-wallet-bagikan">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-wallet-bagikan">Bagikan referral</h2>
+                                <p class="sf-small sf-muted">
+                                    Kode <strong>{{ $bagikan['kode'] }}</strong> &middot; tanpa QR (tautan + tombol salin + poster unduhan).
+                                </p>
+                                <div class="sf-row" style="gap:8px;flex-wrap:wrap">
+                                    <input id="sf-referral-link" class="sf-input" type="text" readonly value="{{ $bagikan['tautan'] }}" aria-label="Tautan referral" style="flex:1;min-width:220px">
+                                    <button type="button" class="sf-btn sf-btn--outline sf-btn--sm" data-copy-target="sf-referral-link">Salin tautan</button>
+                                    <a class="sf-btn sf-btn--outline sf-btn--sm" target="_blank" rel="noopener" href="https://wa.me/?text={{ urlencode($bagikan['pesan'] ?? $bagikan['tautan']) }}">Bagikan WA</a>
+                                    @if (! empty($bagikan['poster_svg']))
+                                        <button type="button" class="sf-btn sf-btn--outline sf-btn--sm" id="sf-poster-unduh">Unduh poster</button>
+                                    @endif
+                                </div>
+                                @if (! empty($bagikan['poster_svg']))
+                                    <details style="margin-top:10px">
+                                        <summary class="sf-small">Pratinjau poster</summary>
+                                        <div id="sf-poster-svg" style="margin-top:8px;max-width:300px">{!! $bagikan['poster_svg'] !!}</div>
+                                    </details>
+                                    <script>
+                                        (function () {
+                                            var unduh = document.getElementById('sf-poster-unduh');
+                                            if (unduh) unduh.addEventListener('click', function () {
+                                                var svg = document.querySelector('#sf-poster-svg svg');
+                                                if (! svg) return;
+                                                var blob = new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' });
+                                                var a = document.createElement('a');
+                                                a.href = URL.createObjectURL(blob);
+                                                a.download = 'poster-referral-{{ $bagikan['kode'] }}.svg';
+                                                a.click();
+                                                setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+                                            });
+                                            document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
+                                                btn.addEventListener('click', function () {
+                                                    var el = document.getElementById(btn.getAttribute('data-copy-target'));
+                                                    if (! el) return;
+                                                    (navigator.clipboard ? navigator.clipboard.writeText(el.value) : Promise.reject())
+                                                        .then(function () { btn.textContent = 'Tersalin!'; })
+                                                        .catch(function () { el.select(); document.execCommand('copy'); btn.textContent = 'Tersalin!'; });
+                                                });
+                                            });
+                                        })();
+                                    </script>
+                                @endif
+                            </div>
+                        </section>
+                    @endif
+
+                    @if (! empty($cashbackSaya['riwayat']))
+                        <section class="sf-card" aria-labelledby="sf-wallet-cashback">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-wallet-cashback">Cashback saya</h2>
+                                <p class="sf-small sf-muted">
+                                    Total {{ \App\Support\Currency::format($cashbackSaya['total_dompet'] ?? 0) }} ke dompet &middot;
+                                    {{ \App\Support\Currency::number($cashbackSaya['total_poin'] ?? 0) }} poin cashback.
+                                </p>
+                                <ul class="sf-stack sf-small" style="gap:8px;margin-top:12px;list-style:none;padding:0">
+                                    @foreach (collect($cashbackSaya['riwayat'])->take(10) as $row)
+                                        <li class="sf-row sf-row--between" style="gap:10px">
+                                            <span style="min-width:0">
+                                                <span class="sf-badge {{ ($row['jenis'] ?? '') === 'poin' ? 'sf-badge--warning' : 'sf-badge--success' }}">{{ $row['jenis'] }}</span>
+                                                {{ $row['label'] }} &middot; {{ $row['at'] }}
+                                            </span>
+                                            <span class="sf-bold">+{{ ($row['jenis'] ?? '') === 'poin' ? \App\Support\Currency::number($row['nominal']) : \App\Support\Currency::format($row['nominal']) }}</span>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </section>
+                    @endif
                 </div>
             </div>
         </div>

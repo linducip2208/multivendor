@@ -69,6 +69,39 @@ class CatalogController extends Controller
             ])->values()->all(),
         ];
 
+        // ── Perdalaman katalog (aditif, baca-saja; PDP/checkout tidak berubah) ──
+        $galeriVarian = [];
+        $panduanKategori = [];
+        $koleksiTerkait = collect();
+        $infoDigital = ['butuh_lisensi' => false, 'punya_berkas' => false];
+
+        try {
+            $galeriVarian = $product->petaGaleriVarian();
+        } catch (\Throwable) {
+            $galeriVarian = [];
+        }
+
+        try {
+            $panduanKategori = $product->panduanKategori() ?? [];
+        } catch (\Throwable) {
+            $panduanKategori = [];
+        }
+
+        try {
+            $koleksiTerkait = $product->koleksiTematikAktif() ?? collect();
+        } catch (\Throwable) {
+            $koleksiTerkait = collect();
+        }
+
+        try {
+            $infoDigital = [
+                'butuh_lisensi' => $product->butuhLisensiDigital(),
+                'punya_berkas' => trim((string) $product->digital_file) !== '',
+            ];
+        } catch (\Throwable) {
+            $infoDigital = ['butuh_lisensi' => false, 'punya_berkas' => false];
+        }
+
         return view('storefront.products.show', [
             'product' => $product,
             'similar' => $similar,
@@ -78,6 +111,10 @@ class CatalogController extends Controller
             'shippingEstimate' => $shippingEstimate,
             'breadcrumbItems' => $breadcrumb,
             'variantPayload' => $variantPayload,
+            'galeriVarian' => $galeriVarian,
+            'panduanKategori' => $panduanKategori,
+            'koleksiTerkait' => $koleksiTerkait,
+            'infoDigital' => $infoDigital,
             'trenHarga' => app(\App\Services\Catalog\TrenHarga::class)->untukProduk((int) $product->id),
             'metaTitle' => $product->meta_title ?: $product->name,
             'metaDescription' => $product->meta_description

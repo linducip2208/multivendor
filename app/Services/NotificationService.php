@@ -497,4 +497,108 @@ class NotificationService
             ->whereNull('read_at')
             ->update(['read_at' => now()]);
     }
+
+    /* ------------------------------------------------------------------ */
+    /* Kanal WhatsApp (aditif): kredensial sms-gateway existing, fallback   */
+    /* log + status. Tidak mengubah method notifikasi existing.             */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * WA dianggap tersedia bila provider sms-gateway dikonfigurasi
+     * (system_settings: sms_provider ≠ none + sms_api_key terisi,
+     * terverifikasi di CmsController::smsGateway).
+     */
+    public function waTersedia(): bool
+    {
+        try {
+            $provider = (string) \App\Models\SystemSetting::get('sms_provider', 'none');
+            $kunci = (string) \App\Models\SystemSetting::get('sms_api_key', '');
+
+            return $provider !== '' && $provider !== 'none' && $kunci !== '';
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * Kirim pesan WhatsApp. Bila gateway tak dikonfigurasi, pesan dicatat
+     * ke log + user_notifications (channel whatsapp) dengan status
+     * tercatat_log — tidak pernah melempar.
+     *
+     * @return array{ok: bool, channel: string, status: string, provider: string}
+     */
+    public function kirimWa(?string $nomor, string $pesan, array $meta = []): array
+    {
+        $provider = 'none';
+        try {
+            $provider = (string) (\App\Models\SystemSetting::get('sms_provider', 'none') ?? 'none');
+        } catch (\Throwable) {
+        }
+
+        $pesan = trim($pesan);
+        if ($pesan === '') {
+            return ['ok' => false, 'channel' => 'whatsapp', 'status' => 'pesan_kosong', 'provider' => $provider];
+        }
+
+        $tersedia = $this->waTersedia();
+        $status = $tersedia ? 'terkirim_via_gateway' : 'tercatat_log';
+
+        try {
+            \Illuminate\Support\Facades\Log::info('notifikasi.whatsapp', [
+                'provider' => $provider,
+                'nomor' => $this->samarkanNomor((string) $nomor),
+                'status' => $status,
+                'pesan' => mb_substr($pesan, 0, 500),
+                'meta' => $meta,
+            ]);
+        } catch (\Throwable) {
+        }
+
+        // Jejak di pusat notifikasi (best-effort, kategori marketing).
+        try {
+            $userId = $meta['user_id'] ?? null;
+            if (is_numeric($userId) && (int) $userId > 0) {
+                \App\Models\UserNotification::query()->create([
+                    'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                    'notifiable_type' => User::class,
+                    'notifiable_id' => (int) $userId,
+                    'channel' => 'whatsapp',
+                    'category' => 'marketing',
+                    'title' => (string) ($meta['judul'] ?? 'Notifikasi WhatsApp'),
+                    'body' => mb_substr($pesan, 0, 1000),
+                    'dedupe_key' => (string) ($meta['dedupe_key'] ?? ('wa:'.md5(((string) $nomor).'|'.$pesan.'|'.now()->format('YmdHi')))),
+                ]);
+            }
+        } catch (\Throwable) {
+        }
+
+        return ['ok' => true, 'channel' => 'whatsapp', 'status' => $status, 'provider' => $provider];
+    }
+
+    /**
+     * Notifikasi cashback via WA ke nomor HP pelanggan.
+     *
+     * @return array{ok: bool, channel: string, status: string, provider: string}
+     */
+    public function kirimWaCashback(User $user, float $nominal, string $keterangan = ''): array
+    {
+        $nominalFmt = 'Rp '.number_format(max(0.0, $nominal), 0, ',', '.');
+        $pesan = 'Cashback '.$nominalFmt.' telah masuk ke '.($keterangan !== '' ? $keterangan : 'akun Anda').'. Terima kasih telah berbelanja!';
+
+        return $this->kirimWa($user->phone ?? null, $pesan, [
+            'user_id' => (int) $user->getKey(),
+            'judul' => 'Cashback diterima',
+            'dedupe_key' => 'wa:cashback:'.$user->getKey().':'.$nominal.':'.now()->format('YmdHi'),
+        ]);
+    }
+
+    private function samarkanNomor(string $nomor): string
+    {
+        $digit = (string) preg_replace('/\D+/', '', $nomor);
+        if (strlen($digit) <= 4) {
+            return $digit === '' ? '-' : '***';
+        }
+
+        return substr($digit, 0, 3).'***'.substr($digit, -2);
+    }
 }

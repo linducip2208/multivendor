@@ -166,4 +166,23 @@
             </x-admin.card>
         </div>
     </div>
+
+    @if (($campaign['type'] ?? '') === 'cashback')
+        <x-admin.card title="Cashback" icon="cash" class="mb-3">
+            <dl class="row small mb-0">
+                <dt class="col-5 text-secondary">Periode</dt>
+                <dd class="col-7 text-end">{{ $campaign['starts_at'] !== '' ? $campaign['starts_at'] : 'Tanpa mulai' }} &ndash; {{ $campaign['ends_at'] !== '' ? $campaign['ends_at'] : 'Tanpa akhir' }}</dd>
+                <dt class="col-5 text-secondary">Status live</dt>
+                <dd class="col-7 text-end">{{ $campaign['live'] ? 'Berjalan' : 'Belum aktif' }}</dd>
+                <dt class="col-5 text-secondary">Terpakai / kuota</dt>
+                <dd class="col-7 text-end">{{ number_format($quota['used'] ?? 0, 0, ',', '.') }} / {{ ($quota['limit'] ?? null) === null ? 'Tak terbatas' : number_format($quota['limit'], 0, ',', '.') }}</dd>
+                <dt class="col-5 text-secondary">Batas per pelanggan</dt>
+                <dd class="col-7 text-end">{{ ($quota['per_user_limit'] ?? null) === null ? 'Tak terbatas' : number_format($quota['per_user_limit'], 0, ',', '.') }}</dd>
+            </dl>
+            <p class="small text-secondary mb-0 mt-2">
+                Cashback dikredit idempoten ke dompet (kunci <code>cashback-{id}-order-{order}</code>) atau poin loyalitas,
+                dan hanya berlaku di dalam periode kampanye.
+            </p>
+        </x-admin.card>
+    @endif
 @endsection

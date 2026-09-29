@@ -325,4 +325,229 @@ final class CampaignService
             $campaign->categories()->sync($categoryIds);
         });
     }
+
+    /* ------------------------------------------------------------------ */
+    /* Cashback + stack tebus (perdalaman aditif, tanpa ubah method lama)   */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Nominal cashback sebuah kampanye untuk nilai pesanan tertentu.
+     *
+     * Kolom terverifikasi ke migrasi 2026_09_28_000002 (discount_value,
+     * discount_type, starts_at, ends_at): persen dihitung dari nilai pesanan,
+     * nominal (flat) dipakai apa adanya; selalu dibatasi nilai pesanan dan
+     * nol bila kampanye bukan cashback / di luar periode / nonaktif.
+     */
+    public function hitungCashback(Campaign $campaign, float $nilaiPesanan): float
+    {
+        if ($campaign->type !== 'cashback' || $nilaiPesanan <= 0) {
+            return 0.0;
+        }
+
+        if ($campaign->status !== 'active') {
+            return 0.0;
+        }
+
+        if ($campaign->starts_at !== null && $campaign->starts_at->isFuture()) {
+            return 0.0;
+        }
+
+        if ($campaign->ends_at !== null && $campaign->ends_at->isPast()) {
+            return 0.0;
+        }
+
+        $nominal = ((string) $campaign->discount_type === 'percentage')
+            ? $nilaiPesanan * ((float) $campaign->discount_value / 100)
+            : (float) $campaign->discount_value;
+
+        return round(max(0.0, min($nominal, $nilaiPesanan)), 2);
+    }
+
+    /**
+     * Kampanye cashback yang sedang live (jenis + periode + kuota).
+     *
+     * @return list<array{id: int, name: string, discount_value: float, discount_type: string}>
+     */
+    public function daftarCashbackAktif(int $limit = 20): array
+    {
+        try {
+            return Campaign::query()->where('type', 'cashback')
+                ->where('status', 'active')
+                ->where(fn ($q) => $q->whereNull('starts_at')->orWhere('starts_at', '<=', now()))
+                ->where(fn ($q) => $q->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+                ->orderByDesc('id')
+                ->limit(max(1, min(100, $limit)))
+                ->get()
+                ->filter(fn (Campaign $c): bool => $c->hasQuotaLeft())
+                ->map(fn (Campaign $c): array => [
+                    'id' => (int) $c->id,
+                    'name' => (string) $c->name,
+                    'discount_value' => (float) $c->discount_value,
+                    'discount_type' => (string) $c->discount_type,
+                ])->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Berikan cashback ke dompet (default) atau poin loyalitas.
+     *
+     * Idempoten per (kampanye, order): kunci `cashback-{campaign}-order-{order}`
+     * dipakai sebagai wallet reference_key dan sebagai pasangan
+     * loyalty (reference_type=cashback, reference_id=order). Batas periode,
+     * usage_limit kampanye, dan per_user_limit dihormati.
+     *
+     * @return array{dikredit: bool, sudah_ada: bool, nominal: float, poin: int, tujuan: string, status: string}
+     */
+    public function berikanCashback(
+        Campaign $campaign,
+        \App\Models\User $customer,
+        int $orderId,
+        float $nilaiPesanan,
+        string $tujuan = 'dompet',
+    ): array {
+        $tujuan = $tujuan === 'poin' ? 'poin' : 'dompet';
+        $kunci = 'cashback-'.(int) $campaign->id.'-order-'.$orderId;
+
+        if ($campaign->type !== 'cashback') {
+            return ['dikredit' => false, 'sudah_ada' => false, 'nominal' => 0.0, 'poin' => 0, 'tujuan' => $tujuan, 'status' => 'bukan kampanye cashback'];
+        }
+
+        $nominal = $this->hitungCashback($campaign, $nilaiPesanan);
+        if ($nominal <= 0) {
+            return ['dikredit' => false, 'sudah_ada' => false, 'nominal' => 0.0, 'poin' => 0, 'tujuan' => $tujuan, 'status' => 'di luar periode / tidak memenuhi syarat'];
+        }
+
+        if ($campaign->usage_limit !== null && (int) $campaign->used_count >= (int) $campaign->usage_limit) {
+            return ['dikredit' => false, 'sudah_ada' => false, 'nominal' => $nominal, 'poin' => 0, 'tujuan' => $tujuan, 'status' => 'kuota kampanye habis'];
+        }
+
+        $customerId = (int) $customer->getKey();
+
+        return DB::transaction(function () use ($campaign, $customer, $customerId, $orderId, $nominal, $tujuan, $kunci): array {
+            $kampanye = Campaign::query()->lockForUpdate()->find((int) $campaign->id);
+            if (! $kampanye instanceof Campaign) {
+                return ['dikredit' => false, 'sudah_ada' => false, 'nominal' => $nominal, 'poin' => 0, 'tujuan' => $tujuan, 'status' => 'kampanye tidak ditemukan'];
+            }
+
+            // Replay idempoten: kunci sudah pernah dikredit sebelumnya.
+            if ($tujuan === 'dompet') {
+                $dompet = \App\Models\Wallet::firstOrCreate(['user_id' => $customerId], ['balance' => 0, 'pending_balance' => 0]);
+                $ada = $dompet->transactions()->where('reference_key', $kunci)->first();
+                if ($ada) {
+                    return ['dikredit' => false, 'sudah_ada' => true, 'nominal' => (float) $ada->amount, 'poin' => 0, 'tujuan' => $tujuan, 'status' => 'sudah dikredit sebelumnya'];
+                }
+            } else {
+                $ada = \App\Models\LoyaltyTransaction::query()
+                    ->where('customer_id', $customerId)
+                    ->where('reference_type', 'cashback')
+                    ->where('reference_id', $orderId)
+                    ->where('description', 'like', '%#'.(int) $kampanye->id.'%')
+                    ->first();
+                if ($ada) {
+                    return ['dikredit' => false, 'sudah_ada' => true, 'nominal' => 0.0, 'poin' => (int) $ada->points, 'tujuan' => $tujuan, 'status' => 'sudah dikredit sebelumnya'];
+                }
+            }
+
+            // Batas per pelanggan (dihitung dari riwayat nyata kedua dompet).
+            if ($kampanye->per_user_limit !== null) {
+                $terpakai = $this->hitungPakaiCashbackPelanggan($kampanye, $customerId);
+                if ($terpakai >= (int) $kampanye->per_user_limit) {
+                    return ['dikredit' => false, 'sudah_ada' => false, 'nominal' => $nominal, 'poin' => 0, 'tujuan' => $tujuan, 'status' => 'batas per pelanggan tercapai'];
+                }
+            }
+
+            if ($tujuan === 'dompet') {
+                $dompet = \App\Models\Wallet::firstOrCreate(['user_id' => $customerId], ['balance' => 0, 'pending_balance' => 0]);
+                $dompet->credit($nominal, 'Cashback kampanye #'.(int) $kampanye->id.' order #'.$orderId, 'cashback', (int) $kampanye->id, $kunci);
+                $kampanye->increment('used_count');
+
+                return ['dikredit' => true, 'sudah_ada' => false, 'nominal' => $nominal, 'poin' => 0, 'tujuan' => $tujuan, 'status' => 'dikredit ke dompet'];
+            }
+
+            $poin = max(1, (int) floor($nominal));
+            $hasil = (new \App\Models\LoyaltyPoint)->kreditCashback($customer, $poin, $orderId, 'Cashback kampanye #'.(int) $kampanye->id.' order #'.$orderId);
+            if (! $hasil['dikredit'] && ! $hasil['sudah_ada']) {
+                return ['dikredit' => false, 'sudah_ada' => false, 'nominal' => $nominal, 'poin' => 0, 'tujuan' => $tujuan, 'status' => $hasil['status']];
+            }
+            if ($hasil['dikredit']) {
+                $kampanye->increment('used_count');
+            }
+
+            return ['dikredit' => $hasil['dikredit'], 'sudah_ada' => $hasil['sudah_ada'], 'nominal' => $nominal, 'poin' => $hasil['dikredit'] ? $poin : (int) ($hasil['poin'] ?? 0), 'tujuan' => $tujuan, 'status' => $hasil['status']];
+        });
+    }
+
+    /**
+     * Simulasi gabungan tebus poin + kupon dalam satu checkout.
+     *
+     * Aturan stack aman: kupon dulu (dibatasi subtotal), lalu poin (dibatasi
+     * sisa bayar), total bayar tak pernah minus.
+     *
+     * @return array{subtotal: float, diskon_kupon: float, poin_diminta: int, poin_dipakai: int, nilai_poin: float, total_bayar: float, hemat: float}
+     */
+    public function simulasiStackCheckout(
+        float $subtotal,
+        ?\App\Models\Coupon $kupon,
+        int $poinDiminta,
+        float $nilaiPerPoin = 1.0,
+    ): array {
+        $subtotal = max(0.0, $subtotal);
+        $nilaiPerPoin = $nilaiPerPoin > 0 ? $nilaiPerPoin : 1.0;
+        $poinDiminta = max(0, $poinDiminta);
+
+        $diskonKupon = $kupon instanceof \App\Models\Coupon
+            ? max(0.0, min($kupon->calculateDiscount($subtotal), $subtotal))
+            : 0.0;
+
+        $sisa = max(0.0, $subtotal - $diskonKupon);
+        $nilaiPoin = min($poinDiminta * $nilaiPerPoin, $sisa);
+        $poinDipakai = (int) floor($nilaiPoin / $nilaiPerPoin);
+        $nilaiPoin = round($poinDipakai * $nilaiPerPoin, 2);
+        $totalBayar = round(max(0.0, $sisa - $nilaiPoin), 2);
+
+        return [
+            'subtotal' => round($subtotal, 2),
+            'diskon_kupon' => round($diskonKupon, 2),
+            'poin_diminta' => $poinDiminta,
+            'poin_dipakai' => $poinDipakai,
+            'nilai_poin' => $nilaiPoin,
+            'total_bayar' => $totalBayar,
+            'hemat' => round($subtotal - $totalBayar, 2),
+        ];
+    }
+
+    /**
+     * Jumlah cashback kampanye yang sudah dipakai satu pelanggan
+     * (dompet reference_key + loyalty reference earn).
+     */
+    public function hitungPakaiCashbackPelanggan(Campaign $campaign, int $customerId): int
+    {
+        $pakai = 0;
+
+        try {
+            $dompetId = \App\Models\Wallet::query()->where('user_id', $customerId)->value('id');
+            if ($dompetId) {
+                $pakai += (int) \App\Models\WalletTransaction::query()
+                    ->where('wallet_id', $dompetId)
+                    ->where('reference_type', 'cashback')
+                    ->where('reference_id', (int) $campaign->id)
+                    ->count();
+            }
+        } catch (\Throwable) {
+        }
+
+        try {
+            $pakai += (int) \App\Models\LoyaltyTransaction::query()
+                ->where('customer_id', $customerId)
+                ->where('type', 'earn')
+                ->where('reference_type', 'cashback')
+                ->where('description', 'like', '%#'.(int) $campaign->id.'%')
+                ->count();
+        } catch (\Throwable) {
+        }
+
+        return $pakai;
+    }
 }

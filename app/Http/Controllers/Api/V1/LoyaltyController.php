@@ -122,6 +122,47 @@ class LoyaltyController extends ApiController
         });
     }
 
+    /**
+     * Pratinjau gabungan tebus poin + kupon satu checkout dari sisi loyalitas.
+     * Kupon opsional; aturan stack aman (kupon dulu, lalu poin, tak minus).
+     * Aditif — tanpa mengubah endpoint existing.
+     */
+    public function pratinjauStack(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'order_total' => 'required|numeric|min:0',
+            'points' => 'required|integer|min:0|max:1000000',
+            'code' => 'nullable|string|max:50',
+        ]);
+
+        $coupon = null;
+        if (! empty($data['code'])) {
+            $coupon = \App\Models\Coupon::where('code', strtoupper(trim($data['code'])))->first();
+
+            if ($coupon === null || ! $coupon->isValid($request->user()->id)) {
+                return ApiResponse::error(
+                    ErrorCodes::COUPON_INVALID,
+                    'Kupon tidak aktif, kedaluwarsa, atau kuotanya habis.',
+                    422,
+                    ['code' => ['Kupon tidak dapat digunakan.']]
+                );
+            }
+        }
+
+        $saldo = (int) (LoyaltyPoint::where('customer_id', $request->user()->id)->value('points') ?? 0);
+        $simulasi = app(\App\Services\Marketing\CampaignService::class)->simulasiStackCheckout(
+            (float) $data['order_total'],
+            $coupon,
+            min((int) $data['points'], $saldo),
+        );
+
+        return $this->ok([
+            'saldo_poin' => $saldo,
+            'simulasi' => $simulasi,
+            'payable' => ApiResponse::money($simulasi['total_bayar']),
+        ], 'Pratinjau gabungan poin + kupon');
+    }
+
     /** Check-in harian beruntun (idempoten per hari). */
     public function checkin(Request $request): JsonResponse
     {

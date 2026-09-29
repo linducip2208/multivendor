@@ -138,6 +138,61 @@ class Affiliate extends Model
         );
     }
 
+    /**
+     * Tautan bagikan referral + pelacakan kanal (utm_source).
+     * Tanpa library QR/barcode (belum terinstal) — bagikan via tautan +
+     * tombol salin + poster unduhan, bukan gambar QR.
+     */
+    public function tautanBagikan(?string $baseUrl = null, string $kanal = 'umum'): string
+    {
+        $tautan = $this->referralLink($baseUrl);
+        $kanal = trim(preg_replace('/[^a-z0-9_-]+/i', '', $kanal) ?? '');
+        if ($kanal === '' || $kanal === 'umum') {
+            return $tautan;
+        }
+
+        return $tautan.(str_contains($tautan, '?') ? '&' : '?').'utm_source='.urlencode($kanal);
+    }
+
+    /** Teks siap-bagikan (WA/medsos) berisi kode + tautan referral. */
+    public function pesanBagikan(?string $baseUrl = null): string
+    {
+        return 'Belanja lewat tautanku '.$this->tautanBagikan($baseUrl).' — pakai kode referral '.(string) $this->code.' biar kami berdua dapat untung!';
+    }
+
+    /**
+     * Poster referral SVG siap unduh (tanpa dependensi baru).
+     * Berisi nama, kode besar, dan tautan — pengganti QR.
+     */
+    public function posterSvg(?string $baseUrl = null): string
+    {
+        $kode = htmlspecialchars((string) $this->code, ENT_QUOTES, 'UTF-8');
+        $nama = htmlspecialchars(mb_substr((string) $this->name, 0, 40), ENT_QUOTES, 'UTF-8');
+        $tautan = htmlspecialchars($this->tautanBagikan($baseUrl), ENT_QUOTES, 'UTF-8');
+        $komisi = number_format((float) $this->commission_rate, 1, ',', '.');
+
+        return '<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800" role="img" aria-label="Poster referral '.$kode.'">'
+            .'<rect width="600" height="800" rx="24" fill="#0f766e"/>'
+            .'<rect x="24" y="24" width="552" height="752" rx="16" fill="#ffffff"/>'
+            .'<text x="300" y="110" text-anchor="middle" font-family="sans-serif" font-size="26" fill="#0f766e">'.$nama.'</text>'
+            .'<text x="300" y="150" text-anchor="middle" font-family="sans-serif" font-size="18" fill="#64748b">Ajak teman, raih komisi '.$komisi.'%</text>'
+            .'<rect x="90" y="200" width="420" height="150" rx="12" fill="#f0fdfa" stroke="#0f766e" stroke-width="2"/>'
+            .'<text x="300" y="255" text-anchor="middle" font-family="monospace" font-size="52" font-weight="bold" fill="#0f766e">'.$kode.'</text>'
+            .'<text x="300" y="300" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#475569">Kode referral</text>'
+            .'<text x="300" y="430" text-anchor="middle" font-family="sans-serif" font-size="17" fill="#0f172a">'.$tautan.'</text>'
+            .'<text x="300" y="700" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#94a3b8">Tunjukkan kode ini saat checkout</text>'
+            .'</svg>';
+    }
+
+    /**
+     * QR tidak tersedia: tidak ada paket QR/barcode terinstal
+     * (composer show bersih). Gunakan tautan + tombol salin + poster SVG.
+     */
+    public function qrTersedia(): bool
+    {
+        return false;
+    }
+
     /** Papan peringkat afiliasi berdasar omzet (read-only). */
     public static function leaderboard(int $limit = 10): array
     {

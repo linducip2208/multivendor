@@ -212,6 +212,24 @@ class Coupon extends Model
         ]);
     }
 
+    /**
+     * Diskon kupon untuk simulasi stack checkout (dibatasi subtotal,
+     * tak pernah minus). Kolom terverifikasi ke migrasi
+     * 2026_06_09_000012 (discount_value, min_purchase, max_discount).
+     */
+    public function diskonUntukStack(float $subtotal): float
+    {
+        return max(0.0, min($this->calculateDiscount(max(0.0, $subtotal)), max(0.0, $subtotal)));
+    }
+
+    /**
+     * Sisa bayar setelah kupon untuk stack checkout (tak pernah minus).
+     */
+    public function sisaBayarSetelahKupon(float $subtotal): float
+    {
+        return round(max(0.0, max(0.0, $subtotal) - $this->diskonUntukStack($subtotal)), 2);
+    }
+
     public function calculateDiscount(float $orderTotal): float
     {
         if ($orderTotal < $this->min_purchase) return 0;

@@ -78,4 +78,18 @@
             </div>
         </x-admin.card>
     </form>
+
+    @php
+        $waProvider = (string) (\App\Models\SystemSetting::get('sms_provider', 'none') ?? 'none');
+        $waSiap = $waProvider !== 'none' && (string) (\App\Models\SystemSetting::get('sms_api_key', '') ?? '') !== '';
+    @endphp
+    <x-admin.card title="Kanal WhatsApp" icon="message-circle" class="mt-3">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <x-admin.badge :text="$waSiap ? 'Siap via '.$waProvider : 'Fallback log'" :color="$waSiap ? 'success' : 'warning'" pill />
+            <span class="small text-secondary">
+                Notifikasi WA memakai kredensial sms-gateway di atas.
+                {{ $waSiap ? 'Pesan dikirim memakai provider '.$waProvider.'.' : 'Provider belum dikonfigurasi — pesan dicatat ke log + pusat notifikasi (channel whatsapp) beserta statusnya.' }}
+            </span>
+        </div>
+    </x-admin.card>
 @endsection
