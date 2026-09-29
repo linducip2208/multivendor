@@ -83,18 +83,19 @@ final class VendorCustomerService
 
         $products = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
             ->where('orders.shop_id', $shopId)
             ->where('orders.customer_id', $customerId)
-            ->groupBy('order_items.product_id', 'order_items.product_name')
-            ->selectRaw('order_items.product_id, order_items.product_name, SUM(order_items.quantity) as units, SUM(order_items.sub_total) as spend')
+            ->groupBy('order_items.product_id', 'products.name')
+            ->selectRaw('order_items.product_id, MAX(products.name) as product_name, SUM(order_items.quantity) as units, SUM(order_items.sub_total) as spend')
             ->orderByDesc('spend')
             ->limit(8)
             ->get();
 
         $reviews = ProductReview::query()
-            ->where('shop_id', $shopId)
             ->where('customer_id', $customerId)
-            ->with('product:id,name')
+            ->whereHas('product', fn ($query) => $query->where('shop_id', $shopId))
+            ->with('product:id,name,shop_id')
             ->orderByDesc('created_at')
             ->limit(8)
             ->get();

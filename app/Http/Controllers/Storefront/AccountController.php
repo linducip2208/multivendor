@@ -112,10 +112,14 @@ class AccountController extends Controller
     public function markRead(int|string $notification)
     {
         $row = UserNotification::query()
-            ->where('uuid', $notification)
-            ->orWhere('id', is_numeric($notification) ? (int) $notification : 0)
             ->where('notifiable_type', User::class)
             ->where('notifiable_id', auth()->id())
+            ->where(function ($query) use ($notification): void {
+                $query->where('uuid', $notification);
+                if (is_numeric($notification)) {
+                    $query->orWhere('id', (int) $notification);
+                }
+            })
             ->first();
 
         $row?->markAsRead();
@@ -203,7 +207,9 @@ class AccountController extends Controller
                 ->where('notifiable_id', $userId)
                 ->whereNull('read_at')
                 ->count();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            report($e);
+
             return 0;
         }
     }
@@ -215,7 +221,9 @@ class AccountController extends Controller
             return DB::table('social_logins')->where('user_id', auth()->id())->get()
                 ->map(fn ($row) => ['provider' => (string) $row->provider, 'name' => $row->name ?? null])
                 ->all();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
+            report($e);
+
             return [];
         }
     }

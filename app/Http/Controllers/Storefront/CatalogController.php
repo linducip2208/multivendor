@@ -235,15 +235,15 @@ class CatalogController extends Controller
             ->where('status', true)
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
-            ->orderByDesc('discount_percentage')
-            ->with('products.product.shop')
+            ->orderByBestDiscount()
+            ->with('products.shop')
             ->first();
 
         $breadcrumb = [['label' => 'Flash Sale', 'href' => null]];
 
         return view('storefront.flash-sale', [
             'deal' => $deal,
-            'products' => $deal?->products->pluck('product')->filter()->take(24) ?? collect(),
+            'products' => $deal?->products->filter()->take(24) ?? collect(),
             'breadcrumbItems' => $breadcrumb,
             'metaTitle' => 'Flash Sale',
             'metaDescription' => 'Flash sale '.config('app.name').' — harga terbaik hanya dalam waktu terbatas.',

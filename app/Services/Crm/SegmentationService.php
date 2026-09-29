@@ -217,12 +217,13 @@ final class SegmentationService
 
         $rows = DB::table('orders')
             ->leftJoin('order_items', 'order_items.order_id', '=', 'orders.id')
+            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
             ->where('orders.customer_id', '>', 0)
             ->whereIn('orders.payment_status', ['paid', 'partial', 'refunded'])
             ->whereNotIn('orders.order_status', ['canceled', 'failed'])
             ->when($window !== null, fn ($q) => $q->where('orders.created_at', '>=', now()->subDays($window)))
-            ->groupBy('orders.id', 'orders.customer_id', 'orders.total', 'orders.coupon_code', 'orders.created_at', 'orders.shop_id', 'order_items.category_id')
-            ->selectRaw('orders.customer_id, orders.total, orders.coupon_code, orders.created_at, orders.shop_id, order_items.category_id, COUNT(order_items.id) as line_items')
+            ->groupBy('orders.id', 'orders.customer_id', 'orders.total', 'orders.coupon_code', 'orders.created_at', 'orders.shop_id', 'products.category_id')
+            ->selectRaw('orders.customer_id, orders.total, orders.coupon_code, orders.created_at, orders.shop_id, products.category_id as category_id, COUNT(order_items.id) as line_items')
             ->get();
 
         $totals = [];

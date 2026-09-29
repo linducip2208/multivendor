@@ -96,6 +96,10 @@ class WalletController extends Controller
             }, 3);
         } catch (\DomainException) {
             return back()->withInput()->with('error', 'Saldo tersedia tidak mencukupi untuk nominal penarikan.');
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->withInput()->with('error', 'Permintaan penarikan tidak dapat diproses. Silakan coba kembali.');
         }
 
         return back()->with('success', 'Permintaan pencairan dana dikirim. Menunggu persetujuan admin.');

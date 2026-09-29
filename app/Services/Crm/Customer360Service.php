@@ -369,13 +369,14 @@ final class Customer360Service
     {
         $rows = DB::table('order_items')
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->leftJoin('categories', 'categories.id', '=', 'order_items.category_id')
+            ->leftJoin('products', 'products.id', '=', 'order_items.product_id')
+            ->leftJoin('categories', 'categories.id', '=', 'products.category_id')
             ->where('orders.customer_id', $customerId)
             ->whereIn('orders.payment_status', ['paid', 'partial', 'refunded'])
             ->whereNotIn('orders.order_status', ['canceled', 'failed'])
-            ->whereNotNull('order_items.category_id')
-            ->groupBy('order_items.category_id', 'categories.name')
-            ->selectRaw('order_items.category_id as category_id, COALESCE(categories.name, ?) as name, SUM(order_items.quantity) as quantity, SUM(order_items.sub_total) as spend', ['#'.$customerId])
+            ->whereNotNull('products.category_id')
+            ->groupBy('products.category_id', 'categories.name')
+            ->selectRaw('products.category_id as category_id, COALESCE(categories.name, ?) as name, SUM(order_items.quantity) as quantity, SUM(order_items.sub_total) as spend', ['#'.$customerId])
             ->orderByDesc('quantity')
             ->limit(5)
             ->get();

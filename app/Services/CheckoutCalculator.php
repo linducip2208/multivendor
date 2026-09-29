@@ -106,7 +106,7 @@ class CheckoutCalculator
 
     private function assertSaleable(Product $product, int $quantity): void
     {
-        if ($product->status !== 'approved' || ! $product->published || $product->shop->status !== 'active') {
+        if ($product->status !== 'approved' || ! $product->published || $product->shop === null || $product->shop->status !== 'active') {
             throw ValidationException::withMessages(['cart' => "Produk {$product->name} tidak tersedia."]);
         }
         if ($product->shop->vacation_mode) {

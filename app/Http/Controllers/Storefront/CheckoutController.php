@@ -32,7 +32,7 @@ class CheckoutController extends Controller
 {
     public function index()
     {
-        $cartItems = Cart::where('customer_id', auth()->id())->with(['product.shop', 'variant'])->get();
+        $cartItems = Cart::where('customer_id', auth()->id())->with(['product.shop', 'variant'])->get()->filter(fn ($item) => $item->product !== null);
         if ($cartItems->isEmpty()) {
             return redirect()->route('cart.index')->with('error', 'Keranjang kosong.');
         }
@@ -53,18 +53,20 @@ class CheckoutController extends Controller
     {
         $validated = $request->validate([
             'address_id' => 'nullable|exists:customer_addresses,id',
+            'new_label' => 'nullable|string|max:100',
             'new_receiver_name' => 'nullable|required_without:address_id|string|max:255',
             'new_receiver_phone' => 'nullable|required_without:address_id|string|max:20',
             'new_address' => 'nullable|required_without:address_id|string|max:500',
             'new_city' => 'nullable|required_without:address_id|string|max:100',
             'new_province' => 'nullable|required_without:address_id|string|max:100',
+            'new_postal_code' => 'nullable|string|max:12',
             'new_shipping_destination_id' => 'nullable|required_without:address_id|string|max:100',
             'shipping_methods' => 'present|array',
-            'shipping_methods.*.provider_id' => 'nullable|integer',
+            'shipping_methods.*.provider_id' => 'nullable|integer|exists:providers,id',
             'shipping_methods.*.courier' => 'nullable|string|max:50',
             'shipping_methods.*.service' => 'nullable|string|max:100',
             'shipping_methods.*.destination' => 'nullable|string|max:100',
-            'payment_provider_id' => 'required|integer',
+            'payment_provider_id' => 'required|integer|exists:providers,id',
             'payment_channel' => 'nullable|array',
             'idempotency_key' => 'nullable|string|max:80',
             'note' => 'nullable|string|max:2000',
@@ -73,7 +75,13 @@ class CheckoutController extends Controller
 
         $customer = $request->user();
         $shippingMethods = $request->input('shipping_methods', []);
+        if (! is_array($shippingMethods)) {
+            $shippingMethods = [];
+        }
         $idempotencyKey = $this->idempotencyKey($request, $validated);
+        if (isset($validated['coupon_code']) && is_string($validated['coupon_code'])) {
+            $validated['coupon_code'] = strtoupper(trim($validated['coupon_code'])) ?: null;
+        }
 
         $provider = Provider::ofType('payment')->active()->find($validated['payment_provider_id']);
         if (! $provider) {
@@ -202,11 +210,16 @@ class CheckoutController extends Controller
         }
 
         $group = $created['group'];
-        $orders = $created['orders'];
+        // $created['orders'] is a base Support collection; re-query as
+        // Eloquent so items.product is eager-loaded without N+1.
+        $orders = Order::query()
+            ->whereIn('id', collect($created['orders'])->map(fn ($o) => $o->getKey())->all())
+            ->with('items.product')
+            ->get();
 
         $payment = $payments->createPayment($provider, [
             'order_id' => $group->payment_number, 'amount' => $group->grand_total,
-            'channel' => $validated['payment_channel'][$provider->id] ?? 'default',
+            'channel' => is_array($validated['payment_channel'] ?? null) ? ($validated['payment_channel'][$provider->id] ?? 'default') : 'default',
             'customer' => ['name' => $customer->name, 'email' => $customer->email, 'phone' => $customer->phone],
             'items' => $this->paymentItems($orders), 'success_url' => route('orders.index'),
             'callback_url' => route('webhook.payment', $provider),
@@ -347,9 +360,10 @@ class CheckoutController extends Controller
 
         foreach ($orders as $order) {
             foreach ($order->items as $item) {
+                $productName = $item->product?->name ?? ('Produk #'.$item->product_id);
                 $items[] = [
                     'id' => 'ITEM-'.$item->id,
-                    'name' => mb_substr($item->product->name, 0, 50),
+                    'name' => mb_substr($productName, 0, 50),
                     'price' => (int) Money::of($item->price)->toDecimal(),
                     'quantity' => (int) $item->quantity,
                 ];

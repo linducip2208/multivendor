@@ -49,9 +49,9 @@ Route::get('/', [HomeController::class, 'index'])->name('home');
 
 /* ---- Authentication ---- */
 Route::get('/login', [HomeController::class, 'loginForm'])->name('login');
-Route::post('/login', [HomeController::class, 'login']);
+Route::post('/login', [HomeController::class, 'login'])->middleware('throttle:auth');
 Route::get('/register', [HomeController::class, 'registerForm'])->name('register');
-Route::post('/register', [HomeController::class, 'register']);
+Route::post('/register', [HomeController::class, 'register'])->middleware('throttle:auth');
 Route::post('/logout', [HomeController::class, 'logout'])->name('logout');
 Route::get('/auth/{provider}/redirect', [SocialAuthController::class, 'redirect'])->name('social.redirect');
 Route::get('/auth/{provider}/callback', [SocialAuthController::class, 'callback'])->name('social.callback');
@@ -98,8 +98,8 @@ Route::middleware('customer')->group(function (): void {
 
     /* Checkout */
     Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
-    Route::post('/checkout', [CheckoutController::class, 'process'])->name('checkout.process');
-    Route::post('/checkout/shipping-cost', [CheckoutController::class, 'shippingCost'])->name('checkout.shipping-cost');
+    Route::post('/checkout', [CheckoutController::class, 'process'])->middleware('throttle:10,1')->name('checkout.process');
+    Route::post('/checkout/shipping-cost', [CheckoutController::class, 'shippingCost'])->middleware('throttle:30,1')->name('checkout.shipping-cost');
 
     /* Orders */
     Route::get('/orders', [StoreOrderController::class, 'index'])->name('orders.index');

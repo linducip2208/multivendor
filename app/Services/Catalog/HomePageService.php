@@ -182,11 +182,12 @@ class HomePageService
 
         $categoryIds = \App\Models\OrderItem::query()
             ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->join('products', 'products.id', '=', 'order_items.product_id')
             ->where('orders.customer_id', $customerId)
-            ->groupBy('order_items.category_id')
+            ->groupBy('products.category_id')
             ->orderByRaw('count(*) DESC')
             ->limit(5)
-            ->pluck('order_items.category_id')
+            ->pluck('products.category_id')
             ->all();
 
         if ($categoryIds === []) {
@@ -210,7 +211,7 @@ class HomePageService
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->withCount('products')
-            ->orderByDesc('discount_percentage')
+            ->orderByBestDiscount()
             ->first();
     }
 
@@ -232,8 +233,10 @@ class HomePageService
     {
         return Cache::remember('home:dotd:'.now()->toDateString(), self::CACHE_TTL, function () {
             $row = \Illuminate\Support\Facades\DB::table('deals_of_the_day')
+                ->join('products', 'products.id', '=', 'deals_of_the_day.product_id')
                 ->where('date', now()->toDateString())
-                ->orderByDesc('discount_percentage')
+                ->orderByRaw(\App\Models\DealOfTheDay::effectiveExpression().' desc')
+                ->select('deals_of_the_day.*')
                 ->first();
 
             if (! $row || ! $row->product_id) {
@@ -242,7 +245,11 @@ class HomePageService
 
             $product = $this->saleable()->with(['shop', 'category', 'brand'])->find($row->product_id);
 
-            return $product ? ['product' => $product, 'discount' => (int) $row->discount_percentage] : null;
+            $discount = $row->discount_type === 'flat' && (float) ($product?->price ?? 0) > 0
+                ? (int) round(min(100, (float) $row->discount_value / (float) $product->price * 100))
+                : (int) $row->discount_value;
+
+            return $product ? ['product' => $product, 'discount' => $discount] : null;
         });
     }
 

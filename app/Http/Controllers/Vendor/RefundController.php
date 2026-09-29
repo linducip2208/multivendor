@@ -34,7 +34,7 @@ class RefundController extends Controller
                     ->where('shop_id', $shopId)
                     ->where('order_number', 'like', '%'.VendorScopeRequest::search($request).'%'))
             )
-            ->with(['order:id,order_number,total,customer_id,shop_id', 'product:id,name,thumbnail'])
+            ->with(['order:id,order_number,total,customer_id,shop_id', 'product:id,name,thumbnail', 'orderItem.product:id,name'])
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();
@@ -79,7 +79,7 @@ class RefundController extends Controller
         $returns = OrderReturn::query()
             ->whereHas('order', fn ($query) => $query->where('shop_id', $shopId))
             ->when($status !== '', fn ($query) => $query->where('status', $status))
-            ->with(['order:id,order_number,total,shop_id,customer_id', 'orderItem:id,product_name,quantity,sub_total'])
+            ->with(['order:id,order_number,total,shop_id,customer_id', 'orderItem:id,order_id,product_id,quantity,sub_total', 'orderItem.product:id,name'])
             ->orderByDesc('created_at')
             ->paginate(15)
             ->withQueryString();

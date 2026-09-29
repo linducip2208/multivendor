@@ -16,6 +16,7 @@ class CartController extends Controller
         $cartItems = Cart::where('customer_id', auth()->id())
             ->with(['product.shop', 'variant'])
             ->get()
+            ->filter(fn (Cart $item) => $item->product !== null)
             ->each(function (Cart $item): void {
                 $item->price = $item->variant?->getEffectivePrice() ?? $item->product?->getEffectivePrice();
             })
@@ -24,6 +25,9 @@ class CartController extends Controller
         $shops = [];
         foreach ($cartItems as $shopId => $items) {
             $shop = $items->first()->product->shop;
+            if ($shop === null) {
+                continue;
+            }
             $subtotal = Money::sum(array_map(
                 static fn (Cart $item) => Money::of($item->price)->multiply((int) $item->quantity),
                 $items->all()
@@ -41,7 +45,7 @@ class CartController extends Controller
         $request->validate([
             'product_id' => 'required|exists:products,id',
             'variant_id' => 'nullable|exists:product_variants,id',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|integer|min:1|max:1000',
         ]);
 
         $product = Product::with('shop')->findOrFail($request->product_id);
@@ -60,7 +64,11 @@ class CartController extends Controller
 
         $existingCart = Cart::where('customer_id', auth()->id())
             ->where('product_id', $product->id)
-            ->where('product_variant_id', $request->variant_id)
+            ->when(
+                $request->variant_id,
+                fn ($query) => $query->where('product_variant_id', $request->variant_id),
+                fn ($query) => $query->whereNull('product_variant_id')
+            )
             ->first();
 
         if ($existingCart) {
@@ -86,10 +94,18 @@ class CartController extends Controller
     {
         if ($cart->customer_id !== auth()->id()) abort(403);
 
-        $request->validate(['quantity' => 'required|integer|min:1']);
+        $request->validate(['quantity' => 'required|integer|min:1|max:1000']);
         $cart->load('product.shop', 'variant');
+        if ($cart->product === null) {
+            $cart->delete();
+
+            return back()->with('error', 'Produk sudah tidak tersedia dan telah dihapus dari keranjang.');
+        }
         $this->assertCartable($cart->product, (int) $request->quantity, $cart->variant);
-        $cart->update(['quantity' => $request->quantity]);
+        $cart->update([
+            'quantity' => $request->quantity,
+            'price' => $cart->variant?->getEffectivePrice() ?? $cart->product->getEffectivePrice(),
+        ]);
         return back()->with('success', 'Keranjang diperbarui.');
     }
 
@@ -108,7 +124,7 @@ class CartController extends Controller
 
     private function assertCartable(Product $product, int $quantity, ?ProductVariant $variant = null): void
     {
-        if ($product->status !== 'approved' || !$product->published || $product->shop->status !== 'active') abort(422, 'Produk tidak tersedia.');
+        if ($product->status !== 'approved' || ! $product->published || $product->shop === null || $product->shop->status !== 'active') abort(422, 'Produk tidak tersedia.');
         if ($product->shop->vacation_mode) abort(422, 'Toko sedang libur.');
         if ($quantity < $product->min_qty || ($product->max_qty && $quantity > $product->max_qty)) abort(422, 'Kuantitas tidak memenuhi batas pembelian.');
         $stock = $variant?->stock ?? $product->current_stock;
