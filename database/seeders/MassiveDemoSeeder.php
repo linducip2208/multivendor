@@ -104,12 +104,19 @@ class MassiveDemoSeeder extends Seeder
                 $varian2 = $this->varianDua[array_rand($this->varianDua)];
                 $namaProduk = $brand->name . ' - ' . $varian1 . ' ' . $varian2;
                 $slugProduk = Str::slug($brand->name . '-' . Str::random(4));
-                // Ilustrasi unik sesuai kategori + nama produk (bukan placeholder generik).
+                // Foto asli sesuai kata kunci (cache per keyword), fallback ilustrasi SVG.
                 $gambar = [];
-                for ($v = 0; $v < 3; $v++) {
-                    $gambar[] = Support\DemoProductImage::forProduct(
-                        $namaProduk, $brand->name, $category->slug, $category->name, $slugProduk, $v
-                    );
+                try {
+                    $keyword = Support\DemoPhotoFetcher::keywordFor($namaProduk.' '.$brand->name, $category->slug, $category->name);
+                    $gambar = Support\DemoPhotoFetcher::fetch($keyword, 3);
+                } catch (\Throwable) {
+                }
+                if (count($gambar) < 1) {
+                    for ($v = 0; $v < 3; $v++) {
+                        $gambar[] = Support\DemoProductImage::forProduct(
+                            $namaProduk, $brand->name, $category->slug, $category->name, $slugProduk, $v
+                        );
+                    }
                 }
                 $product = Product::create([
                     'shop_id' => $shop->id, 'category_id' => $category->id, 'brand_id' => $brand->id,
