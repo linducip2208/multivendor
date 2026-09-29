@@ -19,7 +19,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'delivered_at', 'canceled_at', 'payment_group_id', 'stock_released_at',
     'parent_order_id', 'source', 'fulfillment_status', 'warehouse_id',
     'packed_at', 'completed_at', 'returned_at', 'refunded_at', 'return_reason',
-    'refunded_amount', 'currency', 'idempotency_key', 'pos_shift_id', 'pos_register_id'
+    'refunded_amount', 'currency', 'idempotency_key', 'pos_shift_id', 'pos_register_id',
+    'reconciled_at',
 ])]
 class Order extends Model
 {
@@ -45,6 +46,7 @@ class Order extends Model
             'completed_at' => 'datetime',
             'returned_at' => 'datetime',
             'refunded_at' => 'datetime',
+            'reconciled_at' => 'datetime',
         ];
     }
 

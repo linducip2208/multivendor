@@ -27,9 +27,7 @@ class Provider extends Model
 
     public function setApiKeyEncryptedAttribute($value): void
     {
-        if ($value) {
-            $this->attributes['api_key_encrypted'] = Crypt::encryptString($value);
-        }
+        $this->attributes['api_key_encrypted'] = $value ? Crypt::encryptString($value) : null;
     }
 
     public function getApiKeyAttribute(): ?string
@@ -44,9 +42,7 @@ class Provider extends Model
 
     public function setApiSecretEncryptedAttribute($value): void
     {
-        if ($value) {
-            $this->attributes['api_secret_encrypted'] = Crypt::encryptString($value);
-        }
+        $this->attributes['api_secret_encrypted'] = $value ? Crypt::encryptString($value) : null;
     }
 
     public function getApiSecretAttribute(): ?string

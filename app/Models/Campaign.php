@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
-#[Fillable(['name', 'slug', 'type', 'description', 'rules', 'audience', 'budget', 'discount_value', 'discount_type', 'usage_limit', 'used_count', 'per_user_limit', 'status', 'starts_at', 'ends_at', 'clicks', 'conversions', 'revenue'])]
+#[Fillable(['name', 'slug', 'type', 'description', 'rules', 'audience', 'budget', 'discount_value', 'discount_type', 'usage_limit', 'used_count', 'per_user_limit', 'status', 'starts_at', 'ends_at', 'clicks', 'conversions', 'revenue', 'activated_at', 'activated_by'])]
 class Campaign extends Model
 {
     protected function casts(): array
@@ -27,6 +27,7 @@ class Campaign extends Model
             'conversions' => 'integer',
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
+            'activated_at' => 'datetime',
         ];
     }
 

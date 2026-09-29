@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'product_id', 'sku', 'variant', 'variant_attributes', 'price',
-    'special_price', 'discount_type', 'discount_start', 'discount_end', 'stock'
+    'special_price', 'discount_type', 'discount_start', 'discount_end', 'stock',
+    'low_stock_threshold',
 ])]
 class ProductVariant extends Model
 {
@@ -20,6 +21,8 @@ class ProductVariant extends Model
             'special_price' => 'decimal:2',
             'discount_start' => 'datetime',
             'discount_end' => 'datetime',
+            'stock' => 'integer',
+            'low_stock_threshold' => 'integer',
         ];
     }
 

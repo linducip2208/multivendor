@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 #[Fillable([
     'payment_number', 'customer_id', 'provider_id', 'subtotal', 'tax', 'shipping_cost',
     'discount', 'grand_total', 'status', 'gateway_reference', 'gateway_response', 'paid_at', 'expired_at',
+    'last_reconciled_at', 'reconciliation_attempts', 'reconciliation_note', 'refunded_at',
 ])]
 class PaymentGroup extends Model
 {
@@ -21,6 +22,8 @@ class PaymentGroup extends Model
             'subtotal' => 'decimal:2', 'tax' => 'decimal:2', 'shipping_cost' => 'decimal:2',
             'discount' => 'decimal:2', 'grand_total' => 'decimal:2', 'gateway_response' => 'array',
             'paid_at' => 'datetime', 'expired_at' => 'datetime',
+            'last_reconciled_at' => 'datetime', 'reconciliation_attempts' => 'integer',
+            'refunded_at' => 'datetime',
         ];
     }
 

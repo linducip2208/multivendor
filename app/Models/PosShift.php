@@ -32,14 +32,14 @@ class PosShift extends Model
         return $query->where('status', 'open');
     }
 
-    public function variance(): float
+    public function calculatedVariance(): float
     {
         return (float) $this->counted_cash - (float) $this->expected_cash;
     }
 
     public function isBalanced(): bool
     {
-        return abs($this->variance()) < 0.01;
+        return abs($this->calculatedVariance()) < 0.01;
     }
 
     public function register(): BelongsTo

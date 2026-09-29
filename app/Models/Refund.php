@@ -32,6 +32,7 @@ class Refund extends Model
             'amount' => 'decimal:2',
             'gateway_response' => 'array',
             'succeeded_at' => 'datetime',
+            'attempts' => 'integer',
             'last_attempt_at' => 'datetime',
         ];
     }

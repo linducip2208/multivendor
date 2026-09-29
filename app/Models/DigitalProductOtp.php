@@ -9,11 +9,11 @@ class DigitalProductOtp extends Model
 {
     protected $table = 'digital_product_otps';
 
-    protected $fillable = ['order_item_id', 'otp', 'verified'];
+    protected $fillable = ['order_item_id', 'otp', 'verified', 'verified_at'];
 
     protected function casts(): array
     {
-        return ['verified' => 'boolean'];
+        return ['verified' => 'boolean', 'verified_at' => 'datetime'];
     }
 
     public function orderItem(): BelongsTo
@@ -23,7 +23,7 @@ class DigitalProductOtp extends Model
 
     public function verify(): void
     {
-        $this->update(['verified' => true]);
+        $this->update(['verified' => true, 'verified_at' => now()]);
     }
 
     public static function generateForOrderItem(OrderItem $orderItem): static

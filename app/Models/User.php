@@ -23,6 +23,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_super_admin' => 'boolean',
         ];
     }
 
@@ -33,7 +34,7 @@ class User extends Authenticatable
 
     public function isSuperAdmin(): bool
     {
-        return $this->role === 'admin';
+        return (bool) ($this->is_super_admin ?? false) || $this->role === 'admin';
     }
 
     public function isVendor(): bool
@@ -44,6 +45,16 @@ class User extends Authenticatable
     public function isCustomer(): bool
     {
         return $this->role === 'customer';
+    }
+
+    public function isDelivery(): bool
+    {
+        return $this->role === 'delivery';
+    }
+
+    public function isEmployee(): bool
+    {
+        return $this->role === 'employee';
     }
 
     public function shop(): HasOne

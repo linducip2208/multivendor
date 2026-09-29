@@ -11,6 +11,8 @@ class VendorSubscription extends Model
         'vendor_id', 'shop_id', 'subscription_plan_id', 'status',
         'amount_paid', 'starts_at', 'ends_at', 'canceled_at',
         'payment_method', 'transaction_reference',
+        'grace_ends_at', 'trial_ends_at', 'cancelled_at', 'cancel_reason',
+        'auto_renew', 'renewed_from_id', 'downgrade_at_period_end', 'notes',
     ];
 
     protected function casts(): array
@@ -20,6 +22,11 @@ class VendorSubscription extends Model
             'starts_at' => 'datetime',
             'ends_at' => 'datetime',
             'canceled_at' => 'datetime',
+            'grace_ends_at' => 'datetime',
+            'trial_ends_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'auto_renew' => 'boolean',
+            'downgrade_at_period_end' => 'boolean',
         ];
     }
 

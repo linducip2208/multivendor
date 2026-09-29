@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'price', 'tax', 'discount', 'sub_total', 'variant_detail',
     'is_reviewed', 'refund_status', 'refund_reason', 'refund_admin_note',
     'refund_requested_at', 'refund_decided_at', 'refund_processed_at',
+    'refund_amount', 'refund_reference', 'fulfillment_status',
 ])]
 class OrderItem extends Model
 {
@@ -21,6 +22,7 @@ class OrderItem extends Model
             'tax' => 'decimal:2',
             'discount' => 'decimal:2',
             'sub_total' => 'decimal:2',
+            'refund_amount' => 'decimal:2',
             'is_reviewed' => 'boolean',
             'refund_requested_at' => 'datetime',
             'refund_decided_at' => 'datetime',

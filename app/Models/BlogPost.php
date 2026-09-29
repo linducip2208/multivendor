@@ -9,7 +9,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 #[Fillable([
     'author_id', 'title', 'slug', 'content', 'excerpt', 'featured_image',
-    'is_published', 'published_at', 'meta_title', 'meta_description'
+    'is_published', 'published_at', 'meta_title', 'meta_description',
+    'author_name', 'author_avatar',
 ])]
 class BlogPost extends Model
 {
