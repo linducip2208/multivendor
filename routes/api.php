@@ -174,6 +174,9 @@ Route::middleware($envelope)->group(function () use ($authenticated, $mutation):
             Route::get('loyalty', [LoyaltyController::class, 'show'])->name('loyalty.show');
             Route::get('loyalty/transactions', [LoyaltyController::class, 'transactions'])->name('loyalty.transactions');
             Route::post('loyalty/redeem', [LoyaltyController::class, 'redeem'])->middleware($mutation)->name('loyalty.redeem');
+            Route::get('loyalty/missions', [LoyaltyController::class, 'missions'])->name('loyalty.missions');
+            Route::post('loyalty/missions/claim', [LoyaltyController::class, 'claimMission'])->middleware($mutation)->name('loyalty.missions.claim');
+            Route::post('loyalty/checkin', [LoyaltyController::class, 'checkin'])->middleware($mutation)->name('loyalty.checkin');
 
             Route::get('coupons', [CouponController::class, 'index'])->name('coupons.index');
             Route::get('coupons/{code}', [CouponController::class, 'show'])->name('coupons.show');
