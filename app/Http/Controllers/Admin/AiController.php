@@ -80,6 +80,89 @@ class AiController extends Controller
         ]);
     }
 
+    /**
+     * Generator deskripsi produk + judul SEO (aditif, fallback lokal bila AI off).
+     */
+    public function describeProduct(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'nama' => ['required', 'string', 'min:2', 'max:160'],
+            'spesifikasi' => ['nullable', 'array'],
+            'spesifikasi.*' => ['nullable', 'string', 'max:300'],
+        ]);
+
+        try {
+            $hasil = $this->copilot->productCopy(
+                (string) $validated['nama'],
+                is_array($validated['spesifikasi'] ?? null) ? $validated['spesifikasi'] : [],
+            );
+
+            return response()->json(['success' => true, 'advisory' => true] + $hasil);
+        } catch (\Throwable) {
+            return response()->json([
+                'success' => true,
+                'advisory' => true,
+                'judul_seo' => mb_substr((string) $validated['nama'], 0, 60),
+                'deskripsi' => (string) $validated['nama'].' adalah pilihan tepat untuk kebutuhan harian Anda.',
+                'meta_description' => mb_substr('Beli '.(string) $validated['nama'].' original berkualitas.', 0, 160),
+                'source' => 'fallback',
+            ]);
+        }
+    }
+
+    /**
+     * Ringkasan ulasan produk: pro/kontra + skor agregat (aditif, fallback lokal bila AI off).
+     */
+    public function summarizeReviews(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'nama_produk' => ['nullable', 'string', 'max:160'],
+            'ulasan' => ['nullable', 'array', 'max:200'],
+            'ulasan.*.rating' => ['nullable', 'numeric', 'min:1', 'max:5'],
+            'ulasan.*.comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        try {
+            $hasil = $this->copilot->reviewSummary(
+                is_array($validated['ulasan'] ?? null) ? $validated['ulasan'] : [],
+                (string) ($validated['nama_produk'] ?? ''),
+            );
+
+            return response()->json(['success' => true, 'advisory' => true] + $hasil);
+        } catch (\Throwable) {
+            return response()->json([
+                'success' => true,
+                'advisory' => true,
+                'total' => 0,
+                'rata_rata' => 0.0,
+                'distribusi' => [5 => 0, 4 => 0, 3 => 0, 2 => 0, 1 => 0],
+                'pro' => [],
+                'kontra' => [],
+                'ringkasan' => 'Belum ada ulasan yang dapat diringkas.',
+                'source' => 'fallback',
+            ]);
+        }
+    }
+
+    /**
+     * Pencarian cerdas: koreksi ejaan + ekspansi sinonim (aditif, murni lokal).
+     */
+    public function expandQuery(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            return response()->json([
+                'success' => true,
+                'advisory' => true,
+            ] + $this->copilot->smartSearch((string) ($validated['q'] ?? '')));
+        } catch (\Throwable) {
+            return response()->json(['success' => true, 'advisory' => true, 'original' => (string) ($validated['q'] ?? ''), 'corrected' => '', 'tokens' => [], 'expanded' => []]);
+        }
+    }
+
     public function updatePrompts(Request $request): RedirectResponse
     {
         $validated = $request->validate([

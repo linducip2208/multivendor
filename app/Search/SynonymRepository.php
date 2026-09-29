@@ -36,6 +36,121 @@ class SynonymRepository
         return $group === null ? [] : array_values(array_diff($group, [$token]));
     }
 
+    /**
+     * Kelompok sinonim bawaan Bahasa Indonesia (aditif, selalu tersedia
+     * walau tabel search_synonyms kosong).
+     *
+     * @var list<list<string>>
+     */
+    private const KAMUS_BAWAAN = [
+        ['hp', 'handphone', 'ponsel', 'smartphone'],
+        ['baju', 'kaos', 'kemeja', 'pakaian'],
+        ['sepatu', 'sneaker'],
+        ['tas', 'ransel'],
+        ['laptop', 'komputer', 'notebook'],
+        ['sandal', 'sendal'],
+        ['hijab', 'kerudung', 'jilbab'],
+        ['keripik', 'kripik'],
+        ['motor', 'sepeda motor'],
+        ['jam tangan', 'arloji'],
+        ['charger', 'casan', 'pengisi daya'],
+        ['camilan', 'cemilan', 'jajanan'],
+    ];
+
+    /**
+     * Peta kamus bawaan: anggota => seluruh kelompoknya (aditif).
+     *
+     * @return array<string, list<string>>
+     */
+    public static function kamusBawaan(): array
+    {
+        static $peta = null;
+
+        if ($peta !== null) {
+            return $peta;
+        }
+
+        $peta = [];
+
+        foreach (self::KAMUS_BAWAAN as $kelompok) {
+            $normal = array_values(array_unique(array_filter(array_map(
+                static fn (string $item): string => mb_strtolower(trim($item)),
+                $kelompok,
+            ))));
+
+            if (count($normal) < 2) {
+                continue;
+            }
+
+            foreach ($normal as $anggota) {
+                $peta[$anggota] = $normal;
+
+                foreach (preg_split('/\s+/u', $anggota) ?: [] as $token) {
+                    if ($token !== '' && ! isset($peta[$token])) {
+                        $peta[$token] = $normal;
+                    }
+                }
+            }
+        }
+
+        return $peta;
+    }
+
+    /**
+     * Ekspansi cerdas: gabungan sinonim database + kamus bawaan (aditif).
+     *
+     * @return list<string>
+     */
+    public static function expandSmart(string $token): array
+    {
+        $token = mb_strtolower(trim($token));
+
+        if ($token === '') {
+            return [];
+        }
+
+        $gabung = [];
+
+        foreach (self::expand($token) as $padanan) {
+            $gabung[$padanan] = true;
+        }
+
+        $kamus = self::kamusBawaan();
+
+        foreach ([$token, \App\Support\TextNormalizer::stem($token)] as $kunci) {
+            $grup = $kamus[$kunci] ?? null;
+
+            if (is_array($grup)) {
+                foreach ($grup as $padanan) {
+                    if ($padanan !== $token) {
+                        $gabung[$padanan] = true;
+                    }
+                }
+            }
+        }
+
+        unset($gabung[$token]);
+
+        return array_values(array_keys($gabung));
+    }
+
+    /**
+     * Ekspansi banyak token sekaligus (aditif).
+     *
+     * @param  list<string>  $tokens
+     * @return array<string, list<string>>
+     */
+    public static function expandMany(array $tokens): array
+    {
+        $keluar = [];
+
+        foreach ($tokens as $token) {
+            $keluar[(string) $token] = self::expandSmart((string) $token);
+        }
+
+        return $keluar;
+    }
+
     public static function all(): array
     {
         return self::map();

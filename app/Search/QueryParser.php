@@ -28,6 +28,57 @@ final class QueryParser
     private const TRUTHY = ['stock', 'tersedia', 'in_stock', 'instock', 'ada', 'true', '1', 'yes', 'y', 'available', 'tersedia_stok'];
     private const FALSY = ['out', 'outofstock', 'habis', 'kosong', 'false', '0', 'no', 'n', 'unavailable', 'stok_habis'];
 
+    /**
+     * Kamus koreksi ejaan Bahasa Indonesia (typo umum marketplace).
+     * Aditif: tidak mengubah perilaku parse() yang sudah ada.
+     *
+     * @var array<string, string>
+     */
+    public const TYPO_MAP = [
+        'seaptu' => 'sepatu', 'sepatuu' => 'sepatu', 'spatu' => 'sepatu', 'spattu' => 'sepatu',
+        'sapatu' => 'sepatu', 'sepattu' => 'sepatu',
+        'sandle' => 'sandal', 'sandall' => 'sandal', 'sandal' => 'sandal',
+        'snakers' => 'sneaker', 'sneakerz' => 'sneaker', 'sneakers' => 'sneaker',
+        'handpone' => 'handphone', 'hanphone' => 'handphone', 'handhpone' => 'handphone',
+        'handpon' => 'handphone', 'hp' => 'hp',
+        'poncel' => 'ponsel', 'posel' => 'ponsel', 'phonsel' => 'ponsel',
+        'bju' => 'baju', 'bajuu' => 'baju', 'bajju' => 'baju',
+        'koas' => 'kaos', 'kaoss' => 'kaos',
+        'kameja' => 'kemeja', 'kemej' => 'kemeja', 'kemaja' => 'kemeja',
+        'clana' => 'celana', 'celna' => 'celana', 'celanna' => 'celana',
+        'jakket' => 'jaket', 'jakett' => 'jaket',
+        'tasp' => 'tas', 'tass' => 'tas',
+        'ransell' => 'ransel', 'ransle' => 'ransel', 'ramsel' => 'ransel',
+        'laptob' => 'laptop', 'leptop' => 'laptop', 'laptap' => 'laptop',
+        'krudung' => 'kerudung', 'kerudng' => 'kerudung', 'kerudungg' => 'kerudung',
+        'mukenah' => 'mukena', 'mukena' => 'mukena',
+        'kripik' => 'keripik', 'kripikk' => 'keripik', 'keripikk' => 'keripik',
+        'biskut' => 'biskuit', 'biskuat' => 'biskuit',
+        'kacamta' => 'kacamata', 'kacamatta' => 'kacamata',
+        'kosmetick' => 'kosmetik', 'kosmetikk' => 'kosmetik',
+        'cemilan' => 'camilan', 'cemiilan' => 'camilan',
+    ];
+
+    /**
+     * Kosakata acuan Bahasa Indonesia untuk koreksi jarak-edit.
+     * Aditif: hanya dipakai metode koreksi baru.
+     *
+     * @var list<string>
+     */
+    public const VOCABULARY = [
+        'sepatu', 'sandal', 'sneaker', 'baju', 'kaos', 'kemeja', 'celana', 'jaket',
+        'tas', 'ransel', 'dompet', 'topi', 'handphone', 'ponsel', 'laptop', 'charger',
+        'powerbank', 'headset', 'earphone', 'speaker', 'kamera', 'jam', 'arloji',
+        'kacamata', 'kosmetik', 'sabun', 'sampo', 'susu', 'kopi', 'teh', 'gula',
+        'beras', 'minyak', 'keripik', 'kerupuk', 'biskuit', 'camilan', 'cokelat',
+        'mainan', 'boneka', 'buku', 'lampu', 'kabel', 'hijab', 'kerudung', 'mukena',
+        'jilbab', 'mukena', 'motor', 'mobil', 'helm', 'kulkas', 'kipas', 'kompor',
+        'panci', 'wajan', 'pisau', 'sendok', 'garpu', 'piring', 'gelas', 'botol',
+        'tisu', 'popok', 'deterjen', 'masker', 'vitamin', 'madu', 'merah', 'biru',
+        'hijau', 'hitam', 'putih', 'besar', 'kecil', 'murah', 'original', 'premium',
+        'pria', 'wanita', 'anak', 'bayi', 'bola', 'raket', 'kasur', 'bantal',
+    ];
+
     public static function parse(string $term): ParsedQuery
     {
         $raw = trim($term);
@@ -120,6 +171,109 @@ final class QueryParser
     public static function normaliseTerm(string $term): string
     {
         return TextNormalizer::normalize($term);
+    }
+
+    /**
+     * Koreksi ejaan Bahasa Indonesia per kata (aditif, tidak mengubah parse()).
+     *
+     * Urutan: kamus typo eksplisit dulu, lalu jarak-edit terhadap VOCABULARY
+     * untuk kata dengan panjang >= 5 dan kemiripan >= 0,86.
+     */
+    public static function koreksiEjaan(string $term): string
+    {
+        $normal = TextNormalizer::normalize($term);
+
+        if ($normal === '') {
+            return '';
+        }
+
+        $keluar = [];
+
+        foreach (preg_split('/\s+/u', $normal, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $kata) {
+            if (isset(self::TYPO_MAP[$kata])) {
+                $keluar[] = self::TYPO_MAP[$kata];
+                continue;
+            }
+
+            if (mb_strlen($kata) >= 5 && ! in_array($kata, self::VOCABULARY, true)) {
+                $terbaik = null;
+                $skorTerbaik = 0.86;
+
+                foreach (self::VOCABULARY as $rujukan) {
+                    $skor = TextNormalizer::similarity($kata, $rujukan);
+
+                    if ($skor > $skorTerbaik) {
+                        $skorTerbaik = $skor;
+                        $terbaik = $rujukan;
+
+                        if ($skor >= 0.95) {
+                            break;
+                        }
+                    }
+                }
+
+                if ($terbaik !== null) {
+                    $keluar[] = $terbaik;
+                    continue;
+                }
+            }
+
+            $keluar[] = $kata;
+        }
+
+        return implode(' ', $keluar);
+    }
+
+    /**
+     * Parse cerdas (aditif): koreksi ejaan + token + ekspansi sinonim.
+     *
+     * @return array{parsed: ParsedQuery, corrected: string, koreksi: list<array{dari: string, ke: string}>, tokens: list<string>, expanded: list<string>}
+     */
+    public static function parseSmart(string $term): array
+    {
+        $normal = TextNormalizer::normalize($term);
+        $corrected = self::koreksiEjaan($term);
+
+        $koreksi = [];
+        $sebelum = $normal !== '' ? preg_split('/\s+/u', $normal, -1, PREG_SPLIT_NO_EMPTY) ?: [] : [];
+        $sesudah = $corrected !== '' ? preg_split('/\s+/u', $corrected, -1, PREG_SPLIT_NO_EMPTY) ?: [] : [];
+
+        foreach ($sebelum as $indeks => $kata) {
+            $hasil = $sesudah[$indeks] ?? $kata;
+
+            if ($hasil !== $kata) {
+                $koreksi[] = ['dari' => $kata, 'ke' => $hasil];
+            }
+        }
+
+        $basis = $corrected !== '' ? $corrected : $term;
+        $parsed = self::parse($basis);
+        $tokens = TextNormalizer::tokenize($basis);
+        $mentah = TextNormalizer::tokenize($basis, false);
+
+        $expanded = array_values(array_unique(array_merge($tokens, $mentah)));
+
+        foreach (array_merge($tokens, $mentah) as $token) {
+            foreach (SynonymRepository::expandSmart($token) as $padanan) {
+                if (! in_array($padanan, $expanded, true)) {
+                    $expanded[] = $padanan;
+                }
+            }
+
+            $batang = TextNormalizer::stem($token);
+
+            if ($batang !== '' && $batang !== $token && ! in_array($batang, $expanded, true)) {
+                $expanded[] = $batang;
+            }
+        }
+
+        return [
+            'parsed' => $parsed,
+            'corrected' => $corrected,
+            'koreksi' => $koreksi,
+            'tokens' => array_values($tokens),
+            'expanded' => array_values($expanded),
+        ];
     }
 
     private static function extractPhrases(string $term): array

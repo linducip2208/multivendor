@@ -137,6 +137,8 @@
                     />
                 </div>
             </x-admin.card>
+
+            @includeIf('admin.ai._expansion')
         </div>
     </div>
 @endsection

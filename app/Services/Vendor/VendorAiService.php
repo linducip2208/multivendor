@@ -9,6 +9,9 @@ use App\Models\Order;
 use App\Models\Product;
 use App\Models\Provider;
 use App\Services\Ai\AiService;
+use App\Services\Ai\BalasanChat;
+use App\Services\Ai\DeskripsiProduk;
+use App\Services\Ai\RingkasanUlasan;
 use App\Support\Currency;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
@@ -30,6 +33,7 @@ final class VendorAiService
         'store_bio' => 'Profil toko',
         'customer_reply' => 'Balasan pelanggan',
         'sales_insight' => 'Analisis penjualan',
+        'review_summary' => 'Ringkasan ulasan',
     ];
 
     private const GUARDRAIL = <<<'TEXT'
@@ -70,42 +74,234 @@ final class VendorAiService
         ];
     }
 
+    /**
+     * Selalu aman: bila provider tidak dikonfigurasi atau AI gagal,
+     * dikembalikan hasil fallback lokal (tanpa exception ke user).
+     * Hanya fitur tak dikenal yang tetap melempar ValidationException.
+     */
     public function generate(string $feature, array $payload): string
     {
         if (! array_key_exists($feature, self::FEATURES)) {
             throw ValidationException::withMessages(['feature' => 'Fitur AI tidak dikenali.']);
         }
 
-        $provider = $this->provider();
+        try {
+            $provider = $this->provider();
 
-        if ($provider === null) {
-            throw ValidationException::withMessages([
-                'feature' => 'Belum ada penyedia AI aktif. Hubungi administrator platform.',
-            ]);
-        }
+            if ($provider !== null && DeskripsiProduk::providerReady($provider)) {
+                $prompt = $this->promptFor($feature, $payload);
+                $started = microtime(true);
 
-        $prompt = $this->promptFor($feature, $payload);
-        $started = microtime(true);
+                $result = app(AiService::class)->chat($provider, $prompt, self::GUARDRAIL);
 
-        $result = app(AiService::class)->chat($provider, $prompt, self::GUARDRAIL);
+                $duration = (int) round((microtime(true) - $started) * 1000);
+                $success = (bool) ($result['success'] ?? false);
 
-        $duration = (int) round((microtime(true) - $started) * 1000);
-        $success = (bool) ($result['success'] ?? false);
+                $this->record($feature, $provider, $result, $duration, $success);
 
-        $this->record($feature, $provider, $result, $duration, $success);
+                if ($success) {
+                    $konten = trim((string) ($result['content'] ?? $result['message'] ?? ''));
 
-        if (! $success) {
-            Log::warning('Vendor AI request failed', [
-                'shop_id' => $this->scope->shopId(),
+                    if ($konten !== '') {
+                        return $konten;
+                    }
+                }
+
+                Log::warning('Vendor AI request failed, using local fallback', [
+                    'shop_id' => $this->scope->shopId(),
+                    'feature' => $feature,
+                ]);
+            }
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            Log::warning('Vendor AI fallback after error', [
+                'shop_id' => $this->safeShopId(),
                 'feature' => $feature,
             ]);
-
-            throw ValidationException::withMessages([
-                'feature' => 'Permintaan AI gagal diproses. Coba lagi sebentar lagi.',
-            ]);
         }
 
-        return trim((string) ($result['content'] ?? $result['message'] ?? '')) ?: 'Model tidak mengembalikan jawaban.';
+        return $this->fallbackFor($feature, $payload);
+    }
+
+    /**
+     * Tiga opsi balasan chat dari konteks percakapan + data order terakhir.
+     * Read-only terhadap order; selalu fallback lokal bila AI off.
+     *
+     * @return array{options: list<string>, topik: string, source: string}
+     */
+    public function suggestChatReplies(string $message, ?int $orderId = null): array
+    {
+        try {
+            $order = ($orderId !== null && $orderId > 0) ? $this->ownOrder($orderId) : $this->latestOrder();
+
+            $konteks = [
+                'nama_pelanggan' => (string) ($order?->customer?->name ?? ''),
+                'nomor_pesanan' => (string) ($order?->order_number ?? ''),
+                'status_pesanan' => (string) ($order?->order_status ?? ''),
+            ];
+
+            return (new BalasanChat)->suggest($message, $konteks, $this->readyProvider());
+        } catch (\Throwable) {
+            return [
+                'options' => BalasanChat::fallbackOptions($message, []),
+                'topik' => BalasanChat::deteksiTopik($message),
+                'source' => 'fallback',
+            ];
+        }
+    }
+
+    /**
+     * Generator deskripsi produk + judul SEO untuk produk milik toko.
+     *
+     * @param  array<string, mixed>  $spesifikasi
+     * @return array{judul_seo: string, deskripsi: string, meta_description: string, source: string}
+     */
+    public function describeProduct(?int $productId = null, array $spesifikasi = []): array
+    {
+        try {
+            $product = ($productId !== null && $productId > 0) ? $this->ownProduct($productId) : null;
+            $nama = (string) ($product?->name ?? $spesifikasi['nama'] ?? 'Produk');
+
+            $konteks = $spesifikasi + [
+                'kategori' => (string) ($product?->category?->name ?? ''),
+                'harga' => $product ? Currency::format($product->effective_price) : '',
+            ];
+
+            return (new DeskripsiProduk)->generate($nama, $konteks, $this->readyProvider());
+        } catch (\Throwable) {
+            return DeskripsiProduk::fallback('Produk');
+        }
+    }
+
+    /**
+     * Ringkasan ulasan produk milik toko: pro/kontra + skor agregat.
+     *
+     * @return array{total: int, rata_rata: float, distribusi: array<int, int>, pro: list<string>, kontra: list<string>, ringkasan: string, source: string}
+     */
+    public function summarizeProductReviews(int $productId): array
+    {
+        try {
+            $product = $this->ownProduct($productId);
+
+            $ulasan = $product !== null
+                ? $product->reviews()->orderByDesc('id')->limit(200)->get(['rating', 'comment'])->all()
+                : [];
+
+            return (new RingkasanUlasan)->summarize($ulasan, (string) ($product?->name ?? ''), $this->readyProvider());
+        } catch (\Throwable) {
+            return RingkasanUlasan::fallbackSummarize([], '');
+        }
+    }
+
+    private function readyProvider(): ?Provider
+    {
+        try {
+            $provider = $this->provider();
+
+            return DeskripsiProduk::providerReady($provider) ? $provider : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function safeShopId(): ?int
+    {
+        try {
+            return $this->scope->shopId();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** Pesanan terakhir toko sebagai konteks balasan chat. */
+    private function latestOrder(): ?Order
+    {
+        try {
+            return Order::query()
+                ->where('shop_id', $this->scope->shopId())
+                ->orderByDesc('id')
+                ->with('customer:id,name')
+                ->first();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** Hasil fallback lokal per fitur (dipakai bila AI off/gagal). */
+    private function fallbackFor(string $feature, array $payload): string
+    {
+        return match ($feature) {
+            'product_description' => $this->productFallback($payload),
+            'customer_reply' => $this->suggestChatReplies(
+                (string) ($payload['message'] ?? ''),
+                isset($payload['order_id']) && $payload['order_id'] !== '' ? (int) $payload['order_id'] : null,
+            )['options'][0] ?? 'Halo kak, terima kasih sudah menghubungi kami.',
+            'store_bio' => $this->storeFallback((string) ($payload['tone'] ?? 'ramah')),
+            'sales_insight' => $this->insightFallback(),
+            'review_summary' => $this->reviewFallback($payload),
+            default => 'Layanan AI sedang tidak tersedia. Silakan coba lagi nanti.',
+        };
+    }
+
+    /** @param  array<string, mixed>  $payload */
+    private function productFallback(array $payload): string
+    {
+        $product = $this->ownProduct((int) ($payload['product_id'] ?? 0));
+        $nama = (string) ($product?->name ?? 'Produk kami');
+
+        $spesifikasi = [
+            'kategori' => (string) ($product?->category?->name ?? ''),
+            'harga' => $product ? Currency::format($product->effective_price) : '',
+        ];
+
+        $hasil = DeskripsiProduk::fallback($nama, array_filter($spesifikasi));
+
+        return $hasil['judul_seo']."\n\n".$hasil['deskripsi'];
+    }
+
+    private function storeFallback(string $tone): string
+    {
+        try {
+            $shop = $this->scope->shop();
+            $nama = (string) $shop->name;
+            $kota = (string) ($shop->city ?? '');
+            $jumlah = (int) Product::query()->where('shop_id', $shop->getKey())->count();
+        } catch (\Throwable) {
+            return 'Selamat datang di toko kami. Kami menyediakan produk original berkualitas dengan pengiriman cepat dan pelayanan ramah.';
+        }
+
+        return 'Selamat datang di '.$nama
+            .($kota !== '' ? ' ('.$kota.')' : '').'. '
+            .'Dengan gaya '.$tone.', kami melayani '.$jumlah.' produk pilihan yang original dan berkualitas. '
+            .'Kepuasan kakak adalah prioritas kami.';
+    }
+
+    private function insightFallback(): string
+    {
+        try {
+            $shopId = $this->scope->shopId();
+            $total = (int) Order::query()->where('shop_id', $shopId)->count();
+            $pendapatan = (float) Order::query()->where('shop_id', $shopId)->sum('sub_total');
+            $stokMenipis = Product::query()
+                ->where('shop_id', $shopId)
+                ->whereColumn('current_stock', '<=', DB::raw('COALESCE(low_stock_threshold, 0)'))
+                ->count();
+        } catch (\Throwable) {
+            return 'Data penjualan belum cukup untuk dianalisis. Pastikan pesanan tercatat agar insight tersedia.';
+        }
+
+        return 'Ringkasan toko (30 hari terakhir, dibuat otomatis tanpa AI): total '.$total.' pesanan dengan pendapatan '
+            .Currency::format($pendapatan).'. Produk dengan stok menipis: '.$stokMenipis.'. '
+            .'Saran: restock produk stok menipis, sorot produk terlaris di etalase, dan balas chat pelanggan < 24 jam.';
+    }
+
+    /** @param  array<string, mixed>  $payload */
+    private function reviewFallback(array $payload): string
+    {
+        $hasil = $this->summarizeProductReviews((int) ($payload['product_id'] ?? 0));
+
+        return $hasil['ringkasan'];
     }
 
     private function promptFor(string $feature, array $payload): string
@@ -115,6 +311,7 @@ final class VendorAiService
             'store_bio' => $this->storePrompt($payload),
             'customer_reply' => $this->replyPrompt($payload),
             'sales_insight' => $this->insightPrompt(),
+            'review_summary' => $this->reviewPrompt($payload),
             default => '',
         };
     }
@@ -231,6 +428,21 @@ final class VendorAiService
 
         return "Analisis performa penjualan toko berikut dan berikan tiga rekomendasi yang dapat langsung dikerjakan.\n"
             ."Konteks (JSON): ".json_encode($context, JSON_UNESCAPED_UNICODE);
+    }
+
+    /** Prompt ringkasan ulasan: hanya dari ulasan milik toko sendiri. */
+    private function reviewPrompt(array $payload): string
+    {
+        $product = $this->ownProduct((int) ($payload['product_id'] ?? 0));
+
+        $ulasan = $product !== null
+            ? $product->reviews()->orderByDesc('id')->limit(30)->get(['rating', 'comment'])
+                ->map(fn ($row): string => 'Rating '.((string) ($row->rating ?? '-')).': '.mb_substr((string) ($row->comment ?? ''), 0, 300))
+                ->all()
+            : [];
+
+        return 'Ringkas ulasan produk "'.($product?->name ?? 'toko kami').'" menjadi maksimal 3 kelebihan, 3 kekurangan, dan satu paragraf ringkasan Bahasa Indonesia.'."\n"
+            .'Data ulasan:'."\n".($ulasan !== [] ? implode("\n", $ulasan) : '(belum ada ulasan)');
     }
 
     private function ownProduct(int $productId): ?Product

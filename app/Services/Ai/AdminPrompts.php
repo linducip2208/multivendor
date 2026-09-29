@@ -59,6 +59,26 @@ final class AdminPrompts
             'description' => 'Meringkas laporan keuangan atau operasional menjadi catatan singkat.',
             'icon' => 'file-text',
         ],
+        'product_copy' => [
+            'label' => 'Deskripsi Produk',
+            'description' => 'Menulis judul SEO dan deskripsi produk dari nama dan spesifikasi.',
+            'icon' => 'pencil',
+        ],
+        'chat_assist' => [
+            'label' => 'Saran Balasan Chat',
+            'description' => 'Menyusun tiga opsi balasan chat dari konteks percakapan dan pesanan.',
+            'icon' => 'message-circle',
+        ],
+        'review_summary' => [
+            'label' => 'Ringkasan Ulasan',
+            'description' => 'Meringkas ulasan produk menjadi pro, kontra, dan skor agregat.',
+            'icon' => 'star',
+        ],
+        'smart_search' => [
+            'label' => 'Pencarian Cerdas',
+            'description' => 'Mengoreksi ejaan dan memperluas kueri pencarian Bahasa Indonesia.',
+            'icon' => 'search',
+        ],
     ];
 
     public const GUARDRAIL = <<<'TXT'
@@ -94,6 +114,10 @@ final class AdminPrompts
             'inventory_risk' => 'Fokus pada produk yang akan habis dalam 30 hari, produk dengan perputaran sangat lambat, dan kelebihan stok. Sertakan saran restock berdasarkan kecepatan jual saat ini.',
             'segment_suggestions' => 'Fokus pada pola pembelian yang dapat diukur: frekuensi, nilai, kategori favorit, dan perilaku kupon. Jangan gunakan atribut pribadi.',
             'report_summary' => 'Fokus pada poin yang perlu ditindaklanjuti oleh operator, diurutkan dari paling mendesak.',
+            'product_copy' => 'Fokus pada penulisan judul SEO maksimal 60 karakter, deskripsi 2-3 paragraf Bahasa Indonesia yang persuasif, dan meta description maksimal 160 karakter. Jangan mengarang spesifikasi yang tidak diberikan.',
+            'chat_assist' => 'Fokus pada penyusunan tepat tiga opsi balasan penjual yang sopan dalam Bahasa Indonesia, masing-masing 1-3 kalimat, sesuai konteks percakapan dan data pesanan. Jangan menjanjikan hal di luar konteks.',
+            'review_summary' => 'Fokus pada ekstraksi maksimal tiga kelebihan dan tiga kekurangan yang benar-benar muncul di teks ulasan, plus rata-rata skor. Jangan mengarang ulasan baru.',
+            'smart_search' => 'Fokus pada koreksi ejaan Bahasa Indonesia dan ekspansi sinonim kueri pencarian. Kembalikan kueri yang diperbaiki plus daftar padanan kata.',
             default => 'Berikan analisis singkat dan konkret berdasarkan data yang diberikan.',
         };
 

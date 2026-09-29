@@ -112,6 +112,8 @@
         </div>
 
         <div class="col-12 col-xl-4">
+            @includeIf('vendor.ai._expansion')
+
             <x-admin.card title="Pemakaian fitur" icon="activity">
                 <x-admin.table dense>
                     <x-slot:table>

@@ -160,6 +160,57 @@ final class VendorChatService
             ->get();
     }
 
+    /**
+     * Saran balasan AI (3 opsi) untuk percakapan — read-only, tidak mengubah
+     * alur chat apa pun. Aman bila provider AI tidak dikonfigurasi: dipakai
+     * template lokal deterministik.
+     *
+     * @return array{options: list<string>, topik: string, source: string}
+     */
+    public function saranBalasan(Conversation $conversation, int $limit = 3): array
+    {
+        try {
+            $this->assertParticipant($conversation);
+
+            $pesan = Message::query()
+                ->where('conversation_id', $conversation->getKey())
+                ->whereNull('deleted_at')
+                ->orderByDesc('id')
+                ->limit(5)
+                ->pluck('body');
+
+            $terakhirPelanggan = '';
+            foreach ($pesan as $body) {
+                $teks = trim((string) $body);
+                if ($teks !== '') {
+                    $terakhirPelanggan = $teks;
+                    break;
+                }
+            }
+
+            $order = $conversation->relationLoaded('order') ? $conversation->order : $conversation->order()->first();
+
+            $konteks = [
+                'nomor_pesanan' => (string) ($order?->order_number ?? ''),
+                'status_pesanan' => (string) ($order?->order_status ?? ''),
+            ];
+
+            $hasil = (new \App\Services\Ai\BalasanChat)->suggest($terakhirPelanggan, array_filter($konteks), null);
+
+            return [
+                'options' => array_values(array_slice($hasil['options'], 0, max(1, min(3, $limit)))),
+                'topik' => (string) $hasil['topik'],
+                'source' => (string) $hasil['source'],
+            ];
+        } catch (\Throwable) {
+            return [
+                'options' => \App\Services\Ai\BalasanChat::fallbackOptions('', []),
+                'topik' => 'umum',
+                'source' => 'fallback',
+            ];
+        }
+    }
+
     public function isOwned(Conversation $conversation): bool
     {
         return (int) $conversation->shop_id === $this->scope->shopId();

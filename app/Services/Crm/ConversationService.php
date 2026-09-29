@@ -243,6 +243,55 @@ final class ConversationService
     }
 
     /**
+     * Saran balasan AI (3 opsi) untuk inbox admin — read-only, tidak mengubah
+     * alur balas mana pun. Aman bila provider AI tidak dikonfigurasi: dipakai
+     * template lokal deterministik.
+     *
+     * @return array{options: list<string>, topik: string, source: string}
+     */
+    public function saranBalasan(Conversation $conversation, int $limit = 3): array
+    {
+        try {
+            $pesan = Message::query()
+                ->where('conversation_id', $conversation->getKey())
+                ->whereNull('deleted_at')
+                ->orderByDesc('id')
+                ->limit(5)
+                ->pluck('body');
+
+            $terakhir = '';
+            foreach ($pesan as $body) {
+                $teks = trim((string) $body);
+                if ($teks !== '') {
+                    $terakhir = $teks;
+                    break;
+                }
+            }
+
+            $order = $conversation->relationLoaded('order') ? $conversation->order : $conversation->order()->first();
+
+            $konteks = array_filter([
+                'nomor_pesanan' => (string) ($order?->order_number ?? ''),
+                'status_pesanan' => (string) ($order?->order_status ?? ''),
+            ]);
+
+            $hasil = (new \App\Services\Ai\BalasanChat)->suggest($terakhir, $konteks, null);
+
+            return [
+                'options' => array_values(array_slice($hasil['options'], 0, max(1, min(3, $limit)))),
+                'topik' => (string) $hasil['topik'],
+                'source' => (string) $hasil['source'],
+            ];
+        } catch (\Throwable) {
+            return [
+                'options' => \App\Services\Ai\BalasanChat::fallbackOptions('', []),
+                'topik' => 'umum',
+                'source' => 'fallback',
+            ];
+        }
+    }
+
+    /**
      * Template balasan cepat admin (Bahasa Indonesia).
      *
      * @return list<array{key: string, label: string, body: string}>
