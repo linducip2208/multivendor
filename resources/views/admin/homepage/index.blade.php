@@ -117,6 +117,21 @@
             <x-admin.skeleton type="text" :rows="4" />
         </div>
     </x-admin.modal>
+
+    @isset($versions)
+        @if (count($versions) > 0)
+            <x-admin.card title="Riwayat versi" icon="history" class="mt-3">
+                <ul class="list-unstyled mb-0 small">
+                    @foreach ($versions as $version)
+                        <li class="py-1 {{ $loop->last ? '' : 'border-bottom' }}">
+                            <span class="fw-medium">{{ $version['at'] }}</span>
+                            <span class="text-secondary">· admin #{{ $version['actor_id'] ?? '—' }} · {{ count($version['sections'] ?? []) }} section</span>
+                        </li>
+                    @endforeach
+                </ul>
+            </x-admin.card>
+        @endif
+    @endisset
 @endsection
 
 @push('scripts')

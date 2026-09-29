@@ -86,8 +86,38 @@
                         <dt class="col-5 text-secondary fw-normal">Selesai</dt>
                         <dd class="col-7 text-end">{{ \Carbon\Carbon::parse($ticket->resolved_at)->format('d M Y') }}</dd>
                     @endif
+                    @isset($sla)
+                        <dt class="col-5 text-secondary fw-normal">SLA ({{ $sla['hours'] }} jam)</dt>
+                        <dd class="col-7 text-end">
+                            <x-admin.badge :text="$sla['breached'] ? 'Terlewati' : 'Tepat waktu'" :color="$sla['breached'] ? 'danger' : 'success'" pill />
+                            <span class="d-block text-secondary small">Jatuh tempo {{ $sla['due_at'] }}</span>
+                        </dd>
+                    @endisset
                 </dl>
             </x-admin.card>
+
+            @isset($macros)
+                <x-admin.card title="Makro cepat" icon="zap" class="mt-3">
+                    <div class="d-flex flex-column gap-2">
+                        @foreach ($macros as $macro)
+                            <button type="button" class="btn btn-sm btn-outline-secondary text-start" data-macro="{{ e($macro['body']) }}">{{ $macro['label'] }}</button>
+                        @endforeach
+                    </div>
+                </x-admin.card>
+                @push('scripts')
+                    <script>
+                        document.querySelectorAll('[data-macro]').forEach(function (btn) {
+                            btn.addEventListener('click', function () {
+                                const box = document.querySelector('textarea[name="body"]');
+                                if (box) {
+                                    box.value = btn.getAttribute('data-macro') || '';
+                                    box.focus();
+                                }
+                            });
+                        });
+                    </script>
+                @endpush
+            @endisset
         </div>
     </div>
 @endsection

@@ -201,6 +201,8 @@ class CrmController extends Controller
             abort(404, 'Pelanggan tidak ditemukan.');
         }
 
+        app(AuditLogger::class)->impersonate('customer', (int) $user->getKey(), auth('admin')->id());
+
         return view('admin.customers.360', [
             'customer' => $this->profile->profile((int) $user->id),
         ]);
@@ -277,7 +279,10 @@ class CrmController extends Controller
 
     public function conversation(Request $request, Conversation $conversation): View
     {
-        return view('admin.conversations.show', $this->inbox->show($conversation, auth('admin')->id()));
+        return view('admin.conversations.show', $this->inbox->show($conversation, auth('admin')->id()) + [
+            'templates' => \App\Services\Crm\ConversationService::quickTemplates(),
+            'sla' => $this->inbox->slaStatus($conversation),
+        ]);
     }
 
     public function replyConversation(Request $request, Conversation $conversation): RedirectResponse

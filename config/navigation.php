@@ -141,6 +141,7 @@ return [
             ['route' => 'admin.reports.index', 'label' => 'Laporan AI', 'icon' => 'file-bar', 'permission' => 'analytics.view', 'match' => 'admin.reports.*'],
             ['route' => 'admin.stock-report.index', 'label' => 'Laporan Stok', 'icon' => 'box', 'permission' => 'analytics.view', 'match' => 'admin.stock-report.*'],
             ['route' => 'admin.vendor-sale-report.index', 'label' => 'Penjualan Vendor', 'icon' => 'store', 'permission' => 'analytics.view', 'match' => 'admin.vendor-sale-report.*'],
+            ['route' => 'admin.export.index', 'label' => 'Ekspor Data', 'icon' => 'download', 'permission' => 'analytics.view', 'match' => 'admin.export.*'],
         ],
     ],
 

@@ -34,6 +34,8 @@ class TicketController extends Controller
             'ticket' => $data['ticket'],
             'replies' => $data['replies'],
             'statuses' => $data['statuses'],
+            'sla' => $service->sla($data['ticket']),
+            'macros' => VendorTicketService::macros(),
         ]);
     }
 

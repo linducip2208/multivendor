@@ -93,6 +93,20 @@
                     <dd class="col-6 text-end">{{ $limit > 0 ? $limit : 'Tak terbatas' }}</dd>
                 </dl>
             </x-admin.card>
+
+            @isset($matrix)
+                <x-admin.card title="Izin per menu" icon="shield" class="mt-3">
+                    <ul class="list-unstyled mb-0 small">
+                        @foreach ($matrix['menus'] as $key => $menu)
+                            <li class="py-1 {{ $loop->last ? '' : 'border-bottom' }}">
+                                <span class="fw-medium d-block">{{ $menu['label'] }}</span>
+                                <span class="text-secondary">{{ implode(', ', $menu['permissions']) }}</span>
+                            </li>
+                        @endforeach
+                    </ul>
+                    <p class="text-secondary small mb-0 mt-2">Peran bawaan: manajer memegang semua izin, kasir/staf hanya lihat produk dan pesanan, keuangan hanya lihat keuangan, gudang kelola inventori, CS kelola pelanggan.</p>
+                </x-admin.card>
+            @endisset
         </div>
     </div>
 @endsection

@@ -24,6 +24,8 @@ class ReportController extends Controller
         $range = DateRange::fromRequest($request);
 
         return view('vendor.analytics.index', $this->analytics->overview($range) + [
+            'compare' => $this->analytics->compare($range),
+            'funnel' => $this->analytics->funnel($range),
             'currency' => Currency::config(),
         ]);
     }

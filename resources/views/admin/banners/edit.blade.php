@@ -12,6 +12,8 @@
     <div class="col-md-3"><label class="fw-medium">Posisi</label><select name="position" class="form-select"><option value="hero" {{ $banner->position==='hero'?'selected' : '' }}>Hero</option><option value="sidebar" {{ $banner->position==='sidebar'?'selected' : '' }}>Sidebar</option><option value="footer" {{ $banner->position==='footer'?'selected' : '' }}>Footer</option><option value="popup" {{ $banner->position==='popup'?'selected' : '' }}>Popup</option></select></div>
     <div class="col-md-2"><label class="fw-medium">Urutan</label><input type="number" name="sort_order" class="form-control" value="{{ old('sort_order', $banner->sort_order) }}" min="0"></div>
     <div class="col-md-2"><input type="hidden" name="status" value="0"><div class="form-check mt-4"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" {{ $banner->status?'checked' : '' }}><label for="st" class="fw-medium">Aktif</label></div></div>
+    <div class="col-md-3"><label class="fw-medium">Tayang mulai</label><input type="datetime-local" name="starts_at" class="form-control" value="{{ old('starts_at', optional($banner->starts_at ?? null)->format('Y-m-d\TH:i')) }}"></div>
+    <div class="col-md-3"><label class="fw-medium">Tayang berakhir</label><input type="datetime-local" name="ends_at" class="form-control" value="{{ old('ends_at', optional($banner->ends_at ?? null)->format('Y-m-d\TH:i')) }}"></div>
     <div class="col-12"><button class="btn btn-primary"><x-admin.icon name="check" :size="16" class="me-2" />Perbarui</button></div>
 </div>
 </form></div></x-admin.card>

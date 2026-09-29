@@ -17,7 +17,9 @@ class HomepageController extends Controller
 
     public function index(): View
     {
-        return view('admin.homepage.index', $this->homepage->overview());
+        return view('admin.homepage.index', $this->homepage->overview() + [
+            'versions' => $this->homepage->versions(),
+        ]);
     }
 
     public function update(Request $request): RedirectResponse

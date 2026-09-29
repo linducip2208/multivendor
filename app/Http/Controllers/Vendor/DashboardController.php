@@ -40,6 +40,8 @@ class DashboardController extends Controller
             'campaigns' => $data['campaigns'],
             'recentOrders' => $data['recent_orders'],
             'topCustomers' => $data['top_customers'],
+            'completeness' => $data['completeness'],
+            'performance' => $data['performance'],
             'subscription' => $subscription,
             'productCount' => (int) $data['shop']->products()->where('status', 'approved')->count(),
             'orderStatusCases' => OrderStatus::cases(),

@@ -689,6 +689,89 @@ final class SystemHealthService
     }
 
     /**
+     * Alert kesehatan operasional: daftar temuan + level.
+     * Murni dari health() yang sudah ada + status backup terjadwal.
+     *
+     * @return list<array{key: string, level: string, label: string, detail: string}>
+     */
+    public function alerts(): array
+    {
+        $report = $this->health();
+        $alerts = [];
+        $missing = $report['php']['extensions']['missing'] ?? [];
+        if ($missing !== []) {
+            $alerts[] = ['key' => 'php_ext', 'level' => 'danger', 'label' => 'Ekstensi PHP hilang', 'detail' => 'Ekstensi belum terpasang: '.implode(', ', $missing).'.'];
+        }
+        if (($report['queue']['counts']['failed'] ?? 0) > 0) {
+            $alerts[] = ['key' => 'queue_failed', 'level' => 'warning', 'label' => 'Job gagal menumpuk', 'detail' => $report['queue']['counts']['failed'].' job gagal. Periksa halaman Queue.'];
+        }
+        if (($report['scheduler']['stale'] ?? false) === true) {
+            $alerts[] = ['key' => 'scheduler', 'level' => 'warning', 'label' => 'Scheduler tidak berjalan', 'detail' => 'Tidak ada heartbeat scheduler dalam 60 menit terakhir.'];
+        }
+        if (($report['migrations']['pending_count'] ?? 0) > 0) {
+            $alerts[] = ['key' => 'migrations', 'level' => 'warning', 'label' => 'Migrasi tertunda', 'detail' => $report['migrations']['pending_count'].' migrasi belum dijalankan.'];
+        }
+        if (($report['storage']['writable'] ?? true) === false) {
+            $alerts[] = ['key' => 'storage', 'level' => 'danger', 'label' => 'Storage tidak dapat ditulis', 'detail' => 'Direktori storage tidak writable.'];
+        }
+        $backup = $this->backupStatus();
+        if ($backup['stale'] === true) {
+            $alerts[] = ['key' => 'backup', 'level' => 'warning', 'label' => 'Backup kedaluwarsa', 'detail' => 'Backup terakhir: '.($backup['latest'] ?? 'belum pernah').'. Jadwal harian 03:00.'];
+        }
+        if ($alerts === []) {
+            $alerts[] = ['key' => 'ok', 'level' => 'success', 'label' => 'Semua sistem normal', 'detail' => 'Tidak ada temuan pada pemeriksaan terakhir.'];
+        }
+
+        return $alerts;
+    }
+
+    /**
+     * Status backup terjadwal (command db:backup harian 03:00).
+     *
+     * @return array{latest: string|null, count: int, stale: bool, schedule: string}
+     */
+    public function backupStatus(): array
+    {
+        $files = glob(storage_path('app/backups/*')) ?: [];
+        rsort($files);
+        $latest = null;
+        if ($files !== []) {
+            $latest = date('Y-m-d H:i:s', (int) @filemtime($files[0]));
+        }
+        $stale = $latest === null || now()->diffInHours($latest) > 30;
+
+        return ['latest' => $latest, 'count' => count($files), 'stale' => $stale, 'schedule' => 'Harian 03:00 (db:backup)'];
+    }
+
+    /**
+     * Kirim notifikasi operasional ke admin (defensif: tabel notifications bila ada).
+     */
+    public function notifyAdmins(string $title, string $body): int
+    {
+        $sent = 0;
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('notifications')) {
+                return 0;
+            }
+            $admins = \App\Models\User::query()->where('role', 'admin')->pluck('id');
+            foreach ($admins as $adminId) {
+                DB::table('notifications')->insert([
+                    'user_id' => $adminId,
+                    'title' => mb_substr($title, 0, 160),
+                    'body' => mb_substr($body, 0, 1000),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $sent++;
+            }
+        } catch (\Throwable) {
+            return $sent;
+        }
+
+        return $sent;
+    }
+
+    /**
      * Administrative audit trail.
      *
      * @return array<string, mixed>

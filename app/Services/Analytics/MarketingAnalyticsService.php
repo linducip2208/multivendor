@@ -210,4 +210,70 @@ final class MarketingAnalyticsService extends AnalyticsService
             ])
             ->all();
     }
+
+    /**
+     * Funnel drop-off checkout platform: keranjang dibuat -> checkout -> terbayar.
+     * Semua dari tabel yang sudah ada, tanpa inferensi niat.
+     *
+     * @return array{steps: list<array{key: string, label: string, total: int}>, drop_off: list<array{from: string, to: string, rate: float}>}
+     */
+    public function checkoutFunnel(DateRange $range): array
+    {
+        $carts = 0;
+        try {
+            $carts = (int) DB::table('carts')->whereBetween('created_at', [$range->from, $range->to])->count();
+        } catch (\Throwable) {
+            $carts = 0;
+        }
+        $abandoned = 0;
+        try {
+            if ($this->has('abandoned_carts')) {
+                $abandoned = (int) AbandonedCart::query()->whereBetween('created_at', [$range->from, $range->to])->count();
+            }
+        } catch (\Throwable) {
+            $abandoned = 0;
+        }
+        $orders = (int) $this->orders($range)->count();
+        $paid = (int) $this->revenueOrders($range)->count();
+        $steps = [
+            ['key' => 'carts', 'label' => 'Keranjang', 'total' => max($carts, $abandoned)],
+            ['key' => 'checkout', 'label' => 'Checkout', 'total' => $orders],
+            ['key' => 'paid', 'label' => 'Terbayar', 'total' => $paid],
+        ];
+        $dropOff = [];
+        for ($i = 0; $i < count($steps) - 1; $i++) {
+            $from = $steps[$i]['total'];
+            $to = $steps[$i + 1]['total'];
+            $dropOff[] = ['from' => $steps[$i]['label'], 'to' => $steps[$i + 1]['label'], 'rate' => $from > 0 ? round((($from - $to) / $from) * 100, 1) : 0.0];
+        }
+
+        return ['steps' => $steps, 'drop_off' => $dropOff, 'abandoned' => $abandoned];
+    }
+
+    /**
+     * Perbandingan periode berjalan vs sebelumnya untuk KPI marketing.
+     *
+     * @return array{current: array<string, float|int>, previous: array<string, float|int>, deltas: array<string, array>}
+     */
+    public function compare(DateRange $range): array
+    {
+        $prev = $range->previous();
+        $sum = fn (DateRange $r): array => [
+            'clicks' => (int) Campaign::query()->whereBetween('created_at', [$r->from, $r->to])->sum('clicks'),
+            'conversions' => (int) Campaign::query()->whereBetween('created_at', [$r->from, $r->to])->sum('conversions'),
+            'revenue' => (float) Campaign::query()->whereBetween('created_at', [$r->from, $r->to])->sum('revenue'),
+        ];
+        $current = $sum($range);
+        $previous = $sum($prev);
+
+        return [
+            'current' => $current,
+            'previous' => $previous,
+            'deltas' => [
+                'clicks' => $this->delta((float) $current['clicks'], (float) $previous['clicks']),
+                'conversions' => $this->delta((float) $current['conversions'], (float) $previous['conversions']),
+                'revenue' => $this->delta($current['revenue'], $previous['revenue']),
+            ],
+        ];
+    }
 }

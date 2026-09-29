@@ -22,6 +22,7 @@ class ChatController extends Controller
 
         return view('vendor.chat.inbox', [
             'conversations' => $this->chat->inbox(),
+            'quickReplies' => $this->chat->quickReplies(),
             'customers' => User::query()
                 ->where('role', 'customer')
                 ->whereHas('orders', fn ($query) => $query->where('shop_id', (int) $shop?->id))
@@ -40,6 +41,8 @@ class ChatController extends Controller
             'conversation' => $thread,
             'participants' => $this->chat->customers($thread),
             'messages' => $thread->messages()->with('author:id,name,role')->orderBy('created_at')->get(),
+            'sla' => $this->chat->slaStatus($thread),
+            'quickReplies' => $this->chat->quickReplies(),
         ]);
     }
 

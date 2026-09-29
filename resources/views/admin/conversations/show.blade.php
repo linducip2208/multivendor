@@ -10,9 +10,32 @@
     <x-admin.page-header :title="$conversation['subject']" :subtitle="''.$conversation['uuid'].' · dibuat '.$conversation['created_at']">
         <x-slot:actions>
             <x-admin.badge :text="$conversation['status_label']" :color="match($conversation['status']) { 'open' => 'info', 'pending' => 'warning', 'closed' => 'success', default => 'secondary' }" pill />
+            @isset($sla)
+                <x-admin.badge :text="$sla['breached'] ? 'SLA terlewati' : 'SLA '.$sla['elapsed_hours'].'/'.$sla['sla_hours'].' jam'" :color="$sla['breached'] ? 'danger' : 'success'" pill />
+            @endisset
             <a href="{{ route('admin.conversations.index') }}" class="btn btn-outline-secondary btn-sm">Kembali</a>
         </x-slot:actions>
     </x-admin.page-header>
+
+    @isset($templates)
+        <x-admin.card title="Template balasan cepat" icon="zap" class="mb-3">
+            <div class="d-flex flex-wrap gap-2">
+                @foreach ($templates as $template)
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-template="{{ e($template['body']) }}">{{ $template['label'] }}</button>
+                @endforeach
+            </div>
+        </x-admin.card>
+        @push('scripts')
+            <script>
+                document.querySelectorAll('[data-template]').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        const box = document.querySelector('textarea[name="body"]');
+                        if (box) { box.value = btn.getAttribute('data-template') || ''; box.focus(); }
+                    });
+                });
+            </script>
+        @endpush
+    @endisset
 
     <div class="row g-3">
         <div class="col-lg-8">

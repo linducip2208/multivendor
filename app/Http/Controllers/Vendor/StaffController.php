@@ -24,6 +24,7 @@ class StaffController extends Controller
             'search' => $data['search'],
             'active' => $data['active'],
             'pending' => $data['pending'],
+            'matrix' => VendorStaffService::menuMatrix(),
             'limit' => $subscriptions->limit('staff'),
             'used' => $subscriptions->usage(auth('vendor')->user()->shop)['staff'],
         ]);

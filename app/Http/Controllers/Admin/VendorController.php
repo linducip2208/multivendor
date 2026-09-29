@@ -90,7 +90,10 @@ class VendorController extends Controller
     public function show(Shop $shop)
     {
         $shop->load(['vendor', 'products' => fn ($q) => $q->latest()->take(10), 'orders' => fn ($q) => $q->latest()->take(10)]);
-        return view('admin.vendors.show', compact('shop'));
+        app(\App\Services\AuditLogger::class)->impersonate('vendor', (int) $shop->getKey(), auth('admin')->id(), ['shop' => $shop->name]);
+        $commissionPreview = $this->commissionPreview($shop);
+
+        return view('admin.vendors.show', compact('shop', 'commissionPreview'));
     }
 
     public function edit(Shop $shop)
@@ -134,6 +137,12 @@ class VendorController extends Controller
             'status' => $validated['status'],
         ]);
 
+        $before = ['commission' => $shop->getOriginal('commission_type').': '.$shop->getOriginal('commission_value'), 'status' => $shop->getOriginal('status')];
+        app(\App\Services\AuditLogger::class)->log('vendor.updated', $shop, $before, [
+            'commission' => $validated['commission_type'].': '.$validated['commission_value'],
+            'status' => $validated['status'],
+        ], auth('admin')->id());
+
         return redirect()->route('admin.vendors.index')->with('success', 'Vendor berhasil diperbarui.');
     }
 
@@ -161,5 +170,40 @@ class VendorController extends Controller
 
         $labels = ['pending' => 'Pending', 'active' => 'Aktif', 'suspended' => 'Ditangguhkan', 'rejected' => 'Ditolak'];
         return back()->with('success', 'Status vendor diubah menjadi ' . ($labels[$request->status] ?? $request->status));
+    }
+
+    /**
+     * Pratinjau komisi bertingkat per kategori untuk toko ini.
+     * Tarif kategori dari system_settings, fallback ke komisi toko.
+     */
+    private function commissionPreview(Shop $shop): array
+    {
+        $rates = [];
+        try {
+            $raw = \App\Models\SystemSetting::get('commission_category_rates', '');
+            $decoded = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+            if (is_array($decoded)) {
+                foreach ($decoded as $catId => $pct) {
+                    $rates[(int) $catId] = max(0.0, min(100.0, (float) $pct));
+                }
+            }
+        } catch (\Throwable) {
+            $rates = [];
+        }
+        $examples = [50000, 150000, 500000];
+        $rows = [];
+        foreach ($examples as $price) {
+            $categoryRate = $rates !== [] ? (float) reset($rates) : (float) ($shop->commission_value ?? 0);
+            $isFixed = strtolower((string) ($shop->commission_type ?? 'percentage')) === 'fixed';
+            $commission = $isFixed ? (float) ($shop->commission_value ?? 0) : round($price * ($categoryRate / 100), 2);
+            $rows[] = ['price' => $price, 'rate' => $isFixed ? null : $categoryRate, 'commission' => $commission, 'net' => round($price - $commission, 2)];
+        }
+
+        return [
+            'type' => (string) ($shop->commission_type ?? 'percentage'),
+            'value' => (float) ($shop->commission_value ?? 0),
+            'category_rates' => $rates,
+            'examples' => $rows,
+        ];
     }
 }

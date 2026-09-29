@@ -18,9 +18,13 @@ class SystemHealthController extends Controller
 
     public function index(): View
     {
+        $report = $this->health->health();
+
         return view('admin.system.health', [
-            'report' => $this->health->health(),
+            'report' => $report,
             'writable' => $this->health->storageWriteProbe(),
+            'alerts' => $this->health->alerts(),
+            'backup' => $this->health->backupStatus(),
         ]);
     }
 

@@ -44,6 +44,30 @@
         ]"
     />
 
+    @isset($completeness)
+        <x-admin.card title="Kelengkapan toko" icon="check-circle" class="mb-3">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <x-admin.badge :text="$completeness['score'].'% - '.$completeness['label']" :color="$completeness['badge']" pill />
+                @isset($performance)
+                    <x-admin.badge :text="'Respons chat '.$performance['response_rate'].'%'" :color="$performance['response_badge']" pill />
+                    <x-admin.badge :text="'Rating '.number_format($performance['rating'], 1, ',', '.')" :color="$performance['rating_badge']" pill />
+                    <span class="text-secondary small">Pemenuhan {{ $performance['fulfillment_rate'] }}%</span>
+                @endisset
+            </div>
+            <div class="progress progress-sm mb-2" role="progressbar" aria-label="Skor kelengkapan toko" aria-valuenow="{{ $completeness['score'] }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar bg-{{ $completeness['badge'] === 'danger' ? 'bg-danger' : ($completeness['badge'] === 'warning' ? 'bg-warning' : 'bg-success') }}" style="width: {{ max(2, $completeness['score']) }}%"></div>
+            </div>
+            <ul class="list-unstyled mb-0 small">
+                @foreach ($completeness['items'] as $item)
+                    <li class="d-flex align-items-center gap-2 py-1 {{ $loop->last ? '' : 'border-bottom' }}">
+                        <x-admin.icon :name="$item['done'] ? 'check' : 'circle'" :size="14" class="{{ $item['done'] ? 'text-success' : 'text-secondary' }}" />
+                        <span class="{{ $item['done'] ? '' : 'text-secondary' }}">{{ $item['label'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+        </x-admin.card>
+    @endisset
+
     <div class="row g-3 mb-3">
         <div class="col-6 col-xl-3">
             <x-admin.stat

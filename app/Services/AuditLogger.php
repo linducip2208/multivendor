@@ -36,4 +36,40 @@ class AuditLogger
     {
         return Arr::except($values, self::SENSITIVE_KEYS);
     }
+
+    /**
+     * Jejak audit eksplisit saat admin melihat/mewakili vendor atau pelanggan.
+     * Dipanggil dari aksi show yang sudah ada (tanpa route baru).
+     */
+    public function impersonate(string $kind, int $targetId, ?int $actorId, array $context = []): void
+    {
+        $this->log(
+            'admin.impersonate.'.$kind,
+            $kind.':'.$targetId,
+            [],
+            ['target_id' => $targetId, 'kind' => $kind] + $context,
+            $actorId,
+        );
+    }
+
+    /**
+     * Diff before/after yang rapi untuk audit trail (kunci berubah saja).
+     *
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $after
+     * @return array<string, array{from: mixed, to: mixed}>
+     */
+    public static function diff(array $before, array $after): array
+    {
+        $out = [];
+        foreach (array_unique(array_merge(array_keys($before), array_keys($after))) as $key) {
+            $from = $before[$key] ?? null;
+            $to = $after[$key] ?? null;
+            if ($from !== $to) {
+                $out[$key] = ['from' => $from, 'to' => $to];
+            }
+        }
+
+        return $out;
+    }
 }

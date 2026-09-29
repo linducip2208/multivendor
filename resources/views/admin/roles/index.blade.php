@@ -89,4 +89,27 @@
             </button>
         </div>
     </form>
+
+    @isset($menuCoverage)
+        <x-admin.card title="Cakupan menu navigasi" icon="list" class="mt-3">
+            <x-admin.table dense>
+                <x-slot:table>
+                    \App\Support\TableBuilder::make()
+                        ->columns([
+                            'menu' => ['label' => 'Menu'],
+                            'route' => ['label' => 'Route'],
+                            'permission' => ['label' => 'Izin pelindung'],
+                        ])
+                        ->rows(
+                            collect($menuCoverage)->map(fn ($row) => [
+                                'menu' => e($row['label']),
+                                'route' => '<code class="small">'.e($row['route']).'</code>',
+                                'permission' => $row['permission'] ? '<code class="small">'.e($row['permission']).'</code>' : '<span class="text-secondary small">Terbuka</span>',
+                            ])->all()
+                        )
+                        ->empty('Navigasi belum terdaftar.')
+                </x-slot:table>
+            </x-admin.table>
+        </x-admin.card>
+    @endisset
 @endsection

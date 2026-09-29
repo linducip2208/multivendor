@@ -51,6 +51,22 @@
                             <span class="fw-bold">Rp {{ number_format($shop->commission_value, 0, ',', '.') }}</span> per transaksi
                         @endif
                     </div>
+                    @isset($commissionPreview)
+                        <div class="mt-2 small">
+                            <span class="text-muted d-block mb-1">Pratinjau komisi bertingkat</span>
+                            @forelse ($commissionPreview['examples'] as $example)
+                                <div class="d-flex justify-content-between">
+                                    <span>Rp {{ number_format($example['price'], 0, ',', '.') }}</span>
+                                    <span>Komisi Rp {{ number_format($example['commission'], 0, ',', '.') }} · Bersih Rp {{ number_format($example['net'], 0, ',', '.') }}</span>
+                                </div>
+                            @empty
+                                <span class="text-muted">Belum ada contoh.</span>
+                            @endforelse
+                            @if (($commissionPreview['category_rates'] ?? []) !== [])
+                                <span class="text-muted d-block mt-1">Tarif kategori: {{ count($commissionPreview['category_rates']) }} kategori khusus.</span>
+                            @endif
+                        </div>
+                    @endisset
                 </div>
                 <div>
                     <small class="text-muted">Bergabung</small>

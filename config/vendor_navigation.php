@@ -86,6 +86,9 @@ return [
             ['route' => 'vendor.analytics.sales', 'label' => 'Penjualan', 'icon' => 'shopping-cart', 'match' => 'vendor.analytics.sales'],
             ['route' => 'vendor.analytics.products', 'label' => 'Produk', 'icon' => 'package', 'match' => 'vendor.analytics.products'],
             ['route' => 'vendor.analytics.customers', 'label' => 'Pelanggan', 'icon' => 'users', 'match' => 'vendor.analytics.customers'],
+            ['route' => 'vendor.report.orders', 'label' => 'Laporan Pesanan', 'icon' => 'file-text', 'match' => 'vendor.report.orders'],
+            ['route' => 'vendor.report.products', 'label' => 'Laporan Produk', 'icon' => 'file-bar', 'match' => 'vendor.report.products'],
+            ['route' => 'vendor.report.transactions', 'label' => 'Laporan Transaksi', 'icon' => 'receipt', 'match' => 'vendor.report.transactions'],
         ],
     ],
 

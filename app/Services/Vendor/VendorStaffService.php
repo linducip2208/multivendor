@@ -156,6 +156,32 @@ final class VendorStaffService
         return $row;
     }
 
+    /**
+     * Matriks izin granular per menu vendor + bawaan tiap peran.
+     *
+     * @return array{menus: array<string, array{label: string, permissions: list<string>}>, role_defaults: array<string, list<string>>}
+     */
+    public static function menuMatrix(): array
+    {
+        $menus = [
+            'produk' => ['label' => 'Produk & Katalog', 'permissions' => ['products.view', 'products.manage']],
+            'pesanan' => ['label' => 'Pesanan & Fulfillment', 'permissions' => ['orders.view', 'orders.fulfill']],
+            'inventori' => ['label' => 'Inventori & Gudang', 'permissions' => ['inventory.manage']],
+            'keuangan' => ['label' => 'Keuangan', 'permissions' => ['finance.view']],
+            'pelanggan' => ['label' => 'Pelanggan & Chat', 'permissions' => ['customers.view']],
+            'konten' => ['label' => 'Konten & Promo', 'permissions' => ['content.manage']],
+        ];
+        $roleDefaults = [
+            'manager' => self::PERMISSIONS,
+            'staff' => ['products.view', 'orders.view', 'customers.view'],
+            'finance' => ['finance.view', 'orders.view'],
+            'warehouse' => ['inventory.manage', 'orders.fulfill', 'products.view'],
+            'support' => ['customers.view', 'orders.view', 'content.manage'],
+        ];
+
+        return ['menus' => $menus, 'role_defaults' => $roleDefaults];
+    }
+
     private function query()
     {
         return DB::table('shop_staff')->where('shop_id', $this->scope->shopId());

@@ -20,6 +20,22 @@
         </x-slot:actions>
     </x-admin.page-header>
 
+    @isset($alerts)
+        <x-admin.card title="Peringatan operasional" icon="alert-triangle" class="mb-3">
+            <ul class="list-unstyled mb-0 small">
+                @foreach ($alerts as $alert)
+                    <li class="d-flex align-items-start gap-2 py-1 {{ $loop->last ? '' : 'border-bottom' }}">
+                        <x-admin.badge :text="$alert['label']" :color="$alert['level']" pill />
+                        <span class="text-secondary">{{ $alert['detail'] }}</span>
+                    </li>
+                @endforeach
+            </ul>
+            @isset($backup)
+                <p class="text-secondary small mb-0 mt-2">Backup terjadwal: {{ $backup['schedule'] }}. Terakhir: {{ $backup['latest'] ?? 'belum pernah' }} ({{ $backup['count'] }} berkas).</p>
+            @endisset
+        </x-admin.card>
+    @endisset
+
     <div class="row g-3 mb-3">
         <div class="col-6 col-xl-3">
             <x-admin.stat label="PHP" :value="$report['php']['version']" icon="code" color="primary" :hint="'SAPI '.$report['php']['sapi']" />

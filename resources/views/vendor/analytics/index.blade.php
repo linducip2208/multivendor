@@ -71,4 +71,41 @@
             </x-admin.card>
         </div>
     </div>
+
+    @isset($compare)
+        <x-admin.card title="Perbandingan periode" icon="chart-line" class="mt-3">
+            <div class="row g-3 small">
+                <div class="col-6 col-xl-3"><span class="text-secondary d-block">Pendapatan berjalan</span><strong>{{ Currency::format($compare['current']['gross']->toFloat()) }}</strong></div>
+                <div class="col-6 col-xl-3"><span class="text-secondary d-block">Pendapatan sebelumnya</span><strong>{{ Currency::format($compare['previous']['gross']->toFloat()) }}</strong></div>
+                <div class="col-6 col-xl-3"><span class="text-secondary d-block">Pesanan berjalan</span><strong>{{ $compare['current']['orders'] }}</strong></div>
+                <div class="col-6 col-xl-3"><span class="text-secondary d-block">Pesanan sebelumnya</span><strong>{{ $compare['previous']['orders'] }}</strong></div>
+            </div>
+        </x-admin.card>
+    @endisset
+
+    @isset($funnel)
+        <x-admin.card title="Funnel checkout" icon="filter" class="mt-3">
+            <x-admin.table dense>
+                <x-slot:table>
+                    \App\Support\TableBuilder::make()
+                        ->columns([
+                            'step' => ['label' => 'Tahap'],
+                            'total' => ['label' => 'Jumlah', 'align' => 'end'],
+                            'drop' => ['label' => 'Drop-off ke tahap berikut', 'align' => 'end'],
+                        ])
+                        ->rows(
+                            collect($funnel['steps'])->map(function ($step, $i) use ($funnel) {
+                                $drop = $funnel['drop_off'][$i] ?? null;
+                                return [
+                                    'step' => e($step['label']),
+                                    'total' => \App\Support\Currency::number($step['total']),
+                                    'drop' => $drop ? e($drop['rate'].'% ke '.$drop['to']) : '—',
+                                ];
+                            })->all()
+                        )
+                        ->empty('Belum ada data funnel pada periode ini.')
+                </x-slot:table>
+            </x-admin.table>
+        </x-admin.card>
+    @endisset
 @endsection

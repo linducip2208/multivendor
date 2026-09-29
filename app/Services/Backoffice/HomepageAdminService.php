@@ -129,6 +129,7 @@ final class HomepageAdminService
         $this->flush();
 
         app(AuditLogger::class)->log('homepage.saved', null, [], ['sections' => count($sections)], $actorId);
+        $this->snapshotVersion($sections, $actorId);
 
         return $this->overview();
     }
@@ -257,5 +258,43 @@ final class HomepageAdminService
     public function flush(): void
     {
         Cache::forget(HomePageService::CACHE_KEY);
+    }
+
+    /**
+     * Versioning homepage: simpan 10 snapshot terakhir di system_settings.
+     */
+    private function snapshotVersion(array $sections, ?int $actorId): void
+    {
+        try {
+            $key = 'homepage_versions';
+            $raw = \App\Models\SystemSetting::get($key, '');
+            $history = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+            if (! is_array($history)) {
+                $history = [];
+            }
+            array_unshift($history, [
+                'at' => now()->format('Y-m-d H:i:s'),
+                'actor_id' => $actorId,
+                'sections' => $sections,
+            ]);
+            \App\Models\SystemSetting::set($key, json_encode(array_slice($history, 0, 10), JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable) {
+        }
+    }
+
+    /** @return list<array{at: string, actor_id: int|null, sections: array}> */
+    public function versions(): array
+    {
+        try {
+            $raw = \App\Models\SystemSetting::get('homepage_versions', '');
+            $decoded = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+            if (! is_array($decoded)) {
+                return [];
+            }
+
+            return array_values(array_filter($decoded, fn (mixed $v): bool => is_array($v) && isset($v['at'])));
+        } catch (\Throwable) {
+            return [];
+        }
     }
 }

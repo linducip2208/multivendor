@@ -199,4 +199,37 @@
     <div class="mt-3">
         <x-admin.pagination :paginator="\App\Support\AdminPaginator::fromArray($campaigns, $campaigns['total'], $campaigns['per_page'], $campaigns['current_page'])" size="sm" />
     </div>
+
+    @isset($funnel)
+        <x-admin.card title="Funnel drop-off checkout" icon="filter" class="mt-3">
+            <div class="table-responsive">
+                <table class="table admin-table mb-0">
+                    <thead><tr><th scope="col">Tahap</th><th scope="col" class="text-end">Jumlah</th><th scope="col" class="text-end">Drop-off berikut</th></tr></thead>
+                    <tbody>
+                        @foreach ($funnel['steps'] as $i => $step)
+                            <tr>
+                                <td class="fw-medium">{{ $step['label'] }}</td>
+                                <td class="text-end">{{ number_format($step['total'], 0, ',', '.') }}</td>
+                                <td class="text-end text-secondary small">{{ isset($funnel['drop_off'][$i]) ? $funnel['drop_off'][$i]['rate'].'% ke '.$funnel['drop_off'][$i]['to'] : '—' }}</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-secondary small mb-0 mt-2">Keranjang tertinggal yang belum pulih: {{ number_format($funnel['abandoned'], 0, ',', '.') }}.</p>
+        </x-admin.card>
+    @endisset
+
+    @isset($compare)
+        <x-admin.card title="Perbandingan periode" icon="chart-line" class="mt-3">
+            <dl class="row small mb-0">
+                <dt class="col-6 text-secondary">Klik berjalan / sebelumnya</dt>
+                <dd class="col-6 text-end">{{ number_format($compare['current']['clicks'], 0, ',', '.') }} / {{ number_format($compare['previous']['clicks'], 0, ',', '.') }}</dd>
+                <dt class="col-6 text-secondary">Konversi berjalan / sebelumnya</dt>
+                <dd class="col-6 text-end">{{ number_format($compare['current']['conversions'], 0, ',', '.') }} / {{ number_format($compare['previous']['conversions'], 0, ',', '.') }}</dd>
+                <dt class="col-6 text-secondary">Omzet berjalan / sebelumnya</dt>
+                <dd class="col-6 text-end">{{ \App\Support\Currency::format($compare['current']['revenue']) }} / {{ \App\Support\Currency::format($compare['previous']['revenue']) }}</dd>
+            </dl>
+        </x-admin.card>
+    @endisset
 @endsection

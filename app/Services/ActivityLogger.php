@@ -43,4 +43,21 @@ class ActivityLogger
             default => str_replace(['_', '.'], ' ', $type),
         };
     }
+
+    /**
+     * Catat aktivitas beserta diff before/after di properties
+     * (kunci `before` / `after` hanya berisi field yang berubah).
+     */
+    public static function logWithDiff(User $user, string $type, array $before, array $after): void
+    {
+        $changes = [];
+        foreach (array_unique(array_merge(array_keys($before), array_keys($after))) as $key) {
+            $from = $before[$key] ?? null;
+            $to = $after[$key] ?? null;
+            if ($from !== $to) {
+                $changes[$key] = ['from' => $from, 'to' => $to];
+            }
+        }
+        self::log($user, $type, ['before' => $before, 'after' => $after, 'changes' => $changes]);
+    }
 }

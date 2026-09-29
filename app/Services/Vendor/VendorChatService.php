@@ -165,6 +165,98 @@ final class VendorChatService
         return (int) $conversation->shop_id === $this->scope->shopId();
     }
 
+    /**
+     * Template balasan cepat (Bahasa Indonesia). Disimpan di system_settings
+     * `vendor_chat_templates` bila ada, fallback ke bawaan.
+     *
+     * @return list<array{key: string, label: string, body: string}>
+     */
+    public function quickReplies(): array
+    {
+        $fallback = [
+            ['key' => 'salam', 'label' => 'Salam pembuka', 'body' => 'Halo kak, terima kasih sudah menghubungi kami. Ada yang bisa kami bantu?'],
+            ['key' => 'cek_pesanan', 'label' => 'Cek pesanan', 'body' => 'Baik kak, mohon informasikan nomor pesanannya agar kami cek segera.'],
+            ['key' => 'pengiriman', 'label' => 'Info pengiriman', 'body' => 'Pesanan kakak sedang kami siapkan. Estimasi pengiriman 1-2 hari kerja ya kak.'],
+            ['key' => 'penutup', 'label' => 'Penutup', 'body' => 'Terima kasih kak. Jangan ragu hubungi kami lagi bila ada kendala.'],
+        ];
+        try {
+            $raw = \App\Models\SystemSetting::get('vendor_chat_templates', '');
+            if (is_string($raw) && $raw !== '') {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded) && $decoded !== []) {
+                    return array_values(array_filter(array_map(fn (mixed $t): ?array => is_array($t) && isset($t['body']) ? [
+                        'key' => (string) ($t['key'] ?? \Illuminate\Support\Str::slug((string) ($t['label'] ?? 'template'))),
+                        'label' => (string) ($t['label'] ?? 'Template'),
+                        'body' => (string) $t['body'],
+                    ] : null, $decoded)));
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return $fallback;
+    }
+
+    /**
+     * Status SLA + penugasan percakapan, tetap dalam scope toko.
+     *
+     * @return array{sla_hours: int, elapsed_hours: float, breached: bool, assignee: string|null, rating: float|null}
+     */
+    public function slaStatus(Conversation $conversation): array
+    {
+        $this->assertParticipant($conversation);
+        $slaHours = 24;
+        try {
+            $slaHours = max(1, (int) \App\Models\SystemSetting::get('vendor_chat_sla_hours', 24));
+        } catch (\Throwable) {
+        }
+        $start = $conversation->created_at;
+        $elapsed = $start !== null ? round($start->diffInMinutes(now()) / 60, 1) : 0.0;
+        $repliedAt = $conversation->first_reply_at;
+        $breached = $repliedAt === null ? $elapsed > $slaHours : ($repliedAt->diffInMinutes($start) / 60) > $slaHours;
+        $assignee = null;
+        $rating = null;
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('conversations', 'assigned_to')) {
+                $assignee = $conversation->getAttribute('assigned_to') ? (string) $conversation->getAttribute('assigned_to') : null;
+            }
+            if (\Illuminate\Support\Facades\Schema::hasColumn('conversations', 'rating')) {
+                $rating = $conversation->getAttribute('rating') !== null ? (float) $conversation->getAttribute('rating') : null;
+            }
+        } catch (\Throwable) {
+        }
+
+        return ['sla_hours' => $slaHours, 'elapsed_hours' => $elapsed, 'breached' => $breached, 'assignee' => $assignee, 'rating' => $rating];
+    }
+
+    /** Tetapkan percakapan ke anggota tim (disimpan defensif bila kolom tersedia). */
+    public function assign(Conversation $conversation, string $assignee): void
+    {
+        $this->assertParticipant($conversation);
+        $assignee = VendorScope::clean($assignee, 120);
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('conversations', 'assigned_to')) {
+                $conversation->forceFill(['assigned_to' => $assignee !== '' ? $assignee : null])->save();
+            }
+        } catch (\Throwable) {
+        }
+        app(AuditLogger::class)->log('vendor.chat.assigned', $conversation, [], ['assignee' => $assignee], $this->scope->userId());
+    }
+
+    /** Nilai percakapan 1-5 dari vendor (disimpan defensif bila kolom tersedia). */
+    public function rate(Conversation $conversation, int $stars): void
+    {
+        $this->assertParticipant($conversation);
+        $stars = max(1, min(5, $stars));
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('conversations', 'rating')) {
+                $conversation->forceFill(['rating' => $stars])->save();
+            }
+        } catch (\Throwable) {
+        }
+        app(AuditLogger::class)->log('vendor.chat.rated', $conversation, [], ['rating' => $stars], $this->scope->userId());
+    }
+
     public function assertParticipant(Conversation $conversation): void
     {
         abort_if(! $this->isOwned($conversation), 403);

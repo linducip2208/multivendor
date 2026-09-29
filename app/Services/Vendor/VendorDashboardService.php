@@ -49,6 +49,8 @@ final class VendorDashboardService
             'campaigns' => $this->campaignPerformance($shopId, $from, $to),
             'recent_orders' => $this->recentOrders($shopId),
             'top_customers' => $this->topCustomers($shopId, $from, $to),
+            'completeness' => $this->completeness($this->scope->shop()),
+            'performance' => $this->performanceBadges($shopId),
         ];
     }
 
@@ -330,6 +332,83 @@ final class VendorDashboardService
                 'spend' => Money::of($row->spend),
             ];
         })->all();
+    }
+
+    /**
+     * Skor kelengkapan toko (0-100) + rincian checklist.
+     * Murni dari data toko yang sudah ada: profil, logo, produk, ulasan.
+     *
+     * @return array{score: int, label: string, badge: string, items: list<array{key: string, label: string, done: bool}>}
+     */
+    public function completeness(\App\Models\Shop $shop): array
+    {
+        $shopId = (int) $shop->getKey();
+        $items = [
+            ['key' => 'nama', 'label' => 'Nama & deskripsi toko', 'done' => trim((string) $shop->name) !== '' && trim((string) ($shop->description ?? '')) !== ''],
+            ['key' => 'logo', 'label' => 'Logo toko', 'done' => trim((string) ($shop->logo ?? '')) !== ''],
+            ['key' => 'banner', 'label' => 'Banner toko', 'done' => trim((string) ($shop->banner ?? '')) !== ''],
+            ['key' => 'kontak', 'label' => 'Kontak (telepon/alamat)', 'done' => trim((string) ($shop->phone ?? '')) !== '' || trim((string) ($shop->address ?? '')) !== ''],
+            ['key' => 'produk', 'label' => 'Minimal 1 produk aktif', 'done' => Product::query()->where('shop_id', $shopId)->where('status', 'approved')->exists()],
+            ['key' => 'pengiriman', 'label' => 'Metode pengiriman aktif', 'done' => $this->hasShipping($shopId)],
+        ];
+        $done = count(array_filter($items, fn (array $i): bool => $i['done']));
+        $score = (int) round(($done / max(1, count($items))) * 100);
+
+        return [
+            'score' => $score,
+            'label' => $score >= 85 ? 'Lengkap' : ($score >= 60 ? 'Cukup' : 'Belum lengkap'),
+            'badge' => $score >= 85 ? 'success' : ($score >= 60 ? 'warning' : 'danger'),
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * Badge performa: respons chat, rating, ketepatan pemenuhan.
+     *
+     * @return array{response_rate: float, response_badge: string, rating: float, rating_badge: string, fulfillment_rate: float}
+     */
+    public function performanceBadges(int $shopId): array
+    {
+        $since = CarbonImmutable::now()->subDays(30);
+        $responseRate = 0.0;
+        try {
+            $threads = (int) DB::table('conversations')->where('shop_id', $shopId)->where('created_at', '>=', $since)->count();
+            $replied = (int) DB::table('conversations')->where('shop_id', $shopId)->where('created_at', '>=', $since)->whereNotNull('first_reply_at')->count();
+            $responseRate = $threads > 0 ? round(($replied / $threads) * 100, 1) : 100.0;
+        } catch (\Throwable) {
+            $responseRate = 0.0;
+        }
+        $reviews = $this->reviews($shopId);
+        $rating = (float) ($reviews['average'] ?? 0.0);
+        $fulfillment = 0.0;
+        try {
+            $total = (int) Order::query()->where('shop_id', $shopId)->where('created_at', '>=', $since)->count();
+            $done = (int) Order::query()->where('shop_id', $shopId)->where('created_at', '>=', $since)->where('fulfillment_status', 'fulfilled')->count();
+            $fulfillment = $total > 0 ? round(($done / $total) * 100, 1) : 100.0;
+        } catch (\Throwable) {
+            $fulfillment = 0.0;
+        }
+
+        return [
+            'response_rate' => $responseRate,
+            'response_badge' => $responseRate >= 80 ? 'success' : ($responseRate >= 50 ? 'warning' : 'danger'),
+            'rating' => $rating,
+            'rating_badge' => $rating >= 4.5 ? 'success' : ($rating >= 4.0 ? 'info' : ($rating >= 3.0 ? 'warning' : 'danger')),
+            'fulfillment_rate' => $fulfillment,
+        ];
+    }
+
+    private function hasShipping(int $shopId): bool
+    {
+        try {
+            return (int) DB::table('shop_shipping_methods')->where('shop_id', $shopId)->where('is_active', true)->count() > 0;
+        } catch (\Throwable) {
+            try {
+                return (int) DB::table('shop_shipping_method')->where('shop_id', $shopId)->count() > 0;
+            } catch (\Throwable) {
+                return true;
+            }
+        }
     }
 
     public function revenueQuery(int $shopId, CarbonImmutable $from, CarbonImmutable $to): Builder

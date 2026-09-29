@@ -285,4 +285,69 @@ final class VendorAnalyticsService
             ->doesntHave('orderItems')
             ->count();
     }
+
+    /**
+     * Perbandingan periode berjalan vs periode sebelumnya.
+     *
+     * @return array{current: array{gross: Money, orders: int}, previous: array{gross: Money, orders: int}, delta_revenue: array, delta_orders: array}
+     */
+    public function compare(DateRange $range): array
+    {
+        $shopId = $this->scope->shopId();
+        $previous = $range->previous();
+        $currentGross = (float) $this->revenue($shopId, $range)->sum('sub_total');
+        $currentOrders = (int) $this->revenue($shopId, $range)->count();
+        $previousGross = (float) $this->revenue($shopId, $previous)->sum('sub_total');
+        $previousOrders = (int) $this->revenue($shopId, $previous)->count();
+
+        return [
+            'current' => ['gross' => Money::of($currentGross), 'orders' => $currentOrders],
+            'previous' => ['gross' => Money::of($previousGross), 'orders' => $previousOrders],
+            'delta_revenue' => $this->growth($currentGross, $previousGross),
+            'delta_orders' => $this->growth((float) $currentOrders, (float) $previousOrders),
+        ];
+    }
+
+    /**
+     * Funnel drop-off checkout khusus toko: kunjungan -> keranjang -> checkout -> bayar.
+     * Sumber defensif: shop_visitors, carts, orders.
+     *
+     * @return array{steps: list<array{key: string, label: string, total: int}>, drop_off: list<array{from: string, to: string, rate: float}>}
+     */
+    public function funnel(DateRange $range): array
+    {
+        $shopId = $this->scope->shopId();
+        $visitors = 0;
+        try {
+            $visitors = (int) DB::table('shop_visitors')->where('shop_id', $shopId)->whereBetween('visited_at', [$range->from, $range->to])->distinct()->count('visitor_key');
+        } catch (\Throwable) {
+            $visitors = 0;
+        }
+        $carts = 0;
+        try {
+            $carts = (int) DB::table('carts')->where('shop_id', $shopId)->whereBetween('created_at', [$range->from, $range->to])->count();
+        } catch (\Throwable) {
+            try {
+                $carts = (int) DB::table('carts')->whereBetween('created_at', [$range->from, $range->to])->count();
+            } catch (\Throwable) {
+                $carts = 0;
+            }
+        }
+        $orders = (int) Order::query()->where('shop_id', $shopId)->whereBetween('created_at', [$range->from, $range->to])->count();
+        $paid = (int) $this->revenue($shopId, $range)->count();
+        $steps = [
+            ['key' => 'visitors', 'label' => 'Pengunjung', 'total' => $visitors],
+            ['key' => 'carts', 'label' => 'Keranjang', 'total' => $carts],
+            ['key' => 'orders', 'label' => 'Checkout', 'total' => $orders],
+            ['key' => 'paid', 'label' => 'Terbayar', 'total' => $paid],
+        ];
+        $dropOff = [];
+        for ($i = 0; $i < count($steps) - 1; $i++) {
+            $from = $steps[$i]['total'];
+            $to = $steps[$i + 1]['total'];
+            $dropOff[] = ['from' => $steps[$i]['label'], 'to' => $steps[$i + 1]['label'], 'rate' => $from > 0 ? round((($from - $to) / $from) * 100, 1) : 0.0];
+        }
+
+        return ['steps' => $steps, 'drop_off' => $dropOff];
+    }
 }

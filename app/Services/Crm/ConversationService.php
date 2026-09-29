@@ -241,4 +241,78 @@ final class ConversationService
 
         $participant->forceFill(['last_read_at' => now(), 'unread_count' => 0])->save();
     }
+
+    /**
+     * Template balasan cepat admin (Bahasa Indonesia).
+     *
+     * @return list<array{key: string, label: string, body: string}>
+     */
+    public static function quickTemplates(): array
+    {
+        return [
+            ['key' => 'salam', 'label' => 'Salam pembuka', 'body' => 'Halo kak, terima kasih sudah menghubungi kami. Ada yang bisa kami bantu?'],
+            ['key' => 'verifikasi', 'label' => 'Minta verifikasi', 'body' => 'Mohon informasikan nomor pesanan dan email terdaftar agar kami verifikasi.'],
+            ['key' => 'tindak_lanjut', 'label' => 'Tindak lanjut', 'body' => 'Laporan Anda sudah kami teruskan ke tim terkait dan sedang diproses.'],
+            ['key' => 'selesai', 'label' => 'Penutup', 'body' => 'Masalah Anda sudah selesai. Terima kasih atas kesabarannya.'],
+        ];
+    }
+
+    /** Status SLA percakapan: jam sejak pesan terakhir vs batas 24 jam. */
+    public function slaStatus(Conversation $conversation): array
+    {
+        $slaHours = 24;
+        $base = $conversation->last_message_at ?? $conversation->created_at;
+        $elapsed = $base !== null ? round($base->diffInMinutes(now()) / 60, 1) : 0.0;
+        $open = in_array((string) $conversation->status, ['open', 'pending'], true);
+
+        return ['sla_hours' => $slaHours, 'elapsed_hours' => $elapsed, 'breached' => $open && $elapsed > $slaHours, 'open' => $open];
+    }
+
+    /** Tetapkan agen/admin ke percakapan (kolom defensif). */
+    public function assign(Conversation $conversation, ?int $adminId): void
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('conversations', 'assigned_to')) {
+                $conversation->forceFill(['assigned_to' => $adminId])->save();
+            }
+        } catch (\Throwable) {
+        }
+        app(AuditLogger::class)->log('conversation.assigned', $conversation, [], ['assigned_to' => $adminId], $adminId);
+    }
+
+    /** Nilai kepuasan percakapan 1-5 (kolom defensif). */
+    public function rateConversation(Conversation $conversation, int $stars, ?int $actorId): void
+    {
+        $stars = max(1, min(5, $stars));
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('conversations', 'rating')) {
+                $conversation->forceFill(['rating' => $stars])->save();
+            }
+        } catch (\Throwable) {
+        }
+        app(AuditLogger::class)->log('conversation.rated', $conversation, [], ['rating' => $stars], $actorId);
+    }
+
+    /** Riwayat makro: pesan dikelompokkan per hari untuk tampilan pelanggan. */
+    public function macroHistory(Conversation $conversation): array
+    {
+        try {
+            $groups = [];
+            foreach ($conversation->messages()->orderBy('id')->get() as $message) {
+                $day = $message->created_at?->format('Y-m-d') ?? 'tanpa-tanggal';
+                $groups[$day][] = [
+                    'id' => (int) $message->id,
+                    'author' => (string) ($message->user?->name ?? 'CS'),
+                    'body' => (string) ($message->body ?? ''),
+                    'at' => (string) ($message->created_at?->format('H:i') ?? ''),
+                    'internal' => (bool) ($message->is_internal_note ?? false),
+                ];
+            }
+            ksort($groups);
+
+            return array_map(fn ($day, $items) => ['date' => $day, 'items' => $items], array_keys($groups), array_values($groups));
+        } catch (\Throwable) {
+            return [];
+        }
+    }
 }

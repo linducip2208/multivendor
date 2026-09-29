@@ -31,6 +31,11 @@ final class ExecutiveAnalyticsService extends AnalyticsService
 
             $tiles['series'] = $this->dailySeries($range);
             $tiles['range'] = $range->toArray();
+            $tiles['compare'] = [
+                'previous_from' => $range->previous()->from->toDateString(),
+                'previous_to' => $range->previous()->to->toDateString(),
+                'label' => 'Dibandingkan periode sebelumnya ('.$range->previous()->from->format('d M').' - '.$range->previous()->to->format('d M Y').')',
+            ];
 
             return $tiles;
         });

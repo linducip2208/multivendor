@@ -94,6 +94,21 @@
         </x-admin.card>
     @endif
 
+    @isset($graceReminder)
+        @if ($graceReminder['active'])
+            <x-admin.alert :type="$graceReminder['urgent'] ? 'danger' : 'warning'" title="Pengingat langganan">
+                {{ $graceReminder['message'] }}
+            </x-admin.alert>
+        @endif
+    @endisset
+    @isset($downgradeSuggestion)
+        @if ($downgradeSuggestion['available'])
+            <x-admin.alert type="info" title="Usulan hemat paket">
+                {{ $downgradeSuggestion['reason'] }} Pertimbangkan turun ke paket yang lebih hemat bila tren pemakaian tetap.
+            </x-admin.alert>
+        @endif
+    @endisset
+
     <x-admin.card title="Pilih paket" icon="layers" class="mb-3" :padding="false">
         <div class="card-body p-3">
             <div class="row g-3">

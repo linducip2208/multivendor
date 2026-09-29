@@ -186,7 +186,7 @@ class CmsController extends Controller
             ];
         }
 
-        return view('admin.pages.index', ['pages' => $pages]);
+        return view('admin.pages.index', ['pages' => $pages, 'versions' => $this->pageVersions()]);
     }
 
     public function updatePages(Request $request): RedirectResponse
@@ -196,13 +196,52 @@ class CmsController extends Controller
             'pages.*' => ['nullable', 'string', 'max:100000'],
         ]);
 
+        $before = [];
+        foreach (self::PAGES as $key => $_) {
+            $before[$key] = mb_substr((string) SystemSetting::get('page_'.$key, ''), 0, 200);
+        }
         foreach (self::PAGES as $key => $_) {
             SystemSetting::set('page_'.$key, $validated['pages'][$key] ?? null);
         }
+        $this->snapshotPageVersions($validated['pages']);
 
         $this->flush();
 
-        return back()->with('success', 'Halaman statis disimpan.');
+        $after = [];
+        foreach (self::PAGES as $key => $_) {
+            $after[$key] = mb_substr((string) SystemSetting::get('page_'.$key, ''), 0, 200);
+        }
+        app(AuditLogger::class)->log('cms.pages_updated', null, $before, $after, auth('admin')->id());
+
+        return back()->with('success', 'Halaman statis disimpan. Riwayat 10 versi terakhir tersimpan otomatis.');
+    }
+
+    /**
+     * Versioning halaman statis: 10 snapshot terakhir di system_settings.
+     *
+     * @return list<array{at: string, actor_id: int|null, pages: array}>
+     */
+    public function pageVersions(): array
+    {
+        try {
+            $raw = SystemSetting::get('cms_page_versions', '');
+            $decoded = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+
+            return is_array($decoded) ? array_values(array_filter($decoded, fn (mixed $v): bool => is_array($v) && isset($v['at']))) : [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /** @param array<string, mixed> $pages */
+    private function snapshotPageVersions(array $pages): void
+    {
+        try {
+            $history = $this->pageVersions();
+            array_unshift($history, ['at' => now()->format('Y-m-d H:i:s'), 'actor_id' => auth('admin')->id(), 'pages' => array_map(fn (mixed $v): string => mb_substr((string) $v, 0, 5000), $pages)]);
+            SystemSetting::set('cms_page_versions', json_encode(array_slice($history, 0, 10), JSON_UNESCAPED_UNICODE));
+        } catch (\Throwable) {
+        }
     }
 
     public function menus(): View
@@ -656,6 +695,7 @@ class CmsController extends Controller
             'modules' => self::ROLE_MODULES,
             'actions' => self::ROLE_ACTIONS,
             'matrix' => $this->permissionMatrix(),
+            'menuCoverage' => $this->menuCoverage(),
         ]);
     }
 
@@ -674,11 +714,16 @@ class CmsController extends Controller
 
         foreach ($validated['roles'] as $entry) {
             $role = Role::query()->findOrFail((int) $entry['id']);
+            $before = ['name' => $role->name, 'permissions' => $role->permissions()->pluck('permissions.id')->all()];
 
             $role->forceFill(['name' => (string) $entry['name']])->save();
 
             $role->permissions()->sync(array_map('intval', (array) ($entry['permissions'] ?? [])));
             $touched++;
+            app(AuditLogger::class)->log('role.updated', $role, $before, [
+                'name' => $role->name,
+                'permissions' => array_map('intval', (array) ($entry['permissions'] ?? [])),
+            ], auth('admin')->id());
         }
 
         Permissions::flush();
@@ -827,6 +872,31 @@ class CmsController extends Controller
         }
 
         return $matrix;
+    }
+
+    /**
+     * Cakupan izin granular per menu navigasi admin.
+     * Tiap item navigasi dipetakan ke permission yang melindunginya.
+     *
+     * @return list<array{label: string, route: string, permission: string|null}>
+     */
+    private function menuCoverage(): array
+    {
+        $out = [];
+        try {
+            foreach ((array) config('navigation', []) as $group) {
+                foreach ((array) ($group['items'] ?? []) as $item) {
+                    $out[] = [
+                        'label' => (string) (($group['label'] ?? '').' / '.($item['label'] ?? '')),
+                        'route' => (string) ($item['route'] ?? ''),
+                        'permission' => isset($item['permission']) ? (string) $item['permission'] : null,
+                    ];
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return $out;
     }
 
     /**

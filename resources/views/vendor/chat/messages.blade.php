@@ -74,8 +74,25 @@
                     <dd class="col-7 text-end">{{ $conversation->last_message_at?->format('d M Y H:i') ?? '—' }}</dd>
                     <dt class="col-5 text-secondary fw-normal">Jumlah pesan</dt>
                     <dd class="col-7 text-end">{{ $messages->count() }}</dd>
+                    @isset($sla)
+                        <dt class="col-5 text-secondary fw-normal">SLA respons</dt>
+                        <dd class="col-7 text-end">
+                            <x-admin.badge :text="$sla['breached'] ? 'Terlewati' : $sla['elapsed_hours'].' / '.$sla['sla_hours'].' jam'" :color="$sla['breached'] ? 'danger' : 'success'" pill />
+                        </dd>
+                    @endisset
                 </dl>
             </x-admin.card>
+
+            @isset($quickReplies)
+                <x-admin.card title="Balasan cepat" icon="zap" class="mt-3">
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach ($quickReplies as $reply)
+                            <button type="button" class="btn btn-sm btn-outline-secondary" data-quick-reply="{{ e($reply['body']) }}" title="{{ e($reply['label']) }}">{{ $reply['label'] }}</button>
+                        @endforeach
+                    </div>
+                    <p class="text-secondary small mb-0 mt-2">Klik untuk mengisi kolom pesan. Target respons maksimal 24 jam.</p>
+                </x-admin.card>
+            @endisset
 
             <x-admin.card title="Peserta" icon="users" class="mt-3">
                 @foreach ($participants as $participant)
@@ -106,6 +123,15 @@
             if (thread) {
                 thread.scrollTop = thread.scrollHeight;
             }
+            document.querySelectorAll('[data-quick-reply]').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    const box = document.getElementById('chat-body');
+                    if (box) {
+                        box.value = btn.getAttribute('data-quick-reply') || '';
+                        box.focus();
+                    }
+                });
+            });
         })();
     </script>
 @endpush

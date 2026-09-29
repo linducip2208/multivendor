@@ -132,6 +132,8 @@ class AnalyticsController extends Controller
             'range' => $range,
             'report' => $report,
             'campaigns' => $report['campaigns'],
+            'funnel' => app(MarketingAnalyticsService::class)->checkoutFunnel($range),
+            'compare' => app(MarketingAnalyticsService::class)->compare($range),
             'tabs' => $this->tabs('admin.analytics.marketing'),
         ]);
     }

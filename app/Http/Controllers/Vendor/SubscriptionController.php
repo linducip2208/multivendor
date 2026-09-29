@@ -32,6 +32,8 @@ class SubscriptionController extends Controller
             'consumption' => $data['consumption'],
             'plans' => $data['plans'],
             'currentPlanId' => $data['current_plan_id'],
+            'graceReminder' => $data['grace_reminder'],
+            'downgradeSuggestion' => $data['downgrade_suggestion'],
             'currency' => Currency::config(),
         ]);
     }

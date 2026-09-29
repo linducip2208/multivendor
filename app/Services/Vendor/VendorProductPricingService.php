@@ -121,4 +121,65 @@ final class VendorProductPricingService
 
         return Money::of($cost->toFloat() / (1 - ($rate / 100)));
     }
+
+    /**
+     * Tarif komisi bertingkat per kategori.
+     * Sumber: system_settings `commission_category_rates` (JSON {category_id: persen}).
+     * Fallback ke komisi toko bila kategori tidak punya tarif khusus.
+     *
+     * @return array{default_type: string, default_value: float, rates: array<int, float>}
+     */
+    public function categoryRates(): array
+    {
+        $shop = $this->scope->shop();
+        $rates = [];
+        try {
+            $raw = \App\Models\SystemSetting::get('commission_category_rates', '');
+            $decoded = is_string($raw) && $raw !== '' ? json_decode($raw, true) : [];
+            if (is_array($decoded)) {
+                foreach ($decoded as $catId => $pct) {
+                    $rates[(int) $catId] = max(0.0, min(100.0, (float) $pct));
+                }
+            }
+        } catch (\Throwable) {
+            $rates = [];
+        }
+
+        return [
+            'default_type' => (string) ($shop->commission_type ?? 'percentage'),
+            'default_value' => (float) ($shop->commission_value ?? 0),
+            'rates' => $rates,
+        ];
+    }
+
+    /**
+     * Pratinjau hitungan komisi untuk satu harga + kategori.
+     *
+     * @return array{price: Money, rate: float, commission: Money, net: Money, source: string}
+     */
+    public function previewCommission(float $price, ?int $categoryId = null): array
+    {
+        $tiers = $this->categoryRates();
+        $rate = $categoryId !== null && isset($tiers['rates'][$categoryId])
+            ? $tiers['rates'][$categoryId]
+            : (strtolower($tiers['default_type']) === 'fixed' ? -1.0 : (float) $tiers['default_value']);
+        $priceMoney = Money::of($price)->maxZero();
+        if ($rate < 0) {
+            $commission = Money::of((float) $tiers['default_value']);
+            $source = 'Tetap per transaksi (toko)';
+        } else {
+            $commission = Money::of($priceMoney->toFloat() * ($rate / 100));
+            $source = $categoryId !== null && isset($tiers['rates'][$categoryId])
+                ? 'Bertingkat kategori #'.$categoryId
+                : 'Default toko';
+        }
+
+        return [
+            'price' => $priceMoney,
+            'rate' => $rate < 0 ? (float) $tiers['default_value'] : $rate,
+            'commission' => $commission,
+            'net' => $priceMoney->subtract($commission)->maxZero(),
+            'source' => $source,
+        ];
+    }
 }
