@@ -31,7 +31,7 @@
         <nav aria-label="Breadcrumb" class="sf-breadcrumb">
             <a href="{{ route('home') }}">Beranda</a>
             <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
-            <span aria-current="page">Dashboard</span>
+            <span aria-current="page">Dasbor</span>
         </nav>
     </div>
 

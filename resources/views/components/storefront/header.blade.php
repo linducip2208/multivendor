@@ -222,7 +222,7 @@
                 </button>
             </div>
             <div class="sf-drawer__body sf-stack">
-                <a href="{{ route('account.dashboard') }}" class="sf-drawer__link"><x-storefront.icon name="home" :size="18" /> Dashboard</a>
+                <a href="{{ route('account.dashboard') }}" class="sf-drawer__link"><x-storefront.icon name="home" :size="18" /> Dasbor</a>
                 <a href="{{ route('orders.index') }}" class="sf-drawer__link"><x-storefront.icon name="package" :size="18" /> Pesanan Saya</a>
                 <a href="{{ route('wishlist.index') }}" class="sf-drawer__link"><x-storefront.icon name="heart" :size="18" /> Favorit</a>
                 <a href="{{ route('compare.index') }}" class="sf-drawer__link"><x-storefront.icon name="scale" :size="18" /> Bandingkan</a>

@@ -29,6 +29,9 @@
                         <div class="sf-container" style="padding-block:clamp(20px,4vw,44px)">
                             <div class="sf-hero__grid">
                                 @foreach ($slides->take(3) as $index => $slide)
+                                    @if (! is_object($slide))
+                                        @continue
+                                    @endif
                                     @php
                                         $image = $slide->image ? url('img/'.ltrim((string) $slide->image, '/')) : null;
                                         $href = $slide->link ?: route('products.index');
@@ -119,6 +122,9 @@
                             <h2 class="sf-section-head__title" id="{{ $headingId }}">{{ $heading['title'] }}</h2>
                             <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
                                 @foreach ($slides as $slide)
+                                    @if (! is_object($slide))
+                                        @continue
+                                    @endif
                                     @php
                                         $image = $slide->image ? url('img/'.ltrim((string) $slide->image, '/')) : null;
                                         $href = $slide->link ?: route('deals');

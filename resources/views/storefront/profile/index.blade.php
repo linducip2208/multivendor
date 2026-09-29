@@ -56,7 +56,7 @@
 
                                 <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
                                     <div class="sf-field">
-                                        <label class="sf-label" for="sf-profile-password">Password baru</label>
+                                        <label class="sf-label" for="sf-profile-password">Kata sandi baru</label>
                                         <input class="sf-input" id="sf-profile-password" type="password" name="password"
                                                autocomplete="new-password"
                                                @error('password') aria-invalid="true" aria-describedby="sf-profile-password-error" @enderror>
@@ -65,12 +65,12 @@
                                         @enderror
                                     </div>
                                     <div class="sf-field">
-                                        <label class="sf-label" for="sf-profile-password-confirm">Ulangi password baru</label>
+                                        <label class="sf-label" for="sf-profile-password-confirm">Ulangi kata sandi baru</label>
                                         <input class="sf-input" id="sf-profile-password-confirm" type="password"
                                                name="password_confirmation" autocomplete="new-password">
                                     </div>
                                 </div>
-                                <p class="sf-hint sf-mb-0">Kosongkan bila tidak ingin mengganti password.</p>
+                                <p class="sf-hint sf-mb-0">Kosongkan bila tidak ingin mengganti kata sandi.</p>
 
                                 <div>
                                     <button type="submit" class="sf-btn sf-btn--primary">Simpan perubahan</button>
@@ -204,7 +204,7 @@
                         <h2 class="sf-footer__title" id="sf-profile-links">Tautan cepat</h2>
                         <div class="sf-stack" style="gap:8px">
                             <a href="{{ route('account.dashboard') }}" class="sf-btn sf-btn--ghost sf-btn--block">
-                                <x-storefront.icon name="home" :size="16" /> Dashboard akun
+                                <x-storefront.icon name="home" :size="16" /> Dasbor akun
                             </a>
                             <a href="{{ route('orders.index') }}" class="sf-btn sf-btn--ghost sf-btn--block">
                                 <x-storefront.icon name="package" :size="16" /> Pesanan saya

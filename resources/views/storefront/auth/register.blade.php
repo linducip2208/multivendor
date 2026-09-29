@@ -86,7 +86,7 @@
 
                         <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
                             <div class="sf-field">
-                                <label class="sf-label" for="sf-register-password">Password <span class="sf-required">*</span></label>
+                                <label class="sf-label" for="sf-register-password">Kata sandi <span class="sf-required">*</span></label>
                                 <input class="sf-input" id="sf-register-password" type="password" name="password" required
                                        autocomplete="new-password" @error('password') aria-invalid="true" aria-describedby="sf-register-password-error" @enderror>
                                 @error('password')
@@ -94,7 +94,7 @@
                                 @enderror
                             </div>
                             <div class="sf-field">
-                                <label class="sf-label" for="sf-register-password-confirm">Ulangi password <span class="sf-required">*</span></label>
+                                <label class="sf-label" for="sf-register-password-confirm">Ulangi kata sandi <span class="sf-required">*</span></label>
                                 <input class="sf-input" id="sf-register-password-confirm" type="password" name="password_confirmation"
                                        required autocomplete="new-password">
                             </div>

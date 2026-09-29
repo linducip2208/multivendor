@@ -58,7 +58,7 @@
                     </div>
 
                     <div class="sf-field">
-                        <label class="sf-label" for="sf-login-password">Password <span class="sf-required">*</span></label>
+                        <label class="sf-label" for="sf-login-password">Kata sandi <span class="sf-required">*</span></label>
                         <input class="sf-input" id="sf-login-password" type="password" name="password" required autocomplete="current-password"
                                @error('password') aria-invalid="true" aria-describedby="sf-login-password-error" @enderror>
                         @error('password')

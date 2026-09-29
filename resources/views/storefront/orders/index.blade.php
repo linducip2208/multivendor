@@ -32,7 +32,7 @@
             <div class="sf-section-head">
                 <h1 class="sf-section-head__title" id="sf-orders-title">Pesanan Saya</h1>
                 <a href="{{ route('account.dashboard') }}" class="sf-section-head__link">
-                      <x-storefront.icon name="home" :size="16" /> Dashboard
+                      <x-storefront.icon name="home" :size="16" /> Dasbor
                 </a>
             </div>
 

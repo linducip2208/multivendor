@@ -10,7 +10,7 @@
         <nav aria-label="Breadcrumb" class="sf-breadcrumb">
             <a href="{{ route('home') }}">Beranda</a>
             <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
-            <a href="{{ route('account.dashboard') }}">Dashboard</a>
+            <a href="{{ route('account.dashboard') }}">Dasbor</a>
             <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
             <span aria-current="page">Keamanan</span>
         </nav>
@@ -38,7 +38,7 @@
                                 @method('PUT')
 
                                 <div class="sf-field">
-                                    <label class="sf-label" for="sf-current-password">Password saat ini <span class="sf-required">*</span></label>
+                                    <label class="sf-label" for="sf-current-password">Kata sandi saat ini <span class="sf-required">*</span></label>
                                     <input class="sf-input" id="sf-current-password" type="password" name="current_password" required
                                            autocomplete="current-password"
                                            @error('current_password') aria-invalid="true" aria-describedby="sf-current-password-error" @enderror>
@@ -49,7 +49,7 @@
 
                                 <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
                                     <div class="sf-field">
-                                        <label class="sf-label" for="sf-new-password">Password baru <span class="sf-required">*</span></label>
+                                        <label class="sf-label" for="sf-new-password">Kata sandi baru <span class="sf-required">*</span></label>
                                         <input class="sf-input" id="sf-new-password" type="password" name="password" required
                                                autocomplete="new-password"
                                                @error('password') aria-invalid="true" aria-describedby="sf-new-password-error" @enderror>
@@ -58,7 +58,7 @@
                                         @enderror
                                     </div>
                                     <div class="sf-field">
-                                        <label class="sf-label" for="sf-confirm-password">Ulangi password baru <span class="sf-required">*</span></label>
+                                        <label class="sf-label" for="sf-confirm-password">Ulangi kata sandi baru <span class="sf-required">*</span></label>
                                         <input class="sf-input" id="sf-confirm-password" type="password" name="password_confirmation"
                                                required autocomplete="new-password">
                                     </div>
@@ -67,7 +67,7 @@
 
                                 <div>
                                     <button type="submit" class="sf-btn sf-btn--primary">
-                                        <x-storefront.icon name="lock" :size="16" /> Perbarui password
+                                        <x-storefront.icon name="lock" :size="16" /> Perbarui kata sandi
                                     </button>
                                 </div>
                             </form>

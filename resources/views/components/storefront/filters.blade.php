@@ -133,7 +133,7 @@
         @endif
 
         <div class="sf-facet">
-            <h3 class="sf-facet__title">Rating Minimum</h3>
+            <h3 class="sf-facet__title">Peringkat Minimum</h3>
             <div class="sf-facet__body">
                 <div class="sf-facet__list">
                     @foreach ([4 => '4 ke atas', 3 => '3 ke atas', 2 => '2 ke atas'] as $value => $label)

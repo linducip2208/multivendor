@@ -115,15 +115,15 @@
         $features = [
             ['icon'=>'fa-store','title'=>'Multi Vendor','desc'=>'Vendor daftar, buka toko, kelola produk. Admin kontrol & komisi otomatis.'],
             ['icon'=>'fa-box','title'=>'Produk','desc'=>'5-tab form, WYSIWYG editor, foto, video, varian, tags, SEO meta.'],
-            ['icon'=>'fa-cash-register','title'=>'POS','desc'=>'Point of Sale transaksi offline. Scan barcode, quick add to cart.'],
-            ['icon'=>'fa-credit-card','title'=>'Payment Gateway','desc'=>'10 gateway BYOK: Midtrans, Xendit, Tripay. User input API key sendiri.'],
-            ['icon'=>'fa-truck-fast','title'=>'Shipping','desc'=>'16 kurir BYOK: JNE, J&T, SiCepat. Ongkir real-time via RajaOngkir.'],
-            ['icon'=>'fa-brain','title'=>'AI Analytics','desc'=>'10 AI provider termasuk Ollama (self-hosted gratis). Insight otomatis.'],
-            ['icon'=>'fa-wallet','title'=>'Wallet & Komisi','desc'=>'Dompet digital, komisi otomatis, pencairan dana (withdraw).'],
-            ['icon'=>'fa-tags','title'=>'Promo Engine','desc'=>'Kupon, Flash Deal, Deal of Day, Featured, Clearance Sale.'],
-            ['icon'=>'fa-chart-line','title'=>'Laporan','desc'=>'Revenue, top produk, AI insight, export CSV. 3 tipe laporan.'],
+            ['icon'=>'fa-cash-register','title'=>'POS','desc'=>'Kasir offline (Point of Sale). Pindai barkode, tambah cepat ke keranjang.'],
+            ['icon'=>'fa-credit-card','title'=>'Payment Gateway','desc'=>'10 gateway BYOK: Midtrans, Xendit, Tripay. Pengguna isi API key sendiri.'],
+            ['icon'=>'fa-truck-fast','title'=>'Pengiriman','desc'=>'16 kurir BYOK: JNE, J&T, SiCepat. Ongkir real-time via RajaOngkir.'],
+            ['icon'=>'fa-brain','title'=>'AI Analytics','desc'=>'10 provider AI termasuk Ollama (self-hosted gratis). Insight otomatis.'],
+            ['icon'=>'fa-wallet','title'=>'Dompet & Komisi','desc'=>'Dompet digital, komisi otomatis, pencairan dana (withdraw).'],
+            ['icon'=>'fa-tags','title'=>'Mesin Promo','desc'=>'Kupon, Flash Deal, Deal of the Day, Unggulan, Cuci Gudang.'],
+            ['icon'=>'fa-chart-line','title'=>'Laporan','desc'=>'Pendapatan, produk terlaris, AI insight, ekspor CSV. 3 tipe laporan.'],
             ['icon'=>'fa-blog','title'=>'Blog + SEO','desc'=>'CMS blog, sitemap otomatis, IndexNow, robots.txt, RSS feed.'],
-            ['icon'=>'fa-heart','title'=>'Customer','desc'=>'Wishlist, compare, loyalty points, referral, ticket support, feed.'],
+            ['icon'=>'fa-heart','title'=>'Pelanggan','desc'=>'Favorit, bandingkan, poin loyalitas, referral, tiket bantuan, feed.'],
             ['icon'=>'fa-code','title'=>'REST API','desc'=>'API v1/v2/v3 siap untuk Flutter, Android, iOS, integrasi pihak ketiga.'],
         ];
         @endphp

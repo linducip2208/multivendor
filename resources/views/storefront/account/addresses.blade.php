@@ -7,7 +7,7 @@
         <nav aria-label="Breadcrumb" class="sf-breadcrumb">
             <a href="{{ route('home') }}">Beranda</a>
             <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
-            <a href="{{ route('account.dashboard') }}">Dashboard</a>
+            <a href="{{ route('account.dashboard') }}">Dasbor</a>
             <span class="sf-breadcrumb__sep" aria-hidden="true">/</span>
             <span aria-current="page">Alamat</span>
         </nav>

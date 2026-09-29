@@ -53,7 +53,7 @@
 
         $modules = [
             ['icon' => 'box', 'label' => 'Katalog & varian', 'text' => 'Atribut, varian, stok multi-gudang, dan riwayat pergerakan stok.'],
-            ['icon' => 'ticket', 'label' => 'Promo & kupon', 'text' => 'Kupon, flash sale, deal of the day, dan harga khusus per pelanggan.'],
+            ['icon' => 'ticket', 'label' => 'Promo & kupon', 'text' => 'Kupon, flash sale, penawaran hari ini, dan harga khusus per pelanggan.'],
             ['icon' => 'package', 'label' => 'POS retail', 'text' => 'Kasir untuk transaksi offline dengan sinkronisasi ke inventori.'],
             ['icon' => 'headset', 'label' => 'Bantuan & tiket', 'text' => 'Tiket dukungan, live chat, dan penilaian pengalaman pengiriman.'],
             ['icon' => 'layers', 'label' => 'Bundel & group buy', 'text' => 'Paket hemat dan pembelian bersama dengan progres peserta.'],

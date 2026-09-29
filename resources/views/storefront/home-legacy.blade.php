@@ -10,10 +10,10 @@
             ['icon' => 'truck', 't' => 'Shipping System', 'd' => '16 kurir preset. RajaOngkir, JNE, J&T, SiCepat, TIKI, POS, GoSend, GrabExpress, Borzo, Deliveree.'],
             ['icon' => 'sparkles', 't' => 'AI Analytics', 'd' => '10 AI provider: DeepSeek, OpenAI, Groq, Ollama, dll. Analisis produk paling laris + rekomendasi.'],
             ['icon' => 'wallet', 't' => 'Wallet & Payout', 'd' => 'Dompet digital customer + vendor. Komisi otomatis per transaksi. Pencairan dana vendor.'],
-            ['icon' => 'ticket', 't' => 'Kupon & Flash Deal', 'd' => 'Kupon diskon (%, Rp, free ongkir). Flash deal dengan timer. Deal of the day.'],
+            ['icon' => 'ticket', 't' => 'Kupon & Flash Deal', 'd' => 'Kupon diskon (%, Rp, gratis ongkir). Flash deal dengan timer. Penawaran Hari Ini.'],
             ['icon' => 'trending', 't' => 'Laporan & Analitik', 'd' => 'Revenue, sales, product, transaction reports. Top produk table. AI-powered insight.'],
             ['icon' => 'book', 't' => 'Blog & SEO', 'd' => 'Blog untuk konten marketing. Sitemap auto-generate. IndexNow auto-submit. robots.txt.'],
-            ['icon' => 'user', 't' => 'Pelanggan', 'd' => 'Data pelanggan lengkap: wallet, alamat, order history. Customer login & register.'],
+            ['icon' => 'user', 't' => 'Pelanggan', 'd' => 'Data pelanggan lengkap: dompet, alamat, riwayat pesanan. Pelanggan masuk & daftar.'],
             ['icon' => 'bell', 't' => 'Notifikasi', 'd' => 'Push notification ke pelanggan. In-app notification system. Firebase ready.'],
             ['icon' => 'image', 't' => 'Banner', 'd' => 'Kelola banner marketing: hero, sidebar, footer, popup. Atur posisi & urutan.'],
             ['icon' => 'external', 't' => 'Integrasi Dinamis', 'd' => 'Semua provider BYOK. User input API key sendiri. Payment, shipping, AI — key terpisah.'],
@@ -22,7 +22,7 @@
         ];
         $accountLinks = [
             ['href' => route('admin.login'), 'label' => 'Admin'],
-            ['href' => route('vendor.login'), 'label' => 'Vendor'],
+            ['href' => route('vendor.login'), 'label' => 'Penjual'],
         ];
     @endphp
 
@@ -42,11 +42,11 @@
                     @auth
                         @if (auth()->user()->isAdmin())
                             <a class="sf-btn sf-btn--primary sf-btn--sm" href="{{ route('admin.dashboard') }}">
-                                <x-storefront.icon name="trending" :size="15" /> Admin Panel
+                                <x-storefront.icon name="trending" :size="15" /> Panel Admin
                             </a>
                         @elseif (auth()->user()->isVendor())
                             <a class="sf-btn sf-btn--primary sf-btn--sm" href="{{ route('vendor.dashboard') }}">
-                                <x-storefront.icon name="store" :size="15" /> Panel Vendor
+                                <x-storefront.icon name="store" :size="15" /> Panel Penjual
                             </a>
                         @else
                             <span class="sf-small sf-muted">{{ auth()->user()->name }}</span>
@@ -151,7 +151,7 @@
                         @endif
                     </span>
                     <div style="flex:1 1 260px;min-width:0">
-                        <span class="sf-badge sf-badge--solid-danger"><x-storefront.icon name="flame" :size="12" /> Deal of the day</span>
+                        <span class="sf-badge sf-badge--solid-danger"><x-storefront.icon name="flame" :size="12" /> Penawaran Hari Ini</span>
                         <h2 class="sf-section-head__title" id="sf-legacy-dotd" style="margin-top:10px">{{ $dealOfTheDay->product->name }}</h2>
                         @if ($dealOfTheDay->product->short_description)
                             <p class="sf-small sf-muted">{{ \Illuminate\Support\Str::limit(strip_tags($dealOfTheDay->product->short_description), 140) }}</p>
@@ -204,7 +204,7 @@
                 <div class="sf-section-head">
                     <div>
                         <span class="sf-section-head__eyebrow">Flash</span>
-                        <h2 class="sf-section-head__title" id="sf-legacy-flash">Flash Deals</h2>
+                        <h2 class="sf-section-head__title" id="sf-legacy-flash">Flash Deal</h2>
                     </div>
                     <a href="{{ route('flash-sale') }}" class="sf-section-head__link">Semua flash deal <x-storefront.icon name="arrow-right" :size="16" /></a>
                 </div>
@@ -243,27 +243,27 @@
                             <span><strong>Admin</strong><br><span class="sf-small sf-muted">Panel administrasi</span></span>
                         </span>
                         <p class="sf-small sf-muted sf-mb-0">admin@multivendor.test<br>password</p>
-                        <a href="{{ route('admin.login') }}" class="sf-btn sf-btn--outline sf-btn--sm sf-btn--block">Login Admin</a>
+                        <a href="{{ route('admin.login') }}" class="sf-btn sf-btn--outline sf-btn--sm sf-btn--block">Masuk Admin</a>
                     </div>
                 </article>
                 <article class="sf-card">
                     <div class="sf-card__body sf-stack" style="gap:10px">
                         <span class="sf-row" style="gap:10px">
                             <span class="sf-cat__icon" aria-hidden="true"><x-storefront.icon name="store" :size="20" /></span>
-                            <span><strong>Vendor</strong><br><span class="sf-small sf-muted">Panel toko</span></span>
+                            <span><strong>Penjual</strong><br><span class="sf-small sf-muted">Panel toko</span></span>
                         </span>
                         <p class="sf-small sf-muted sf-mb-0">vendor@multivendor.test<br>password</p>
-                        <a href="{{ route('vendor.login') }}" class="sf-btn sf-btn--outline sf-btn--sm sf-btn--block">Login Vendor</a>
+                        <a href="{{ route('vendor.login') }}" class="sf-btn sf-btn--outline sf-btn--sm sf-btn--block">Masuk Penjual</a>
                     </div>
                 </article>
                 <article class="sf-card">
                     <div class="sf-card__body sf-stack" style="gap:10px">
                         <span class="sf-row" style="gap:10px">
                             <span class="sf-cat__icon" aria-hidden="true"><x-storefront.icon name="user" :size="20" /></span>
-                            <span><strong>Customer</strong><br><span class="sf-small sf-muted">Belanja online</span></span>
+                            <span><strong>Pelanggan</strong><br><span class="sf-small sf-muted">Belanja online</span></span>
                         </span>
                         <p class="sf-small sf-muted sf-mb-0">customer@multivendor.test<br>password</p>
-                        <a href="{{ route('login') }}" class="sf-btn sf-btn--outline sf-btn--sm sf-btn--block">Masuk Customer</a>
+                        <a href="{{ route('login') }}" class="sf-btn sf-btn--outline sf-btn--sm sf-btn--block">Masuk Pelanggan</a>
                     </div>
                 </article>
             </div>

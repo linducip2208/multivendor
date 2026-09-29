@@ -122,7 +122,7 @@
             <div>
                 <h4 class="sf-footer__title">Jual di sini</h4>
                 <ul class="sf-footer__list">
-                    <li><a href="{{ route('vendor.login') }}">Login Penjual</a></li>
+                    <li><a href="{{ route('vendor.login') }}">Masuk Penjual</a></li>
                     <li><a href="{{ route('vendor.register') }}">Daftar Jadi Penjual</a></li>
                     <li><a href="{{ route('page.seller') }}">Cara Bergabung</a></li>
                 </ul>
