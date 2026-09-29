@@ -174,7 +174,7 @@ final class SystemHealthService
 
         try {
             $connection = (string) config('queue.default');
-            $queueConnection = (string) config("queue.connections.{$connection}");
+            $queueConnection = (string) config("queue.connections.{$connection}.driver", $connection);
             $table = (string) config("queue.connections.{$connection}.table", 'jobs');
 
             if ($queueConnection === 'database' && \Illuminate\Support\Facades\Schema::hasTable($table)) {
