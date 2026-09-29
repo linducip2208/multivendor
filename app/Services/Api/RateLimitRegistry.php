@@ -36,28 +36,25 @@ final class RateLimitRegistry
 
         RateLimiter::for(self::GLOBAL, static function (Request $request): Limit {
             return Limit::perMinute(120)->by(self::principalKey($request))->response(
-                self::tooMany(),
-                self::headers()
+                static fn () => self::tooMany()
             );
         });
 
         RateLimiter::for(self::AUTH, static function (Request $request): Limit {
             $identity = strtolower((string) $request->input('email')).'|'.self::principalKey($request);
 
-            return Limit::perMinute(10)->by('auth:'.$identity)->response(self::tooMany(), self::headers());
+            return Limit::perMinute(10)->by('auth:'.$identity)->response(static fn () => self::tooMany());
         });
 
         RateLimiter::for(self::WRITE, static function (Request $request): Limit {
             return Limit::perMinute(60)->by('write:'.self::principalKey($request))->response(
-                self::tooMany(),
-                self::headers()
+                static fn () => self::tooMany()
             );
         });
 
         RateLimiter::for(self::SEARCH, static function (Request $request): Limit {
             return Limit::perMinute(60)->by('search:'.self::principalKey($request))->response(
-                self::tooMany(),
-                self::headers()
+                static fn () => self::tooMany()
             );
         });
     }
@@ -86,11 +83,6 @@ final class RateLimitRegistry
         }
 
         return 'ip:'.(string) $request->ip();
-    }
-
-    private static function headers(): array
-    {
-        return ['Content-Type' => 'application/json'];
     }
 
     private static function tooMany(): \Illuminate\Http\JsonResponse

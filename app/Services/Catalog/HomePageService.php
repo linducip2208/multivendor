@@ -259,12 +259,18 @@ class HomePageService
             return collect();
         }
 
-        return Cache::remember("home:banners:{$position}", self::CACHE_TTL, fn () => Banner::query()
-            ->where('status', true)
-            ->where('position', $position)
-            ->orderBy('sort_order')
-            ->limit($limit)
-            ->get());
+        // v2 key + model normalization: stale/mixed cache entries must
+        // never reach Blade as strings (cf. home:categories:v2).
+        return Cache::remember("home:banners:v2:{$position}:{$limit}", self::CACHE_TTL, function () use ($position, $limit) {
+            return Banner::query()
+                ->where('status', true)
+                ->where('position', $position)
+                ->orderBy('sort_order')
+                ->limit($limit)
+                ->get()
+                ->filter(fn ($row) => $row instanceof Banner)
+                ->values();
+        });
     }
 
     private function rootCategories(int $limit)

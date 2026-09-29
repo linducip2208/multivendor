@@ -507,18 +507,22 @@ class DatabaseSearchDriver implements SearchDriver
         }
 
         $popularity = (array) config('search.ranking.popularity', []);
+        // Portable capped ratios (CASE WHEN works on MySQL/SQLite/PgSQL;
+        // LEAST() is MySQL-only and breaks sqlite test runs).
         $score[] = sprintf(
-            'LEAST(COALESCE(products.sold_count, 0), %d) / %F',
+            'CASE WHEN COALESCE(products.sold_count, 0) > %d THEN %d ELSE COALESCE(products.sold_count, 0) END / %F',
+            (int) ($popularity['sold_cap'] ?? 500),
             (int) ($popularity['sold_cap'] ?? 500),
             (float) ($popularity['sold_divisor'] ?? 10.0)
         );
         $score[] = sprintf(
-            'LEAST(COALESCE(products.view_count, 0), %d) / %F',
+            'CASE WHEN COALESCE(products.view_count, 0) > %d THEN %d ELSE COALESCE(products.view_count, 0) END / %F',
+            (int) ($popularity['view_cap'] ?? 2000),
             (int) ($popularity['view_cap'] ?? 2000),
             (float) ($popularity['view_divisor'] ?? 100.0)
         );
         $score[] = sprintf('COALESCE(products.rating_average, 0) * %F', (float) ($weights['rating'] ?? 6));
-        $score[] = 'LEAST(COALESCE(products.rating_count, 0), 50) / 10.0';
+        $score[] = 'CASE WHEN COALESCE(products.rating_count, 0) > 50 THEN 50 ELSE COALESCE(products.rating_count, 0) END / 10.0';
 
         $freshness = (array) config('search.ranking.freshness', []);
         $bonus = (array) ($freshness['bonus'] ?? []);
