@@ -28,8 +28,8 @@ return new class extends Migration
             ['commission_value', 'decimal', ['total' => 8, 'places' => 2], ['default' => 0]],
             ['commission_type', 'string', ['length' => 20], ['default' => 'percentage']],
             ['commission_tier', 'string', ['length' => 60], ['nullable' => true]],
-            ['grace_days', 'unsignedSmallInteger', [], ['default' => 0]],
-            ['trial_days', 'unsignedSmallInteger', [], ['default' => 0]],
+            ['grace_days', 'integer', ['unsigned' => true], ['default' => 0]],
+            ['trial_days', 'integer', ['unsigned' => true], ['default' => 0]],
             ['grace_allowed', 'boolean', [], ['default' => false]],
             ['sort_order', 'integer', [], ['default' => 0]],
         ]);

@@ -15,7 +15,9 @@ return new class extends Migration
             'webhook_deliveries_endpoint_status_created_index' => ['webhook_endpoint_id', 'status', 'created_at'],
         ],
         'webhook_endpoints' => [
-            'webhook_endpoints_shop_status_index' => ['shop_id', 'status', 'is_active'],
+            // Kolom `status` tidak ada di tabel ini (pakai is_active) —
+            // index disesuaikan dengan skema nyata (lihat 000002).
+            'webhook_endpoints_shop_status_index' => ['shop_id', 'is_active'],
         ],
     ];
 
