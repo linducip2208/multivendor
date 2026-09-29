@@ -196,6 +196,127 @@ final class VendorFulfillmentService
         return app(OrderWorkflowService::class)->bulkTransition($scoped, $to, $this->scope->userId(), $note);
     }
 
+    // ── Logistik lanjutan (aditif): alokasi, pickup, manifest, jemput retur ──
+
+    /**
+     * Alokasi gudang otomatis untuk satu pesanan toko ini (read-only):
+     * gudang bertok + terdekat kota tujuan, fallback gudang utama.
+     *
+     * @return array{warehouse: ?Warehouse, items: array<int,int>, full: bool}
+     */
+    public function allocateForOrder(Order $order, ?string $destinationCity = null): array
+    {
+        abort_if((int) $order->shop_id !== $this->scope->shopId(), 403);
+
+        $items = OrderItem::query()->where('order_id', $order->getKey())->get(['product_id', 'quantity']);
+        $needs = [];
+
+        foreach ($items as $item) {
+            $needs[(int) $item->product_id] = ($needs[(int) $item->product_id] ?? 0) + max(0, (int) $item->quantity);
+        }
+
+        $city = $destinationCity ?? (is_array($order->shipping_address) ? (string) ($order->shipping_address['city'] ?? '') : '');
+
+        $warehouse = app(\App\Services\Shipping\ShippingService::class)
+            ->allocateWarehouseForItems($needs, $city !== '' ? $city : null);
+
+        $full = $warehouse !== null && app(\App\Services\Backoffice\StockService::class)
+            ->suggestWarehouse($needs, $city !== '' ? $city : null)['full'];
+
+        return ['warehouse' => $warehouse, 'items' => $needs, 'full' => $full];
+    }
+
+    /** Buat kiriman ambil di toko untuk pesanan milik toko ini. */
+    public function createPickup(Order $order, int $warehouseId): OrderShipment
+    {
+        abort_if((int) $order->shop_id !== $this->scope->shopId(), 403);
+
+        return app(\App\Services\Backoffice\FulfillmentService::class)
+            ->createPickupShipment($order, $warehouseId, $this->scope->userId());
+    }
+
+    /** Tandai kiriman pickup milik toko ini siap diambil. */
+    public function readyPickup(OrderShipment $shipment): OrderShipment
+    {
+        $this->assertOwnShipment($shipment);
+
+        return app(\App\Services\Backoffice\FulfillmentService::class)
+            ->readyForPickup($shipment, $this->scope->userId());
+    }
+
+    /** Verifikasi kode ambil milik toko ini (satu kali pakai). */
+    public function verifyPickup(Order $order, string $code): OrderShipment
+    {
+        abort_if((int) $order->shop_id !== $this->scope->shopId(), 403);
+
+        return app(\App\Services\Backoffice\FulfillmentService::class)
+            ->verifyPickup($order, $code, $this->scope->userId());
+    }
+
+    /** Kiriman pickup milik toko ini (siap / menunggu verifikasi). */
+    public function pickupQueue(int $limit = 25)
+    {
+        return OrderShipment::query()
+            ->where('is_pickup', true)
+            ->whereHas('order', fn ($q) => $q->where('shop_id', $this->scope->shopId()))
+            ->with(['order:id,order_number,shop_id'])
+            ->orderByDesc('id')
+            ->limit(max(5, min(100, $limit)))
+            ->get();
+    }
+
+    /**
+     * Batch manifest AWB khusus kiriman toko ini: beri nomor manifest pada
+     * kiriman pilihan yang belum bermanifest. Idempoten per baris.
+     *
+     * @param  list<int>  $shipmentIds
+     * @return array{manifest_no: string, manifest_date: string, total: int}
+     */
+    public function manifestBatchForShop(array $shipmentIds): array
+    {
+        $ids = array_values(array_unique(array_map('intval', $shipmentIds)));
+        $ids = array_filter($ids, fn (int $id): bool => $id > 0);
+
+        $owned = OrderShipment::query()
+            ->whereIn('id', $ids)
+            ->whereHas('order', fn ($q) => $q->where('shop_id', $this->scope->shopId()))
+            ->pluck('id')
+            ->all();
+
+        return app(\App\Services\Backoffice\FulfillmentService::class)
+            ->manifestBatch($owned, $this->scope->userId());
+    }
+
+    /** Rekap manifest per kurir per hari khusus toko ini. */
+    public function manifestRecapForShop(?string $courier = null, ?string $date = null): array
+    {
+        $query = OrderShipment::query()
+            ->whereHas('order', fn ($q) => $q->where('shop_id', $this->scope->shopId()))
+            ->selectRaw("COALESCE(NULLIF(courier,''),'MANUAL') as courier, COALESCE(manifest_date, DATE(order_shipments.created_at)) as manifest_day, COALESCE(NULLIF(manifest_no,''),'-') as manifest_no, COUNT(*) as total")
+            ->groupBy('courier', 'manifest_day', 'manifest_no')
+            ->orderBy('manifest_day', 'desc')
+            ->orderBy('courier');
+
+        if ($courier !== null && trim($courier) !== '') {
+            $query->where('courier', 'like', '%'.trim($courier).'%');
+        }
+
+        if ($date !== null && trim($date) !== '') {
+            $query->whereDate('manifest_date', trim($date));
+        }
+
+        try {
+            return $query->limit(100)->get()->map(fn ($row): array => [
+                'courier' => (string) $row->courier,
+                'date' => (string) $row->manifest_day,
+                'manifest_no' => (string) $row->manifest_no,
+                'total' => (int) $row->total,
+            ])->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
     /** Data label massal dari order_shipments existing. */
     public function labelsFor(array $orderIds): array
     {
@@ -207,6 +328,11 @@ final class VendorFulfillmentService
             ->get()
             ->map(fn (OrderShipment $s): array => array_merge($s->labelData(), [
                 'nomor_pesanan' => (string) ($s->order?->order_number ?? '-'),
+                // Aditif logistik: nomor manifest + kode ambil (kolom baru, aman bila null).
+                'manifest_no' => (string) ($s->manifest_no ?? ''),
+                'manifest_date' => (string) ($s->manifest_date?->format('Y-m-d') ?? ''),
+                'is_pickup' => (bool) ($s->is_pickup ?? false),
+                'pickup_code' => (string) ($s->pickup_code ?? ''),
             ]))
             ->all();
     }
@@ -279,6 +405,43 @@ final class VendorFulfillmentService
 
             return 1;
         }, 3);
+    }
+
+    /** Jadwalkan penjemputan retur milik toko ini (retur harus disetujui). */
+    public function scheduleReturnPickup(\App\Models\OrderReturn $return, array $data): \App\Models\OrderReturn
+    {
+        $this->assertOwnReturn($return);
+
+        return app(\App\Services\Backoffice\FulfillmentService::class)
+            ->scheduleReturnPickup($return, $data, $this->scope->userId());
+    }
+
+    /** Data label retur milik toko ini untuk dicetak. */
+    public function returnLabelFor(\App\Models\OrderReturn $return): array
+    {
+        $this->assertOwnReturn($return);
+
+        return app(\App\Services\Backoffice\FulfillmentService::class)->returnLabelData($return);
+    }
+
+    private function assertOwnShipment(OrderShipment $shipment): void
+    {
+        $owned = OrderShipment::query()
+            ->whereKey($shipment->getKey())
+            ->whereHas('order', fn ($q) => $q->where('shop_id', $this->scope->shopId()))
+            ->exists();
+
+        abort_if(! $owned, 403);
+    }
+
+    private function assertOwnReturn(\App\Models\OrderReturn $return): void
+    {
+        $owned = \App\Models\OrderReturn::query()
+            ->whereKey($return->getKey())
+            ->whereHas('order', fn ($q) => $q->where('shop_id', $this->scope->shopId()))
+            ->exists();
+
+        abort_if(! $owned, 403);
     }
 
     private function alreadyDeducted(Order $order): bool

@@ -68,6 +68,8 @@ class CheckoutController extends Controller
             'shipping_methods.*.destination' => 'nullable|string|max:100',
             'shipping_methods.*.insurance' => 'nullable|boolean',
             'shipping_methods.*.zone_id' => 'nullable|integer',
+            'shipping_methods.*.pickup' => 'nullable|boolean',
+            'shipping_methods.*.pickup_warehouse_id' => 'nullable|integer|exists:warehouses,id',
             'shipping_methods.*.length' => 'nullable|numeric|min:0|max:500',
             'shipping_methods.*.width' => 'nullable|numeric|min:0|max:500',
             'shipping_methods.*.height' => 'nullable|numeric|min:0|max:500',
@@ -145,6 +147,16 @@ class CheckoutController extends Controller
                     ],
                 ]);
 
+                // ── ADITIF pickup (click & collect): kalkulasi existing di atas
+                // tidak diubah. Untuk toko yang dipilih ambil di toko, ongkir +
+                // asuransi dinolkan dari hasil quote sebelum grup pembayaran
+                // dibuat — tetap di dalam satu DB::transaction yang sama.
+                $pickupMap = $this->pickupSelections($shippingMethods);
+
+                if ($pickupMap !== []) {
+                    $quote = $this->applyPickupQuote($quote, $pickupMap);
+                }
+
                 $amountDueNow = (float) ($quote['amount_due_now'] ?? $quote['grand_total']);
                 $hasPreorder = (bool) ($quote['preorder']['has_preorder'] ?? false);
 
@@ -170,6 +182,11 @@ class CheckoutController extends Controller
 
                 foreach ($quote['shops'] as $shopQuote) {
                     $selection = $shippingMethods[$shopQuote->shop->id] ?? [];
+                    // ADITIF pickup: gudang ambil untuk toko ini (null bila dikirim).
+                    $pickupWarehouseId = $pickupMap[(int) $shopQuote->shop->id] ?? null;
+                    $pickupWarehouse = $pickupWarehouseId !== null
+                        ? $this->resolvePickupWarehouse((int) $shopQuote->shop->id, $pickupWarehouseId)
+                        : null;
                     $giftFee = (float) ($shopQuote->giftFee ?? 0.0);
                     $total = Money::of($shopQuote->subtotal)
                         ->add($shopQuote->tax)
@@ -198,7 +215,8 @@ class CheckoutController extends Controller
                         'coupon_discount' => $shopQuote->couponDiscount, 'sub_total' => $shopQuote->subtotal, 'tax' => $shopQuote->tax,
                         'shipping_cost' => $shopQuote->shipping, 'discount' => 0, 'total' => $total->toDecimal(),
                         'idempotency_key' => $first ? $idempotencyKey : null,
-                        'shipping_method' => $selection['courier'] ?? null, 'shipping_service' => $selection['service'] ?? null,
+                        'shipping_method' => $pickupWarehouse !== null ? 'PICKUP' : ($selection['courier'] ?? null),
+                        'shipping_service' => $pickupWarehouse !== null ? 'Ambil di Toko' : ($selection['service'] ?? null),
                         'shipping_address' => $address->only(['label', 'receiver_name', 'receiver_phone', 'address', 'city', 'province', 'postal_code']),
                         'payment_method' => $provider->api_format, 'payment_status' => $shopPreorderRemaining > 0 ? PaymentStatus::Partial->value : PaymentStatus::Unpaid->value,
                         'order_status' => OrderStatus::Pending->stored(), 'note' => $combinedNote,
@@ -240,6 +258,13 @@ class CheckoutController extends Controller
                         'customer_id' => $customer->id, 'shop_id' => $order->shop_id, 'amount' => $order->total, 'admin_commission' => 0,
                         'vendor_amount' => 0, 'payment_method' => $this->transactionPaymentMethod($provider), 'status' => 'pending',
                     ]);
+
+                    // ADITIF pickup: kiriman ambil di toko (tanpa ongkir + kode
+                    // ambil) ditulis dalam transaksi yang sama — gagal di sini
+                    // membatalkan seluruh checkout toko ini.
+                    if ($pickupWarehouse !== null) {
+                        $this->createPickupShipment($order, $pickupWarehouse);
+                    }
 
                     $orders->push($order);
                 }
@@ -322,7 +347,25 @@ class CheckoutController extends Controller
             'insurance' => 'nullable|boolean', 'goods_value' => 'nullable|numeric|min:0',
             'length' => 'nullable|numeric|min:0|max:500', 'width' => 'nullable|numeric|min:0|max:500',
             'height' => 'nullable|numeric|min:0|max:500', 'zone_id' => 'nullable|integer',
+            'pickup' => 'nullable|boolean',
         ]);
+
+        // ADITIF pickup: ambil di toko selalu gratis, tanpa memanggil kurir.
+        if (! empty($data['pickup'])) {
+            return response()->json([
+                'success' => true,
+                'rates' => [[
+                    'courier' => 'PICKUP', 'service' => 'Ambil di Toko',
+                    'description' => 'Ambil di toko — gratis ongkir', 'cost' => 0, 'etd' => '',
+                ]],
+                'courier' => 'pickup',
+                'tried' => [],
+                'weight_actual' => 0,
+                'weight_billable' => 0,
+                'weight_volumetric' => 0,
+                'insurance_fee' => 0.0,
+            ]);
+        }
 
         $provider = Provider::ofType('shipping')->active()->find($data['provider_id']);
         if (! $provider) {
@@ -373,6 +416,135 @@ class CheckoutController extends Controller
             ),
             'insurance_fee' => ! empty($data['insurance']) ? $shipping->insuranceFee($goods) : 0.0,
         ]));
+    }
+
+    /**
+     * Opsi ambil di toko per toko: shop_id => warehouse_id.
+     * Validasi ringan di sini; validasi gudang penuh saat transaksi berjalan
+     * agar gagal tepat sebelum tulis (atomicity terjaga).
+     *
+     * @return array<int, int>
+     */
+    private function pickupSelections(array $shippingMethods): array
+    {
+        $map = [];
+
+        foreach ($shippingMethods as $shopId => $selection) {
+            if (! is_array($selection) || empty($selection['pickup'])) {
+                continue;
+            }
+
+            $warehouseId = (int) ($selection['pickup_warehouse_id'] ?? 0);
+
+            if ((int) $shopId > 0 && $warehouseId > 0) {
+                $map[(int) $shopId] = $warehouseId;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Nolkan ongkir + asuransi hasil quote untuk toko pickup.
+     * Kalkulasi existing (calculator) tidak diubah — hanya menyesuaikan
+     * angka quote sebelum grup pembayaran dibuat.
+     */
+    private function applyPickupQuote(array $quote, array $pickupMap): array
+    {
+        foreach ($quote['shops'] as $shopQuote) {
+            if (! isset($pickupMap[(int) $shopQuote->shop->id])) {
+                continue;
+            }
+
+            $shopQuote->shipping = 0.0;
+            $shopQuote->shippingBase = 0.0;
+            $shopQuote->insurance = 0.0;
+            $shopQuote->total = Money::of($shopQuote->subtotal)
+                ->add($shopQuote->tax)
+                ->add(0.0)
+                ->add($shopQuote->giftFee ?? 0.0)
+                ->subtract($shopQuote->couponDiscount)
+                ->maxZero()
+                ->toFloat();
+        }
+
+        $quote['shipping'] = (float) collect($quote['shops'])->sum('shipping');
+        $quote['insurance'] = (float) collect($quote['shops'])->sum('insurance');
+        $quote['grand_total'] = (float) collect($quote['shops'])->sum('total');
+        $quote['amount_due_now'] = max(0.0, $quote['grand_total'] - (float) ($quote['preorder']['remaining'] ?? 0));
+
+        return $quote;
+    }
+
+    /** Validasi gudang ambil: aktif + melayani pickup. Melempar 422 bila tidak. */
+    private function resolvePickupWarehouse(int $shopId, int $warehouseId): \App\Models\Warehouse
+    {
+        $warehouse = \App\Models\Warehouse::query()
+            ->whereKey($warehouseId)
+            ->where('is_active', true)
+            ->first();
+
+        if ($warehouse === null) {
+            throw ValidationException::withMessages([
+                "shipping_methods.{$shopId}.pickup_warehouse_id" => 'Gudang pengambilan tidak tersedia.',
+            ]);
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('warehouses', 'allow_pickup')
+            && ! (bool) $warehouse->allow_pickup) {
+            throw ValidationException::withMessages([
+                "shipping_methods.{$shopId}.pickup_warehouse_id" => 'Gudang '.$warehouse->name.' tidak melayani pengambilan di tempat.',
+            ]);
+        }
+
+        return $warehouse;
+    }
+
+    /**
+     * Tulis kiriman pickup + tanda pada order dalam transaksi checkout yang
+     * sedang berjalan (tanpa transaksi baru agar atomicity terjaga).
+     */
+    private function createPickupShipment(Order $order, \App\Models\Warehouse $warehouse): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('order_shipments', 'is_pickup')) {
+            return;
+        }
+
+        $code = \App\Services\Backoffice\FulfillmentService::generatePickupCode();
+
+        \App\Models\OrderShipment::query()->create([
+            'order_id' => $order->getKey(),
+            'provider_id' => null,
+            'courier' => 'PICKUP',
+            'service' => 'Ambil di Toko',
+            'tracking_number' => null,
+            'label_url' => null,
+            'weight' => null,
+            'cost' => 0,
+            'status' => 'pending',
+            'tracking_history' => [[
+                'description' => 'Menunggu diambil di '.$warehouse->name.'. Kode ambil: '.$code,
+                'at' => now()->toDateTimeString(),
+            ]],
+            'warehouse_id' => $warehouse->id,
+            'is_pickup' => true,
+            'pickup_code' => $code,
+        ]);
+
+        if (\Illuminate\Support\Facades\Schema::hasColumn('orders', 'is_pickup')) {
+            $order->forceFill([
+                'is_pickup' => true,
+                'warehouse_id' => $warehouse->id,
+                'pickup_warehouse_id' => $warehouse->id,
+                'pickup_code_hash' => \Illuminate\Support\Facades\Hash::make($code),
+            ])->save();
+        }
+
+        $order->statusHistory()->create([
+            'status' => 'pickup_created',
+            'changed_by' => $order->customer_id,
+            'note' => 'Ambil di toko '.$warehouse->name.'. Tanpa ongkir.',
+        ]);
     }
 
     private function abortPayment(PaymentGroup $group): void

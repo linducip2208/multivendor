@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['order_id', 'provider_id', 'courier', 'service', 'tracking_number', 'label_url', 'weight', 'cost', 'status', 'tracking_history', 'shipped_at', 'delivered_at'])]
+#[Fillable(['order_id', 'provider_id', 'courier', 'service', 'tracking_number', 'label_url', 'weight', 'cost', 'status', 'tracking_history', 'shipped_at', 'delivered_at', 'warehouse_id', 'is_pickup', 'pickup_code', 'pickup_verified_at', 'manifest_no', 'manifest_date'])]
 class OrderShipment extends Model
 {
     protected function casts(): array
@@ -19,12 +20,51 @@ class OrderShipment extends Model
             'tracking_history' => 'array',
             'shipped_at' => 'datetime',
             'delivered_at' => 'datetime',
+            'is_pickup' => 'boolean',
+            'pickup_verified_at' => 'datetime',
+            'manifest_date' => 'date',
         ];
     }
 
     public function isDelivered(): bool
     {
         return $this->status === 'delivered';
+    }
+
+    /** Pengiriman ambil di toko (click & collect): tanpa kurir, tanpa ongkir. */
+    public function isPickup(): bool
+    {
+        return (bool) ($this->getAttribute('is_pickup') ?? false);
+    }
+
+    public function isPickupVerified(): bool
+    {
+        return $this->getAttribute('pickup_verified_at') !== null;
+    }
+
+    /** Gudang yang memenuhi pengiriman ini (kolom logistik lanjutan). */
+    public function warehouse(): BelongsTo
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
+
+    public function scopeManifest(Builder $query, string $manifestNo): Builder
+    {
+        return $query->where('manifest_no', $manifestNo);
+    }
+
+    public function scopePickup(Builder $query): Builder
+    {
+        return $query->where('is_pickup', true);
+    }
+
+    /** Baris rekap manifest: kurir + tanggal + nomor manifest. */
+    public function manifestKey(): string
+    {
+        $courier = strtoupper(trim((string) ($this->courier ?? 'PICKUP')));
+        $date = $this->manifest_date?->format('Y-m-d') ?? '-';
+
+        return $courier.'|'.$date.'|'.(string) ($this->manifest_no ?? '-');
     }
 
     /** Baris label massal: memakai kolom tracking existing. */

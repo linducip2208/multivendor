@@ -29,13 +29,21 @@
         @if (! empty($labels))
             <div class="table-responsive mb-2">
                 <table class="table table-sm">
-                    <thead><tr><th>Pesanan</th><th>Kurir</th><th>Layanan</th><th>Resi</th><th>Berat</th><th>Biaya</th></tr></thead>
+                    <thead><tr><th>Pesanan</th><th>Kurir</th><th>Layanan</th><th>Resi</th><th>Berat</th><th>Biaya</th><th>Manifest</th><th>Ambil</th></tr></thead>
                     <tbody>
                         @foreach ($labels as $label)
                             <tr>
                                 <td>{{ $label['nomor_pesanan'] }}</td><td>{{ $label['kurir'] }}</td>
                                 <td>{{ $label['layanan'] }}</td><td><code>{{ $label['resi'] }}</code></td>
                                 <td>{{ $label['berat'] }}</td><td>{{ $label['biaya'] }}</td>
+                                <td class="small">{{ $label['manifest_no'] ?? '' }}</td>
+                                <td>
+                                    @if (! empty($label['is_pickup']))
+                                        <span class="badge bg-info-lt text-info rounded-pill">Ambil{{ ! empty($label['pickup_code']) ? ': '.$label['pickup_code'] : '' }}</span>
+                                    @else
+                                        <span class="text-secondary">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -57,6 +65,101 @@
             </div>
         </form>
     </x-admin.card>
+
+    @php
+        $vendorShopId = (int) (auth('vendor')->user()->shop_id ?? 0);
+        $manifestRecapRows = [];
+        $pickupQueueRows = collect();
+        $returnPickupRows = collect();
+        try {
+            $manifestRecapRows = app(\App\Services\Vendor\VendorFulfillmentService::class)->manifestRecapForShop();
+            $pickupQueueRows = app(\App\Services\Vendor\VendorFulfillmentService::class)->pickupQueue(10);
+            $returnPickupRows = \App\Models\OrderReturn::query()
+                ->whereHas('order', fn ($q) => $q->where('shop_id', $vendorShopId))
+                ->whereNotNull('pickup_scheduled_at')
+                ->with(['order:id,order_number'])
+                ->orderByDesc('pickup_scheduled_at')
+                ->limit(10)
+                ->get();
+        } catch (\Throwable) {
+            $manifestRecapRows = [];
+        }
+    @endphp
+
+    <div class="row g-3 mb-3">
+        <div class="col-12 col-xl-6">
+            <x-admin.card title="Manifest AWB per kurir per hari" icon="truck">
+                <p class="text-secondary small mb-2">Rekap kiriman toko ini yang sudah bermanifest. Batch print memakai tombol cetak label massal di atas.</p>
+                @if (empty($manifestRecapRows))
+                    <p class="text-secondary small mb-0">Belum ada manifest. Buat batch manifest dari kiriman yang dipilih.</p>
+                @else
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>Kurir</th><th>Tanggal</th><th>No. Manifest</th><th class="text-end">Kiriman</th></tr></thead>
+                            <tbody>
+                                @foreach (array_slice($manifestRecapRows, 0, 10) as $recap)
+                                    <tr>
+                                        <td>{{ $recap['courier'] }}</td>
+                                        <td class="small">{{ $recap['date'] }}</td>
+                                        <td><code>{{ $recap['manifest_no'] }}</code></td>
+                                        <td class="text-end">{{ $recap['total'] }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </x-admin.card>
+        </div>
+        <div class="col-12 col-xl-6">
+            <x-admin.card title="Ambil di toko (click & collect)" icon="package">
+                <p class="text-secondary small mb-2">Tanpa ongkir. Minta kode ambil 6 karakter kepada pelanggan, verifikasi sekali pakai, lalu serahkan barang.</p>
+                @if ($pickupQueueRows->isEmpty())
+                    <p class="text-secondary small mb-0">Tidak ada pengambilan menunggu.</p>
+                @else
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>Pesanan</th><th>Kode ambil</th><th>Status</th></tr></thead>
+                            <tbody>
+                                @foreach ($pickupQueueRows as $pickup)
+                                    <tr>
+                                        <td class="small">{{ $pickup->order?->order_number ?? ('#'.$pickup->order_id) }}</td>
+                                        <td><code>{{ $pickup->pickup_code ?? '-' }}</code></td>
+                                        <td>{{ $__status($pickup->pickup_verified_at ? 'Sudah diambil' : $pickup->status) }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </x-admin.card>
+        </div>
+        <div class="col-12">
+            <x-admin.card title="Jemput retur terjadwal" icon="rotate-ccw">
+                <p class="text-secondary small mb-2">Penjemputan retur oleh kurir beserta label retur. Penjadwalan dilakukan setelah retur disetujui.</p>
+                @if ($returnPickupRows->isEmpty())
+                    <p class="text-secondary small mb-0">Belum ada jadwal penjemputan retur.</p>
+                @else
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0">
+                            <thead><tr><th>RMA</th><th>Pesanan</th><th>Jadwal jemput</th><th>Label retur</th><th>Status</th></tr></thead>
+                            <tbody>
+                                @foreach ($returnPickupRows as $retur)
+                                    <tr>
+                                        <td><code>{{ $retur->rma_number }}</code></td>
+                                        <td class="small">{{ $retur->order?->order_number ?? '-' }}</td>
+                                        <td class="small">{{ $retur->pickup_scheduled_at instanceof \DateTimeInterface ? $retur->pickup_scheduled_at->format('d/m/Y H:i') : (string) ($retur->pickup_scheduled_at ?? '-') }}</td>
+                                        <td><code>{{ $retur->return_label_code ?? '-' }}</code></td>
+                                        <td>{{ $__status($retur->pickup_status ?? '-') }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+            </x-admin.card>
+        </div>
+    </div>
 
     <div class="row g-3 mb-3">
         <div class="col-6 col-xl">

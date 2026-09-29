@@ -9,6 +9,15 @@
             ? array_values(array_filter(array_map('trim', explode(',', $courierSetting))))
             : ['jne', 'jnt', 'sicepat', 'tiki', 'anteraja', 'pos'];
         $checkoutUrl = route('checkout.process');
+        $pickupWarehouses = collect();
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('warehouses', 'allow_pickup')) {
+                $pickupWarehouses = \App\Models\Warehouse::query()->where('is_active', true)
+                    ->where('allow_pickup', true)->orderBy('name')->get(['id', 'name', 'code', 'city']);
+            }
+        } catch (\Throwable) {
+            $pickupWarehouses = collect();
+        }
         $steps = [
             ['label' => 'Alamat', 'state' => 'is-done'],
             ['label' => 'Pengiriman', 'state' => 'is-active'],
@@ -249,6 +258,27 @@
                                                     </div>
                                                     <span class="sf-tiny sf-muted">Berat volumetrik dihitung otomatis; kurir cadangan dipakai bila utama gagal.</span>
                                                 </div>
+                                            </div>
+
+                                            <div class="sf-field" style="margin-top:10px">
+                                                <label class="sf-label sf-row" style="gap:6px;align-items:center">
+                                                    <input type="checkbox" name="shipping_methods[{{ $shopKey }}][pickup]" value="1"
+                                                        @checked((bool) old("shipping_methods.{$shopKey}.pickup"))>
+                                                    Ambil di toko (click &amp; collect — gratis ongkir)
+                                                </label>
+                                                @if ($pickupWarehouses->isNotEmpty())
+                                                    <select class="sf-select" name="shipping_methods[{{ $shopKey }}][pickup_warehouse_id]" style="margin-top:6px">
+                                                        <option value="">Pilih lokasi pengambilan</option>
+                                                        @foreach ($pickupWarehouses as $pickup)
+                                                            <option value="{{ $pickup->id }}"
+                                                                    @selected((string) old("shipping_methods.{$shopKey}.pickup_warehouse_id") === (string) $pickup->id)>
+                                                                {{ $pickup->name }} ({{ $pickup->code }}){{ $pickup->city ? ' — '.$pickup->city : '' }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                    <span class="sf-tiny sf-muted">Terima kode ambil 6 karakter setelah membayar; tunjukkan ke petugas saat pengambilan.</span>
+                                                @endif
+                                                @error("shipping_methods.{$shopKey}.pickup_warehouse_id")<span class="sf-error">{{ $message }}</span>@enderror
                                             </div>
 
                                             <div class="sf-field" style="margin-top:10px">

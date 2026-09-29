@@ -127,4 +127,49 @@
             </div>
         </form>
     </x-admin.card>
+
+    <x-admin.card title="Alokasi gudang otomatis" icon="building" class="mt-3">
+        <x-admin.alert type="info">
+            Pilih gudang dengan stok tersedia dan terdekat dari kota tujuan.
+            Bila tidak ada yang cukup, gudang utama dipakai sebagai fallback.
+            Saran ini read-only — tidak mengunci stok.
+        </x-admin.alert>
+
+        @if (session('allocation'))
+            <div class="alert alert-success py-2 px-3 small">
+                Alokasi {{ session('allocation')['product'] ?? '' }} ({{ session('allocation')['quantity'] ?? 0 }} unit):
+                <strong>{{ session('allocation')['warehouse'] ?? '-' }}</strong>
+                — tersedia {{ session('allocation')['available'] ?? 0 }} unit.
+            </div>
+        @endif
+
+        <form method="POST" action="{{ route('vendor.inventory.adjust') }}">
+            @csrf
+            <input type="hidden" name="action" value="allocate">
+            <div class="row g-3">
+                <div class="col-12 col-md-5">
+                    <x-admin.form-field
+                        name="product_id"
+                        label="Produk"
+                        type="select"
+                        :options="$products->pluck('name', 'id')->all()"
+                        placeholder="Pilih produk"
+                        required
+                    />
+                </div>
+                <div class="col-6 col-md-2">
+                    <x-admin.form-field name="quantity" label="Jumlah" type="number" :min="1" required />
+                </div>
+                <div class="col-6 col-md-3">
+                    <x-admin.form-field name="city" label="Kota tujuan (opsional)" placeholder="mis. Jakarta" />
+                </div>
+                <div class="col-12 col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <x-admin.icon name="building" :size="16" class="me-1" />
+                        <span>Alokasikan</span>
+                    </button>
+                </div>
+            </div>
+        </form>
+    </x-admin.card>
 @endsection

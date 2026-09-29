@@ -64,6 +64,10 @@ class InventoryController extends Controller
     {
         $action = (string) $request->input('action', 'adjust');
 
+        if ($action === 'allocate') {
+            return $this->handleAllocate($request, $inventory);
+        }
+
         if (in_array($action, ['transfer_request', 'transfer_approve', 'transfer_receive', 'transfer_cancel'], true)) {
             return $this->handleTransfer($request, $inventory, $action);
         }
@@ -166,5 +170,39 @@ class InventoryController extends Controller
         ];
 
         return back()->with('success', 'Transfer '.$transfer->transfer_number.' '.($labels[$action] ?? 'diproses').'.');
+    }
+
+    /**
+     * Saran alokasi gudang otomatis (aditif, read-only): tanpa mengunci stok,
+     * hasil dikembalikan sebagai flash agar tampil pada halaman inventori.
+     */
+    private function handleAllocate(Request $request, VendorInventoryService $inventory): RedirectResponse
+    {
+        $validated = $request->validate([
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:100000'],
+            'city' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $product = Product::query()->findOrFail($validated['product_id']);
+        $result = $inventory->allocationFor($product, (int) $validated['quantity'], $validated['city'] ?? null);
+        $warehouse = $result['warehouse'];
+
+        if ($warehouse === null) {
+            return back()->withInput()->with('warning', 'Tidak ada gudang aktif untuk alokasi.');
+        }
+
+        return back()->with('allocation', [
+            'product' => $product->name,
+            'quantity' => (int) $validated['quantity'],
+            'warehouse' => $warehouse->name.' ('.$warehouse->code.')',
+            'city' => $warehouse->city ?? '-',
+            'available' => $result['available'],
+            'full' => $result['full'],
+        ])->with(
+            'success',
+            'Alokasi: '.$warehouse->name.' ('.$warehouse->code.') — tersedia '.$result['available'].' unit'
+            .($result['full'] ? ', cukup untuk kebutuhan.' : ', kurang dari kebutuhan, gudang utama dipakai sebagai fallback.')
+        );
     }
 }

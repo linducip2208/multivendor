@@ -329,6 +329,162 @@ class ShippingService
         return ['success' => false, 'rates' => [], 'courier' => null, 'tried' => $tried, 'message' => $lastMessage];
     }
 
+    /**
+     * Alokasi gudang otomatis (aditif, read-only): pilih gudang aktif yang
+     * dapat memenuhi seluruh item (stok tersedia = on_hand - reserved),
+     * utamakan kota yang sama dengan tujuan, fallback ke gudang utama.
+     *
+     * @param  array<int, int>  $needs  product_id => qty dibutuhkan
+     */
+    public function allocateWarehouseForItems(array $needs, ?string $destinationCity = null, ?int $shopId = null): ?\App\Models\Warehouse
+    {
+        $needs = array_filter(array_map('intval', $needs), fn (int $qty): bool => $qty > 0);
+
+        if ($needs === []) {
+            return null;
+        }
+
+        try {
+            $query = \App\Models\Warehouse::query()->where('is_active', true);
+
+            if ($shopId !== null && $shopId > 0 && \Illuminate\Support\Facades\Schema::hasColumn('warehouses', 'shop_id')) {
+                $scoped = (clone $query)->where('shop_id', $shopId)->pluck('id')->all();
+                if ($scoped !== []) {
+                    $query->where('shop_id', $shopId);
+                }
+            }
+
+            $warehouses = $query->orderBy('is_default', 'desc')->orderBy('name')->get();
+
+            if ($warehouses->isEmpty()) {
+                return null;
+            }
+
+            $stocks = \Illuminate\Support\Facades\DB::table('product_stocks')
+                ->whereIn('product_id', array_keys($needs))
+                ->whereIn('warehouse_id', $warehouses->pluck('id')->all())
+                ->selectRaw('warehouse_id, product_id, COALESCE(on_hand,0) - COALESCE(reserved,0) as available')
+                ->get()
+                ->groupBy('warehouse_id');
+
+            $city = mb_strtolower(trim((string) ($destinationCity ?? '')));
+            $best = null;
+            $bestScore = -1;
+            $fallback = null;
+
+            foreach ($warehouses as $warehouse) {
+                if ($fallback === null) {
+                    $fallback = $warehouse;
+                }
+
+                if ((bool) $warehouse->is_default && ($fallback === null || ! (bool) $fallback->is_default)) {
+                    $fallback = $warehouse;
+                }
+
+                $lines = $stocks[$warehouse->id] ?? collect();
+                $byProduct = $lines->keyBy('product_id');
+
+                $covered = 0;
+                $full = true;
+
+                foreach ($needs as $productId => $qty) {
+                    $available = (int) ($byProduct[$productId]->available ?? 0);
+                    $covered += min($available, $qty);
+
+                    if ($available < $qty) {
+                        $full = false;
+                    }
+                }
+
+                $score = $covered * 100 + ($full ? 100000 : 0);
+
+                if ($city !== '' && mb_strtolower(trim((string) ($warehouse->city ?? ''))) === $city) {
+                    $score += 10000;
+                }
+
+                if ($score > $bestScore) {
+                    $bestScore = $score;
+                    $best = $warehouse;
+                }
+            }
+
+            // Fallback gudang utama bila tidak ada stok yang cocok.
+            if ($best === null || $bestScore <= 0) {
+                return $warehouses->firstWhere('is_default', true) ?? $fallback;
+            }
+
+            return $best;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * Rekap manifest per kurir per hari dari order_shipments existing.
+     *
+     * @return list<array{courier: string, date: string, manifest_no: string, total: int}>
+     */
+    public function manifestRecap(?string $courier = null, ?string $date = null): array
+    {
+        try {
+            $query = \Illuminate\Support\Facades\DB::table('order_shipments')
+                ->selectRaw("COALESCE(NULLIF(courier,''),'MANUAL') as courier, COALESCE(manifest_date, DATE(created_at)) as manifest_day, COALESCE(NULLIF(manifest_no,''),'-') as manifest_no, COUNT(*) as total")
+                ->groupBy('courier', 'manifest_day', 'manifest_no')
+                ->orderBy('manifest_day', 'desc')
+                ->orderBy('courier');
+
+            if ($courier !== null && trim($courier) !== '') {
+                $query->where('courier', 'like', '%'.trim($courier).'%');
+            }
+
+            if ($date !== null && trim($date) !== '') {
+                $query->whereDate('manifest_date', trim($date));
+            }
+
+            return $query->limit(100)->get()->map(fn ($row): array => [
+                'courier' => (string) $row->courier,
+                'date' => (string) $row->manifest_day,
+                'manifest_no' => (string) $row->manifest_no,
+                'total' => (int) $row->total,
+            ])->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Baris ekspor manifest (header + rows) untuk satu nomor manifest.
+     *
+     * @return list<array<int, string>>
+     */
+    public function manifestExportRows(string $manifestNo): array
+    {
+        $header = ['No. Manifest', 'Nomor Pesanan', 'Kurir', 'Layanan', 'No. Resi', 'Berat', 'Biaya', 'Status'];
+
+        try {
+            $rows = \App\Models\OrderShipment::query()
+                ->with('order:id,order_number')
+                ->where('manifest_no', $manifestNo)
+                ->orderBy('id')
+                ->get()
+                ->map(fn (\App\Models\OrderShipment $shipment): array => [
+                    (string) ($shipment->manifest_no ?? ''),
+                    (string) ($shipment->order?->order_number ?? ('#'.$shipment->order_id)),
+                    (string) ($shipment->courier ?? ''),
+                    (string) ($shipment->service ?? ''),
+                    (string) ($shipment->tracking_number ?? ''),
+                    number_format((float) ($shipment->weight ?? 0), 2, '.', ''),
+                    number_format((float) ($shipment->cost ?? 0), 2, '.', ''),
+                    (string) ($shipment->status ?? ''),
+                ])
+                ->all();
+
+            return [$header, ...$rows];
+        } catch (\Throwable) {
+            return [$header];
+        }
+    }
+
     private function request(callable $fn): ?\Illuminate\Http\Client\Response
     {
         try {

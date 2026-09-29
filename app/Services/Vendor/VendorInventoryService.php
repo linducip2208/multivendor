@@ -379,4 +379,39 @@ final class VendorInventoryService
             ->limit($limit)
             ->get();
     }
+
+    // ── Logistik lanjutan (aditif) ──
+
+    /** Gudang toko ini yang melayani ambil di tempat. */
+    public function pickupWarehouses()
+    {
+        return \App\Models\Warehouse::query()
+            ->where('is_active', true)
+            ->when(
+                \Illuminate\Support\Facades\Schema::hasColumn('warehouses', 'allow_pickup'),
+                fn ($q) => $q->where('allow_pickup', true),
+            )
+            ->orderBy('is_default', 'desc')
+            ->orderBy('name')
+            ->get(['id', 'name', 'code', 'city', 'pickup_hours']);
+    }
+
+    /**
+     * Saran alokasi gudang untuk satu produk toko ini (read-only).
+     *
+     * @return array{warehouse: ?\App\Models\Warehouse, available: int, full: bool}
+     */
+    public function allocationFor(Product $product, int $quantity, ?string $destinationCity = null): array
+    {
+        abort_if((int) $product->shop_id !== $this->scope->shopId(), 403);
+
+        $suggestion = app(\App\Services\Backoffice\StockService::class)
+            ->suggestWarehouse([(int) $product->getKey() => max(1, $quantity)], $destinationCity);
+
+        return [
+            'warehouse' => $suggestion['warehouse'],
+            'available' => (int) ($suggestion['available'][(int) $product->getKey()] ?? 0),
+            'full' => (bool) $suggestion['full'],
+        ];
+    }
 }

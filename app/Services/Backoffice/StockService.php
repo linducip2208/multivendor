@@ -624,6 +624,43 @@ final class StockService
     }
 
     /**
+     * Saran alokasi gudang otomatis (aditif, read-only): tanpa mengunci stok,
+     * kembalikan gudang terbaik + rincian ketersediaan per produk.
+     *
+     * @param  array<int, int>  $needs  product_id => qty
+     * @return array{warehouse: ?Warehouse, available: array<int,int>, full: bool}
+     */
+    public function suggestWarehouse(array $needs, ?string $destinationCity = null): array
+    {
+        $needs = array_filter(array_map('intval', $needs), fn (int $qty): bool => $qty > 0);
+
+        if ($needs === []) {
+            return ['warehouse' => null, 'available' => [], 'full' => false];
+        }
+
+        $warehouse = app(\App\Services\Shipping\ShippingService::class)
+            ->allocateWarehouseForItems($needs, $destinationCity);
+
+        $available = [];
+
+        if ($warehouse !== null) {
+            $rows = ProductStock::query()
+                ->where('warehouse_id', $warehouse->id)
+                ->whereIn('product_id', array_keys($needs))
+                ->get(['product_id', 'on_hand', 'reserved']);
+
+            foreach ($needs as $productId => $qty) {
+                $row = $rows->firstWhere('product_id', $productId);
+                $available[$productId] = $row ? max(0, (int) $row->on_hand - (int) $row->reserved) : 0;
+            }
+        }
+
+        $full = $warehouse !== null && collect($needs)->every(fn (int $qty, int $pid): bool => ($available[$pid] ?? 0) >= $qty);
+
+        return ['warehouse' => $warehouse, 'available' => $available, 'full' => $full];
+    }
+
+    /**
      * Row lock the stock line, creating it when the pair has never been seen.
      */
     private function lockStock(int $productId, int $warehouseId, ?int $variantId): ProductStock

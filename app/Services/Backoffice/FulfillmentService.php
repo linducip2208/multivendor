@@ -477,6 +477,362 @@ final class FulfillmentService
         });
     }
 
+    // ── Logistik lanjutan (aditif): click & collect, manifest AWB, jemput retur ──
+
+    public const PICKUP_CODE_LENGTH = 6;
+
+    public const RETURN_PICKUP_STATUSES = [
+        'scheduled' => 'Terjadwal',
+        'in_transit' => 'Dijemput kurir',
+        'received' => 'Diterima gudang',
+        'cancelled' => 'Dibatalkan',
+    ];
+
+    /** Kode ambil 6 karakter tanpa huruf yang mudah tertukar (0/O, 1/I). */
+    public static function generatePickupCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+
+        do {
+            $code = '';
+            for ($i = 0; $i < self::PICKUP_CODE_LENGTH; $i++) {
+                $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+            }
+        } while (OrderShipment::query()->where('pickup_code', $code)->whereNull('pickup_verified_at')->exists());
+
+        return $code;
+    }
+
+    /**
+     * Buat kiriman ambil di toko: tanpa ongkir, dengan kode ambil.
+     * Satu transaksi atomik: kunci order, tulis shipment, tandai order.
+     */
+    public function createPickupShipment(Order $order, int $warehouseId, ?int $actorId = null): OrderShipment
+    {
+        return DB::transaction(function () use ($order, $warehouseId, $actorId): OrderShipment {
+            $locked = Order::query()->lockForUpdate()->findOrFail($order->getKey());
+            $warehouse = Warehouse::query()->whereKey($warehouseId)->where('is_active', true)->firstOrFail();
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('warehouses', 'allow_pickup')
+                && ! (bool) $warehouse->allow_pickup) {
+                abort(422, 'Gudang '.$warehouse->name.' tidak melayani pengambilan di tempat.');
+            }
+
+            $code = self::generatePickupCode();
+
+            $shipment = OrderShipment::query()->create([
+                'order_id' => $locked->getKey(),
+                'provider_id' => null,
+                'courier' => 'PICKUP',
+                'service' => 'Ambil di Toko',
+                'tracking_number' => null,
+                'label_url' => null,
+                'weight' => null,
+                'cost' => 0,
+                'status' => 'pending',
+                'tracking_history' => [[
+                    'description' => 'Menunggu diambil di '.$warehouse->name.'. Kode ambil: '.$code,
+                    'at' => now()->toDateTimeString(),
+                ]],
+                'warehouse_id' => $warehouse->id,
+                'is_pickup' => true,
+                'pickup_code' => $code,
+            ]);
+
+            $this->fillPickupOrder($locked, $warehouse->id, $code);
+
+            $locked->statusHistory()->create([
+                'status' => 'pickup_created',
+                'changed_by' => $actorId,
+                'note' => 'Ambil di toko '.$warehouse->name.' ('.$warehouse->code.'). Tanpa ongkir.',
+            ]);
+
+            app(AuditLogger::class)->log('order.pickup.created', $locked, [], [
+                'shipment_id' => $shipment->getKey(),
+                'warehouse_id' => $warehouse->id,
+            ], $actorId);
+
+            return $shipment->refresh();
+        });
+    }
+
+    /** Tandai kiriman pickup siap diambil (status tetap dalam kosakata existing + penanda waktu). */
+    public function readyForPickup(OrderShipment $shipment, ?int $actorId = null): OrderShipment
+    {
+        return DB::transaction(function () use ($shipment, $actorId): OrderShipment {
+            $locked = OrderShipment::query()->lockForUpdate()->findOrFail($shipment->getKey());
+
+            abort_if(! (bool) $locked->is_pickup, 422, 'Kiriman ini bukan ambil di toko.');
+
+            $locked->forceFill([
+                'status' => 'shipped',
+                'shipped_at' => $locked->shipped_at ?? now(),
+                'tracking_history' => array_merge(
+                    is_array($locked->tracking_history) ? $locked->tracking_history : [],
+                    [['description' => 'Siap diambil. Tunjukkan kode ambil kepada petugas.', 'at' => now()->toDateTimeString()]],
+                ),
+            ])->save();
+
+            $order = Order::query()->lockForUpdate()->find($locked->order_id);
+            if ($order !== null && \Illuminate\Support\Facades\Schema::hasColumn('orders', 'pickup_ready_at')) {
+                $order->forceFill(['pickup_ready_at' => now()])->save();
+            }
+
+            app(AuditLogger::class)->log('order.pickup.ready', $locked, [], ['order_id' => $locked->order_id], $actorId);
+
+            return $locked->refresh();
+        });
+    }
+
+    /**
+     * Verifikasi kode ambil. Kode benar tepat satu kali: upaya memakai hash
+     * pada orders.pickup_code_hash, fallback ke pickup_code shipment.
+     */
+    public function verifyPickup(Order $order, string $code, ?int $actorId = null): OrderShipment
+    {
+        $code = strtoupper(trim($code));
+
+        return DB::transaction(function () use ($order, $code, $actorId): OrderShipment {
+            $lockedOrder = Order::query()->lockForUpdate()->findOrFail($order->getKey());
+
+            $shipment = OrderShipment::query()->lockForUpdate()
+                ->where('order_id', $lockedOrder->getKey())
+                ->where('is_pickup', true)
+                ->orderByDesc('id')
+                ->firstOrFail();
+
+            if ($shipment->pickup_verified_at !== null) {
+                abort(422, 'Kode ambil ini sudah dipakai.');
+            }
+
+            $hash = (string) ($lockedOrder->getAttribute('pickup_code_hash') ?? '');
+            $valid = ($hash !== '' && \Illuminate\Support\Facades\Hash::check($code, $hash))
+                || ($shipment->pickup_code !== null && hash_equals((string) $shipment->pickup_code, $code));
+
+            if (! $valid) {
+                abort(422, 'Kode ambil tidak cocok. Periksa kembali kode pada pesanan.');
+            }
+
+            $shipment->forceFill([
+                'status' => 'delivered',
+                'delivered_at' => now(),
+                'pickup_verified_at' => now(),
+                'tracking_history' => array_merge(
+                    is_array($shipment->tracking_history) ? $shipment->tracking_history : [],
+                    [['description' => 'Diambil pelanggan dengan kode terverifikasi.', 'at' => now()->toDateTimeString()]],
+                ),
+            ])->save();
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('orders', 'pickup_verified_at')) {
+                $lockedOrder->forceFill([
+                    'pickup_verified_at' => now(),
+                    'pickup_completed_at' => now(),
+                ])->save();
+            }
+
+            $lockedOrder->statusHistory()->create([
+                'status' => 'pickup_completed',
+                'changed_by' => $actorId,
+                'note' => 'Pesanan diambil pelanggan dengan kode terverifikasi.',
+            ]);
+
+            app(AuditLogger::class)->log('order.pickup.verified', $shipment, [], ['order_id' => $lockedOrder->getKey()], $actorId);
+
+            return $shipment->refresh();
+        });
+    }
+
+    /**
+     * Batch manifest AWB: beri nomor manifest + tanggal pada kiriman pilihan.
+     * Idempoten per baris: kiriman yang sudah bermanifest tidak diubah.
+     *
+     * @param  list<int>  $shipmentIds
+     * @return array{manifest_no: string, manifest_date: string, total: int}
+     */
+    public function manifestBatch(array $shipmentIds, ?int $actorId = null): array
+    {
+        return DB::transaction(function () use ($shipmentIds, $actorId): array {
+            $ids = array_values(array_unique(array_map('intval', $shipmentIds)));
+            $ids = array_filter($ids, fn (int $id): bool => $id > 0);
+
+            if ($ids === []) {
+                abort(422, 'Pilih minimal satu kiriman untuk manifest.');
+            }
+
+            do {
+                $manifestNo = 'MNF-'.now()->format('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(6));
+            } while (OrderShipment::query()->where('manifest_no', $manifestNo)->exists());
+
+            $today = now()->toDateString();
+            $count = 0;
+
+            foreach (OrderShipment::query()->whereIn('id', $ids)->lockForUpdate()->get() as $shipment) {
+                if ($shipment->manifest_no !== null && $shipment->manifest_no !== '') {
+                    continue;
+                }
+
+                $shipment->forceFill(['manifest_no' => $manifestNo, 'manifest_date' => $today])->save();
+                $count++;
+            }
+
+            app(AuditLogger::class)->log('shipment.manifest.created', null, [], [
+                'manifest_no' => $manifestNo,
+                'total' => $count,
+            ], $actorId);
+
+            return ['manifest_no' => $manifestNo, 'manifest_date' => $today, 'total' => $count];
+        });
+    }
+
+    /** Rekap manifest per kurir per hari (delegasi ke ShippingService). */
+    public function manifestRecap(?string $courier = null, ?string $date = null): array
+    {
+        return $this->shipping->manifestRecap($courier, $date);
+    }
+
+    /** Baris ekspor manifest (header + rows). */
+    public function manifestExportRows(string $manifestNo): array
+    {
+        return $this->shipping->manifestExportRows($manifestNo);
+    }
+
+    /**
+     * Jadwalkan penjemputan retur oleh kurir. Retur harus sudah disetujui.
+     *
+     * @param  array{scheduled_at?: string, address?: string, courier?: string}  $data
+     */
+    public function scheduleReturnPickup(\App\Models\OrderReturn $return, array $data, ?int $actorId = null): \App\Models\OrderReturn
+    {
+        return DB::transaction(function () use ($return, $data, $actorId): \App\Models\OrderReturn {
+            $locked = \App\Models\OrderReturn::query()->lockForUpdate()->findOrFail($return->getKey());
+
+            if (! in_array((string) $locked->status, ['approved', 'received'], true)) {
+                abort(422, 'Penjemputan hanya dapat dijadwalkan untuk retur yang disetujui.');
+            }
+
+            $scheduledAt = isset($data['scheduled_at']) && is_string($data['scheduled_at']) && trim($data['scheduled_at']) !== ''
+                ? trim($data['scheduled_at'])
+                : now()->addDay()->toDateTimeString();
+
+            try {
+                $scheduledAt = \Carbon\Carbon::parse($scheduledAt)->toDateTimeString();
+            } catch (\Throwable) {
+                abort(422, 'Jadwal penjemputan tidak valid.');
+            }
+
+            $before = $locked->only(['pickup_status', 'pickup_scheduled_at']);
+
+            $locked->forceFill([
+                'pickup_status' => 'scheduled',
+                'pickup_scheduled_at' => $scheduledAt,
+                'pickup_address' => isset($data['address']) && is_string($data['address']) && trim($data['address']) !== ''
+                    ? mb_substr(trim($data['address']), 0, 255)
+                    : $locked->pickup_address,
+                'pickup_courier' => isset($data['courier']) && is_string($data['courier']) && trim($data['courier']) !== ''
+                    ? mb_substr(trim($data['courier']), 0, 40)
+                    : $locked->pickup_courier,
+                'return_label_code' => $locked->return_label_code ?: $this->nextReturnLabel(),
+            ])->save();
+
+            app(AuditLogger::class)->log('order_return.pickup.scheduled', $locked, $before, $locked->only(['pickup_status', 'pickup_scheduled_at']), $actorId);
+
+            return $locked->refresh();
+        });
+    }
+
+    /** Ubah status penjemputan retur: scheduled → in_transit → received. */
+    public function markReturnPickup(\App\Models\OrderReturn $return, string $status, ?string $tracking = null, ?int $actorId = null): \App\Models\OrderReturn
+    {
+        if (! array_key_exists($status, self::RETURN_PICKUP_STATUSES)) {
+            abort(422, 'Status penjemputan retur tidak valid.');
+        }
+
+        return DB::transaction(function () use ($return, $status, $tracking, $actorId): \App\Models\OrderReturn {
+            $locked = \App\Models\OrderReturn::query()->lockForUpdate()->findOrFail($return->getKey());
+            $current = (string) ($locked->pickup_status ?? '');
+
+            $allowed = [
+                '' => ['scheduled', 'cancelled'],
+                'scheduled' => ['in_transit', 'cancelled'],
+                'in_transit' => ['received', 'cancelled'],
+            ];
+
+            if (! in_array($status, $allowed[$current] ?? [], true)) {
+                abort(422, 'Penjemputan retur tidak dapat berubah dari '.$current.' ke '.$status.'.');
+            }
+
+            $before = $locked->only(['pickup_status', 'pickup_tracking']);
+
+            $locked->forceFill(array_filter([
+                'pickup_status' => $status,
+                'pickup_tracking' => $tracking !== null && trim($tracking) !== '' ? mb_substr(trim($tracking), 0, 80) : $locked->pickup_tracking,
+            ], fn ($value): bool => $value !== null))->save();
+
+            if ($status === 'received') {
+                $locked->forceFill(['status' => 'received'])->save();
+            }
+
+            app(AuditLogger::class)->log('order_return.pickup.'.$status, $locked, $before, $locked->only(['pickup_status', 'pickup_tracking']), $actorId);
+
+            return $locked->refresh();
+        });
+    }
+
+    /** Data label retur untuk dicetak (kode label + jadwal + alamat). */
+    public function returnLabelData(\App\Models\OrderReturn $return): array
+    {
+        $return->loadMissing(['order:id,order_number,customer_id', 'order.customer:id,name,phone', 'orderItem.product:id,name,sku']);
+
+        $scheduledAt = $return->pickup_scheduled_at;
+
+        if (is_string($scheduledAt) && trim($scheduledAt) !== '') {
+            try {
+                $scheduledAt = \Carbon\Carbon::parse($scheduledAt)->format('Y-m-d H:i');
+            } catch (\Throwable) {
+                $scheduledAt = $scheduledAt;
+            }
+        } elseif ($scheduledAt instanceof \DateTimeInterface) {
+            $scheduledAt = $scheduledAt->format('Y-m-d H:i');
+        } else {
+            $scheduledAt = '';
+        }
+
+        return [
+            'kode_label' => (string) ($return->return_label_code ?? '-'),
+            'rma' => (string) $return->rma_number,
+            'pesanan' => (string) ($return->order?->order_number ?? '-'),
+            'pelanggan' => (string) ($return->order?->customer?->name ?? '-'),
+            'produk' => (string) ($return->orderItem?->product?->name ?? 'Seluruh pesanan'),
+            'kurir_jemput' => (string) ($return->pickup_courier ?? '-'),
+            'jadwal_jemput' => (string) $scheduledAt,
+            'alamat_jemput' => (string) ($return->pickup_address ?? ''),
+            'status_jemput' => self::RETURN_PICKUP_STATUSES[$return->pickup_status ?? ''] ?? '-',
+        ];
+    }
+
+    private function nextReturnLabel(): string
+    {
+        do {
+            $code = 'RTL-'.now()->format('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(6));
+        } while (\App\Models\OrderReturn::query()->where('return_label_code', $code)->exists());
+
+        return $code;
+    }
+
+    private function fillPickupOrder(Order $order, int $warehouseId, string $code): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('orders', 'is_pickup')) {
+            return;
+        }
+
+        $order->forceFill([
+            'is_pickup' => true,
+            'warehouse_id' => $warehouseId,
+            'pickup_warehouse_id' => $warehouseId,
+            'pickup_code_hash' => \Illuminate\Support\Facades\Hash::make($code),
+        ])->save();
+    }
+
     /**
      * @return array<string, mixed>
      */

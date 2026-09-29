@@ -208,6 +208,128 @@ class OrderController extends Controller
         );
     }
 
+    // ── Logistik lanjutan (aditif): alokasi, pickup, manifest, jemput retur ──
+    // Metode existing di atas tidak diubah. Metode baru memakai rute existing
+    // via parameter aksi agar tidak menambah routes/*.php.
+
+    /** Saran alokasi gudang otomatis untuk satu pesanan (read-only). */
+    public function allocate(Request $request, Order $order): View
+    {
+        $this->assertOwned($order);
+
+        $order->load(['items.product:id,name,sku', 'shipments']);
+
+        return view('vendor.fulfillment.index', array_merge(
+            ['allocation' => $this->fulfillment->allocateForOrder(
+                $order,
+                $request->input('city') !== null ? (string) $request->input('city') : null,
+            )],
+            $this->fulfillmentQueuePayload($request),
+        ));
+    }
+
+    /** Buat kiriman ambil di toko (tanpa ongkir + kode ambil). */
+    public function pickupCreate(Request $request, Order $order): RedirectResponse
+    {
+        $this->assertOwned($order);
+
+        $validated = $request->validate([
+            'warehouse_id' => ['required', 'integer', 'exists:warehouses,id'],
+        ]);
+
+        $shipment = $this->fulfillment->createPickup($order, (int) $validated['warehouse_id']);
+
+        return back()->with('success', 'Kode ambil '.$shipment->pickup_code.' dibuat. Tanpa ongkir.');
+    }
+
+    /** Tandai kiriman pickup siap diambil. */
+    public function pickupReady(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'shipment_id' => ['required', 'integer', 'exists:order_shipments,id'],
+        ]);
+
+        $shipment = \App\Models\OrderShipment::query()->findOrFail($validated['shipment_id']);
+        $this->fulfillment->readyPickup($shipment);
+
+        return back()->with('success', 'Kiriman ditandai siap diambil.');
+    }
+
+    /** Verifikasi kode ambil (satu kali pakai). */
+    public function pickupVerify(Request $request, Order $order): RedirectResponse
+    {
+        $this->assertOwned($order);
+
+        $validated = $request->validate([
+            'pickup_code' => ['required', 'string', 'size:6'],
+        ]);
+
+        $this->fulfillment->verifyPickup($order, (string) $validated['pickup_code']);
+
+        return back()->with('success', 'Kode ambil terverifikasi. Pesanan selesai diambil.');
+    }
+
+    /** Batch manifest AWB untuk kiriman toko ini (idempoten per baris). */
+    public function manifestBatch(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'shipment_ids' => ['required', 'array', 'min:1'],
+            'shipment_ids.*' => ['integer'],
+        ]);
+
+        $result = $this->fulfillment->manifestBatchForShop($validated['shipment_ids']);
+
+        return back()->with('success', 'Manifest '.$result['manifest_no'].' dibuat untuk '.$result['total'].' kiriman.');
+    }
+
+    /** Rekap manifest per kurir per hari khusus toko ini (read-only). */
+    public function manifestRecap(Request $request): View
+    {
+        return view('vendor.fulfillment.index', array_merge(
+            ['manifestRecap' => $this->fulfillment->manifestRecapForShop(
+                is_string($request->input('courier')) ? (string) $request->input('courier') : null,
+                is_string($request->input('date')) ? (string) $request->input('date') : null,
+            )],
+            $this->fulfillmentQueuePayload($request),
+        ));
+    }
+
+    /** Jadwalkan penjemputan retur oleh kurir (retur harus disetujui). */
+    public function returnPickupSchedule(Request $request, \App\Models\OrderReturn $return): RedirectResponse
+    {
+        $validated = $request->validate([
+            'scheduled_at' => ['nullable', 'date'],
+            'address' => ['nullable', 'string', 'max:255'],
+            'courier' => ['nullable', 'string', 'max:40'],
+        ]);
+
+        $scheduled = $this->fulfillment->scheduleReturnPickup($return, [
+            'scheduled_at' => $validated['scheduled_at'] ?? null,
+            'address' => $validated['address'] ?? null,
+            'courier' => $validated['courier'] ?? null,
+        ]);
+
+        return back()->with('success', 'Penjemputan retur dijadwalkan. Label: '.$scheduled->return_label_code.'.');
+    }
+
+    /** Payload antrean fulfillment existing untuk view yang dipakai ulang. */
+    private function fulfillmentQueuePayload(Request $request): array
+    {
+        $queue = $this->fulfillment->queue((int) min(100, max(5, $request->integer('limit', 25))));
+
+        return [
+            'orders' => $queue['orders'],
+            'total' => $queue['total'],
+            'value' => $queue['value'],
+            'currency' => \App\Support\Currency::config(),
+            'shoppableStatuses' => VendorFulfillmentService::shippableStatuses(),
+            'labels' => [],
+            'export' => [],
+            'bulkResult' => null,
+            'selected' => [],
+        ];
+    }
+
     private function assertOwned(Order $order): void
     {
         abort_if((int) $order->shop_id !== (int) auth('vendor')->user()->shop_id, 403);
