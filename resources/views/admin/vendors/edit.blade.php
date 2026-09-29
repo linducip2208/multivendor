@@ -19,12 +19,12 @@
                 <div class="col-12"><h6 class="fw-bold mb-3"><x-admin.icon name="user" :size="16" class="me-2 text-primary" /> Data Vendor</h6></div>
                 <div class="col-md-6">
                     <label class="form-label fw-medium">Nama Vendor <span class="text-danger">*</span></label>
-                    <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $shop->vendor->name) }}" required>
+                    <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $shop->vendor?->name ?? '') }}" required>
                     @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-6">
                     <label class="form-label fw-medium">Email <span class="text-danger">*</span></label>
-                    <input type="email" name="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email', $shop->vendor->email) }}" required>
+                    <input type="email" name="email" class="form-control @error('email') is-invalid @enderror" value="{{ old('email', $shop->vendor?->email ?? '') }}" required>
                     @error('email')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-4">
@@ -34,7 +34,7 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label fw-medium">No. HP</label>
-                    <input type="text" name="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone', $shop->vendor->phone) }}">
+                    <input type="text" name="phone" class="form-control @error('phone') is-invalid @enderror" value="{{ old('phone', $shop->vendor?->phone ?? '') }}">
                     @error('phone')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-md-4">

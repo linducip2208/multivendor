@@ -10,7 +10,7 @@
 <thead class="table-light"><tr><th>Nama</th><th>Slug</th><th>Deskripsi</th><th>Status</th><th>Aksi</th></tr></thead>
 <tbody>
 @forelse($brands as $b)
-<tr><td class="fw-semibold">{{ $b->name }}</td><td><small>{{ $b->slug }}</small></td><td><small>{{ Str::limit($b->description, 50) }}</small></td>
+<tr><td class="fw-semibold">{{ $b->name }}</td><td><small>{{ $b->slug }}</small></td><td><small>{{ Str::limit($b->description ?? '', 50) }}</small></td>
 <td><x-admin.badge :color="$b->status ? 'success' : 'secondary'" :text="$b->status ? 'Aktif' : 'Nonaktif'" /></td>
 <td>
 <a href="{{ route('admin.brands.edit', $b) }}" class="btn btn-sm btn-outline-primary"><x-admin.icon name="pencil" :size="14" /></a>

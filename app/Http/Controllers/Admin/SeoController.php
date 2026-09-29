@@ -237,6 +237,13 @@ class SeoController extends Controller
         return back()->with('success', 'Halaman PSEO dihapus.');
     }
 
+    public function disablePseoPage(PseoPage $page): RedirectResponse
+    {
+        $this->pseo->disable($page, auth('admin')->id());
+
+        return back()->with('success', 'Halaman dinonaktifkan (indexability=noindex).');
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -108,8 +108,9 @@
                                     </td>
                                     <td class="text-nowrap">{{ $subscription['ends_at'] !== '' ? $subscription['ends_at'] : '-' }}</td>
                                     <td class="text-end">
-                                        <form method="POST" action="{{ route('admin.saas.subscriptions.update', $subscription['id']) }}" class="d-flex gap-1">
+                                        <form method="POST" action="{{ route('admin.saas.subscriptions.status', $subscription['id']) }}" class="d-flex gap-1">
                                             @csrf
+                                            @method('PUT')
                                             <label class="visually-hidden" for="sub-status-{{ $subscription['id'] }}">Status langganan {{ $subscription['plan'] }}</label>
                                             <select class="form-select form-select-sm" id="sub-status-{{ $subscription['id'] }}" name="status">
                                                 @foreach (\App\Services\Backoffice\SaasService::SUBSCRIPTION_STATUSES as $value => $label)

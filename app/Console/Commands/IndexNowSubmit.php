@@ -25,8 +25,10 @@ class IndexNowSubmit extends Command
                 ->get();
 
             foreach ($products as $product) {
+                // Canonical product URL only. (A legacy pseo.alternatif
+                // reference was removed: no such route exists and
+                // submitting 404 URLs harms index trust.)
                 $urls[] = route('products.show', $product->slug);
-                $urls[] = route('pseo.alternatif', ['slug' => $product->slug]);
             }
 
             $this->info("Collected " . count($products) . " product URLs");

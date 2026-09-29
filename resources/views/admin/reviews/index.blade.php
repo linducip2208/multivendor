@@ -88,8 +88,9 @@
                             </td>
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm" role="group" aria-label="A moderatedasi {{ $row['product'] }}">
-                                    <form method="POST" action="{{ route('admin.reviews.moderate', $row['id']) }}">
+                                    <form method="POST" action="{{ route('admin.reviews.update', $row['id']) }}">
                                         @csrf
+                                        @method('PUT')
                                         <input type="hidden" name="approved" value="{{ $row['approved'] ? 0 : 1 }}">
                                         <button type="submit" class="btn btn-outline-{{ $row['approved'] ? 'warning' : 'success' }}">
                                             {{ $row['approved'] ? 'Sembunyikan' : 'Setujui' }}

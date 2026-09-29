@@ -8,7 +8,7 @@
             <thead class="table-light"><tr><th class="text-uppercase small">KURIR</th><th class="text-uppercase small">CUSTOMER</th><th class="text-uppercase small">ORDER</th><th class="text-uppercase small">RATING</th><th class="text-uppercase small">REVIEW</th></tr></thead>
             <tbody>
                 @forelse($ratings as $r)
-                <tr><td><a href="{{ route('admin.delivery.rating-report', $r->deliveryMan) }}">{{ $r->deliveryMan->name ?? '-' }}</a></td><td>{{ $r->customer->name ?? '-' }}</td><td><small>{{ $r->order->order_number ?? '-' }}</small></td><td><span class="text-warning">@for($i=0;$i<$r->rating;$i++)<x-admin.icon name="star" :size="16" />@endfor @for($i=$r->rating;$i<5;$i++)<x-admin.icon name="star" :size="16" />@endfor</span></td><td><small>{{ \Illuminate\Support\Str::limit($r->review, 80) }}</small></td></tr>
+                <tr><td><a href="{{ route('admin.delivery.rating-report', $r->deliveryMan) }}">{{ $r->deliveryMan->name ?? '-' }}</a></td><td>{{ $r->customer->name ?? '-' }}</td><td><small>{{ $r->order->order_number ?? '-' }}</small></td><td><span class="text-warning">@for($i=0;$i<$r->rating;$i++)<x-admin.icon name="star" :size="16" />@endfor @for($i=$r->rating;$i<5;$i++)<x-admin.icon name="star" :size="16" />@endfor</span></td><td><small>{{ \Illuminate\Support\Str::limit($r->review ?? '', 80) }}</small></td></tr>
                 @empty
                 <tr><td colspan="5" class="text-center py-5 text-muted">Belum ada rating.</td></tr>
                 @endforelse

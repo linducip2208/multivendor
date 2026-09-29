@@ -19,7 +19,7 @@
 
     <x-admin.card class="mb-3" title="Filter" icon="filter">
         <x-admin.filters
-            :action="route('admin.referrals')"
+            :action="route('admin.referrals.index')"
             :filters="[['name' => 'search', 'label' => 'Cari', 'placeholder' => 'Nama atau email pelanggan']]"
         />
     </x-admin.card>

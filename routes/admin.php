@@ -216,6 +216,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::get('ai/usage', [AiController::class, 'usage'])->name('ai.usage');
         Route::get('ai/prompts', [AiController::class, 'prompts'])->name('ai.prompts');
         Route::put('ai/prompts', [AiController::class, 'updatePrompts'])->name('ai.prompts.update');
+        Route::post('ai/prompts/reset', [AiController::class, 'resetPrompt'])->name('ai.prompts.reset');
 
         /* ---------------- ANALYTICS ---------------- */
         Route::get('analytics', [AnalyticsController::class, 'index'])->name('analytics.index');
@@ -259,6 +260,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::post('pseo/generate', [SeoController::class, 'generatePseo'])->name('pseo.generate');
         Route::post('pseo/{page}/review', [SeoController::class, 'reviewPseoPage'])->name('pseo.review');
         Route::post('pseo/{page}/publish', [SeoController::class, 'publishPseoPage'])->name('pseo.publish');
+        Route::post('pseo/{page}/disable', [SeoController::class, 'disablePseoPage'])->name('pseo.disable');
         Route::delete('pseo/{page}', [SeoController::class, 'destroyPseoPage'])->name('pseo.destroy');
         Route::resource('product-seo', ProductSeoController::class)->only(['index', 'update']);
 

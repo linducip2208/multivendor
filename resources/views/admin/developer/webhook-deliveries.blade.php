@@ -99,7 +99,7 @@
                             </td>
                             <td class="small text-secondary">{{ $row['response'] !== '' ? \Illuminate\Support\Str::limit($row['response'], 60) : '-' }}</td>
                             <td class="text-end">
-                                <form method="POST" action="{{ route('admin.webhooks.replay', [$endpoint['id'], $row['id']]) }}">
+                                <form method="POST" action="{{ route('admin.webhooks.deliveries.replay', [$endpoint['id'], $row['id']]) }}">
                                     @csrf
                                     <button type="submit" class="btn btn-sm btn-outline-primary">Kirim Ulang</button>
                                 </form>

@@ -90,8 +90,9 @@
                         </tr>
 
                         <x-admin.modal :id="'decide-'.$row['id']" :title="'Keputusan '.$row['rma_number']" icon="check" size="sm">
-                            <form method="POST" action="{{ route('admin.returns.decide', $row['id']) }}">
+                            <form method="POST" action="{{ route('admin.returns.update', $row['id']) }}">
                                 @csrf
+                                @method('PUT')
                                 <x-admin.alert type="warning" :dismissible="false" title="Keputusan tidak dapat diubah">
                                         Setelah disimpan, <code>status</code>, <code>decided_by</code>, dan <code>decided_at</code> dikunci serta dicatat di jejak audit.
                                     </x-admin.alert>

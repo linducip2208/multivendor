@@ -85,8 +85,9 @@
                                 @endif
                             </td>
                             <td class="text-end">
-                                <form method="POST" action="{{ route('admin.saas.subscriptions.update', $row['id']) }}" class="d-flex gap-1">
+                                <form method="POST" action="{{ route('admin.saas.subscriptions.status', $row['id']) }}" class="d-flex gap-1">
                                     @csrf
+                                    @method('PUT')
                                     <label class="visually-hidden" for="status-{{ $row['id'] }}">Status langganan {{ $row['tenant'] }}</label>
                                     <select class="form-select form-select-sm" id="status-{{ $row['id'] }}" name="status">
                                         @foreach (\App\Services\Backoffice\SaasService::SUBSCRIPTION_STATUSES as $value => $label)

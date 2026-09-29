@@ -67,7 +67,7 @@
                         </td>
                         <td>
                             <small>{{ $shop->phone ?? '-' }}</small><br>
-                            <small class="text-muted">{{ Str::limit($shop->address, 30) }}</small>
+                            <small class="text-muted">{{ Str::limit($shop->address ?? '', 30) }}</small>
                         </td>
                         <td>
                             @if($shop->commission_type === 'percentage')
