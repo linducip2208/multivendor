@@ -47,6 +47,16 @@
                                         <span class="sf-rating__count">({{ \App\Support\Currency::number($shop->rating_count) }})</span>
                                     </span>
                                 @endif
+                                {{-- Badge skor kepercayaan publik (0–100 + penjelasan). --}}
+                                @php
+                                    try { $sfTrust = app(\App\Services\Kepercayaan\SkorToko::class)->skorDariShop($shop); }
+                                    catch (\Throwable) { $sfTrust = null; }
+                                @endphp
+                                @if ($sfTrust)
+                                    <span class="sf-badge {{ $sfTrust['sf_badge'] }}" title="Skor {{ $sfTrust['skor'] }}/100 — rating +{{ $sfTrust['rincian']['rating'] }}, pemenuhan +{{ $sfTrust['rincian']['fulfillment'] }}, respons +{{ $sfTrust['rincian']['respons'] }}, umur toko +{{ $sfTrust['rincian']['umur_toko'] }}">
+                                        <x-storefront.icon name="shield-check" :size="13" /> {{ $sfTrust['skor'] }} · {{ $sfTrust['label'] }}
+                                    </span>
+                                @endif
                                 @if ($shop->city || $shop->province)
                                     <span class="sf-row" style="gap:5px">
                                         <x-storefront.icon name="map-pin" :size="14" />

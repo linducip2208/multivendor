@@ -37,6 +37,28 @@
                             <div class="small">{{ $statusMeta[3] }}</div>
                         </div>
                     </div>
+                    {{-- Progres KYC bertahap (aditif, dari controller: $kyc) --}}
+                    @isset($kyc)
+                        <div class="card card-sm bg-light mb-3">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="fw-semibold small">Verifikasi bertahap (KYC)</span>
+                                    <span class="badge bg-blue-lt">{{ $kyc['done'] }}/4 · {{ $kyc['percent'] }}%</span>
+                                </div>
+                                <div class="progress mb-2" role="progressbar" aria-valuenow="{{ $kyc['percent'] }}" aria-valuemin="0" aria-valuemax="100" aria-label="Progres verifikasi toko">
+                                    <div class="progress-bar" style="width: {{ $kyc['percent'] }}%"></div>
+                                </div>
+                                <ul class="steps steps-horizontal steps-counter m-0">
+                                    @foreach ($kyc['steps'] as $step)
+                                        <li class="step-item {{ $step['done'] ? 'active' : '' }}">
+                                            <div class="h4 m-0">{{ $step['label'] }}</div>
+                                            <div class="text-secondary small">{{ $step['done'] ? 'Selesai' : 'Menunggu' }}</div>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+                        </div>
+                    @endisset
                     <dl class="row small">
                         <dt class="col-5 text-secondary fw-normal">Nomor referensi</dt>
                         <dd class="col-7 text-end font-monospace fw-semibold">{{ $application->reference }}</dd>

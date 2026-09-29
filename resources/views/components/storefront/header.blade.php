@@ -24,6 +24,15 @@
             <span class="sf-row" style="gap:14px">
                 <a href="{{ route('track-order') }}" class="sf-hide-mobile"><x-storefront.icon name="package" :size="13" /> Lacak Pesanan</a>
                 <a href="{{ route('tickets.index') }}" class="sf-hide-mobile"><x-storefront.icon name="headset" :size="13" /> Bantuan</a>
+                {{-- Language switcher ID/EN (pakai lang files existing) --}}
+                <span class="sf-row" role="group" aria-label="{{ __('Language') }}" style="gap:6px">
+                    <x-storefront.icon name="globe" :size="13" />
+                    <a href="{{ request()->fullUrlWithQuery(['lang' => 'id']) }}" hreflang="id" lang="id"
+                       @if (app()->getLocale() === 'id') aria-current="true" style="font-weight:700" @endif>ID</a>
+                    <span aria-hidden="true">|</span>
+                    <a href="{{ request()->fullUrlWithQuery(['lang' => 'en']) }}" hreflang="en" lang="en"
+                       @if (app()->getLocale() === 'en') aria-current="true" style="font-weight:700" @endif>EN</a>
+                </span>
                 @if (! auth()->check())
                     <a href="{{ route('vendor.login') }}">Jual di sini</a>
                 @endif
@@ -188,6 +197,10 @@
                 <button type="button" class="sf-btn sf-btn--outline sf-btn--sm" data-sf-theme-toggle>
                     <x-storefront.icon name="moon" :size="15" /> Tema
                 </button>
+                <span class="sf-row" role="group" aria-label="{{ __('Language') }}" style="gap:6px">
+                    <a href="{{ request()->fullUrlWithQuery(['lang' => 'id']) }}" class="sf-btn sf-btn--ghost sf-btn--sm" hreflang="id" lang="id">ID</a>
+                    <a href="{{ request()->fullUrlWithQuery(['lang' => 'en']) }}" class="sf-btn sf-btn--ghost sf-btn--sm" hreflang="en" lang="en">EN</a>
+                </span>
                 @auth
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf

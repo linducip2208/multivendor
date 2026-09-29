@@ -24,6 +24,18 @@
             <h1 class="h2 mt-3 mb-1">Pengajuan Toko</h1>
             <p class="text-secondary">Isi data berikut. Kolom bertanda bintang wajib diisi.</p>
         </div>
+        {{-- KYC bertahap: email → identitas → rekening → verifikasi --}}
+        <div class="card mb-3">
+            <div class="card-body py-3">
+                <div class="fw-semibold mb-2 small text-secondary">Tahapan verifikasi (KYC bertahap)</div>
+                <ul class="steps steps-horizontal steps-counter m-0">
+                    <li class="step-item active"><div class="h4 m-0">Email</div><div class="text-secondary small">Akun &amp; email</div></li>
+                    <li class="step-item"><div class="h4 m-0">Identitas</div><div class="text-secondary small">KTP / dokumen usaha</div></li>
+                    <li class="step-item"><div class="h4 m-0">Rekening</div><div class="text-secondary small">Pencairan dana</div></li>
+                    <li class="step-item"><div class="h4 m-0">Verifikasi</div><div class="text-secondary small">Persetujuan admin</div></li>
+                </ul>
+            </div>
+        </div>
         <div class="card">
             <div class="card-body p-4">
                 @if ($errors->any())

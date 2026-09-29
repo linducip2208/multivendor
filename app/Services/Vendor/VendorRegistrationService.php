@@ -9,6 +9,7 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\AuditLogger;
+use App\Services\Kepercayaan\SkorToko;
 use App\Support\Money;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -215,9 +216,21 @@ final class VendorRegistrationService
         return DB::table('vendor_application_documents')->where('id', $id)->first();
     }
 
-    /** @return list<array{key: string, value: float, label: string}> */
-    public function tiers(): array
+    /**
+     * Progres KYC bertahap: email → identitas → rekening → verifikasi.
+     * Murni komputasi dari baris vendor_applications + dokumen (tanpa migrasi).
+     *
+     * @return array{level: string, level_index: int, percent: int, done: int, steps: list<array{key: string, label: string, done: bool}>}
+     */
+    public function kycProgress(object $application, array $documents = []): array
     {
+        return app(SkorToko::class)->kyc($application, $documents);
+    }
+
+    /**
+     * @return list<array{key: string, value: float, label: string}>
+     */
+    public function tiers(): array    {
         $out = [];
 
         foreach (self::TIERS as $key => $value) {

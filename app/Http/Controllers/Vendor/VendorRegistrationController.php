@@ -87,6 +87,7 @@ class VendorRegistrationController extends Controller
             'application' => $application,
             'reference' => $reference,
             'tiers' => $this->registrations->tiers(),
+            'kyc' => $application !== null ? $this->registrations->kycProgress($application) : null,
         ]);
     }
 }

@@ -36,5 +36,19 @@
     "Compare": "Compare",
     "Support Tickets": "Support Tickets",
     "Language": "Language",
-    "Currency": "Currency"
+    "Currency": "Currency",
+    "Trust score": "Trust score",
+    "Very Trusted": "Highly Trusted",
+    "Trusted": "Trusted",
+    "Fair": "Fair",
+    "New Seller": "New Seller",
+    "Answered by seller": "Answered by seller",
+    "Awaiting answer": "Awaiting answer",
+    "Was this helpful?": "Was this helpful?",
+    "Helpful": "Helpful",
+    "Already rated": "Already rated",
+    "Product videos": "Product videos",
+    "Step-by-step verification (KYC)": "Step-by-step verification (KYC)",
+    "Completed": "Completed",
+    "Pending": "Pending"
 }
