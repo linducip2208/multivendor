@@ -8,6 +8,10 @@ use App\Models\AiUsage;
 use App\Models\Provider;
 use App\Services\Ai\AdminPrompts;
 use App\Services\Ai\AiService;
+use App\Services\Ai\BalasanChat;
+use App\Services\Ai\DeskripsiProduk;
+use App\Services\Ai\PencarianCerdas;
+use App\Services\Ai\RingkasanUlasan;
 use App\Services\Analytics\DateRange;
 use App\Services\Analytics\ExecutiveAnalyticsService;
 use App\Services\Analytics\ProductAnalyticsService;
@@ -125,6 +129,95 @@ final class CopilotService
             'duration_ms' => $duration,
             'error' => $success ? null : $this->safeError((string) ($result['error'] ?? '')),
         ];
+    }
+
+    /**
+     * Provider AI bawaan yang siap dipakai (aktif + ada kredensial).
+     * Aman bila tidak ada: mengembalikan null agar pemanggil memakai fallback lokal.
+     */
+    public function defaultProvider(): ?Provider
+    {
+        try {
+            $kandidat = Provider::query()
+                ->where('type', 'ai')
+                ->where('is_active', true)
+                ->orderByDesc('is_default')
+                ->orderBy('sort_order')
+                ->get();
+
+            foreach ($kandidat as $provider) {
+                if (DeskripsiProduk::providerReady($provider)) {
+                    return $provider;
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return null;
+    }
+
+    public function isAiReady(): bool
+    {
+        return $this->defaultProvider() !== null;
+    }
+
+    /**
+     * Generator deskripsi produk + judul SEO (fallback lokal bila AI off).
+     *
+     * @param  array<string, mixed>  $spesifikasi
+     * @return array{judul_seo: string, deskripsi: string, meta_description: string, source: string}
+     */
+    public function productCopy(string $nama, array $spesifikasi = []): array
+    {
+        try {
+            return (new DeskripsiProduk)->generate($nama, $spesifikasi, $this->defaultProvider());
+        } catch (\Throwable) {
+            return DeskripsiProduk::fallback($nama !== '' ? $nama : 'Produk');
+        }
+    }
+
+    /**
+     * Tiga opsi balasan chat dari konteks percakapan + order terakhir (fallback lokal bila AI off).
+     *
+     * @param  array<string, mixed>  $konteks
+     * @return array{options: list<string>, topik: string, source: string}
+     */
+    public function chatSuggestions(string $pesanTerakhir, array $konteks = []): array
+    {
+        try {
+            return (new BalasanChat)->suggest($pesanTerakhir, $konteks, $this->defaultProvider());
+        } catch (\Throwable) {
+            return [
+                'options' => BalasanChat::fallbackOptions($pesanTerakhir, []),
+                'topik' => BalasanChat::deteksiTopik($pesanTerakhir),
+                'source' => 'fallback',
+            ];
+        }
+    }
+
+    /**
+     * Ringkasan ulasan produk: pro/kontra + skor agregat (fallback lokal bila AI off).
+     *
+     * @param  iterable<mixed>  $ulasan
+     * @return array{total: int, rata_rata: float, distribusi: array<int, int>, pro: list<string>, kontra: list<string>, ringkasan: string, source: string}
+     */
+    public function reviewSummary(iterable $ulasan, string $namaProduk = ''): array
+    {
+        try {
+            return (new RingkasanUlasan)->summarize($ulasan, $namaProduk, $this->defaultProvider());
+        } catch (\Throwable) {
+            return RingkasanUlasan::fallbackSummarize(RingkasanUlasan::normalisasi($ulasan), $namaProduk);
+        }
+    }
+
+    /**
+     * Pencarian cerdas: koreksi ejaan + ekspansi sinonim (murni lokal, tanpa kredensial).
+     *
+     * @return array{original: string, corrected: string, dikoreksi: bool, koreksi: list<array{dari: string, ke: string}>, tokens: list<string>, expanded: list<string>, sinonim: array<string, list<string>>}
+     */
+    public function smartSearch(string $query): array
+    {
+        return (new PencarianCerdas)->enrich($query);
     }
 
     private function safeError(string $error): string
