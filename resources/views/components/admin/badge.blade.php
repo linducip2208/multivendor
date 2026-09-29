@@ -7,7 +7,7 @@
 ])
 
 @php
-    $color = in_array($color, ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'light', 'dark'], true) ? $color : 'secondary';
+    $color = in_array($color, ['primary', 'secondary', 'success', 'danger', 'warning', 'info', 'indigo', 'light', 'dark'], true) ? $color : 'secondary';
 @endphp
 
 <span

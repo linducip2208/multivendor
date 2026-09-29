@@ -4,11 +4,11 @@
 
 @section('content')
 <div class="mb-4">
-    <a href="{{ route('admin.categories.index') }}" class="text-decoration-none small"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
+    <a href="{{ route('admin.categories.index') }}" class="text-decoration-none small"><x-admin.icon name="arrow-left" :size="16" class="me-1" /> Kembali</a>
     <h4 class="fw-bold mt-2 mb-1">Edit Kategori: {{ $category->name }}</h4>
 </div>
 
-<div class="card border-0 rounded-4 shadow-sm">
+<x-admin.card :padding="false">
     <div class="card-body p-4">
         <form method="POST" action="{{ route('admin.categories.update', $category) }}">
             @csrf @method('PUT')
@@ -42,10 +42,10 @@
                     <textarea name="description" class="form-control" rows="3">{{ old('description', $category->description) }}</textarea>
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i> Perbarui</button>
+                    <button type="submit" class="btn btn-primary"><x-admin.icon name="check" :size="16" class="me-2" /> Perbarui</button>
                 </div>
             </div>
         </form>
     </div>
-</div>
+</x-admin.card>
 @endsection

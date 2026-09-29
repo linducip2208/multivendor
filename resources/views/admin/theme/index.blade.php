@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 @section('title', 'Theme Settings')
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><i class="fas fa-palette me-2"></i>Theme Settings</h4></div>
-<div class="card border-0 rounded-4 shadow-sm" style="max-width:600px">
+<div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="palette" :size="16" class="me-2" />Theme Settings</h4></div>
+<x-admin.card :padding="false" style="max-width:600px">
     <div class="card-body">
         <form method="POST" action="{{ route('admin.theme.update') }}">
             @csrf @method('PUT')
@@ -18,8 +18,8 @@
             <div class="mb-3"><div class="form-check"><input type="checkbox" name="theme_dark_mode_default" class="form-check-input" value="1" {{ \App\Models\SystemSetting::get('theme_dark_mode_default') ? 'checked' : '' }}><label class="form-check-label">Dark mode default</label></div></div>
             <div class="mb-3"><div class="form-check"><input type="checkbox" name="theme_show_language_switcher" class="form-check-input" value="1" {{ \App\Models\SystemSetting::get('theme_show_language_switcher','1') ? 'checked' : '' }}><label class="form-check-label">Tampilkan language switcher</label></div></div>
             <div class="mb-3"><label class="form-label fw-medium">Logo Text</label><input type="text" name="theme_logo_text" class="form-control" value="{{ \App\Models\SystemSetting::get('theme_logo_text',config('app.name')) }}"></div>
-            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Simpan</button>
+            <button type="submit" class="btn btn-primary"><x-admin.icon name="check" :size="16" class="me-2" />Simpan</button>
         </form>
     </div>
-</div>
+</x-admin.card>
 @endsection

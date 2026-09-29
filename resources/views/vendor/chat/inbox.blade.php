@@ -37,7 +37,7 @@
                         </span>
                         @php $unread = $conversation->participants->firstWhere('user_id', auth('vendor')->id())?->unread_count ?? 0; @endphp
                         @if ($unread > 0)
-                            <span class="badge bg-danger rounded-pill">{{ $unread }}</span>
+                            <x-admin.badge color="danger" class="rounded-pill" :text="$unread" />
                         @endif
                     </a>
                 @empty

@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 @section('title', 'Customer Wallets')
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><i class="fas fa-wallet me-2"></i>Wallet Pelanggan</h4></div>
-<div class="card border-0 rounded-4 shadow-sm">
+<div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="wallet" :size="16" class="me-2" />Wallet Pelanggan</h4></div>
+<x-admin.card :padding="false">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead class="table-light"><tr><th class="text-uppercase small">PELANGGAN</th><th class="text-uppercase small">EMAIL</th><th class="text-uppercase small">SALDO</th><th class="text-uppercase small">PENDING</th><th></th></tr></thead>
@@ -15,6 +15,6 @@
             </tbody>
         </table>
     </div>
-</div>
+</x-admin.card>
 <div class="mt-3"><x-admin.pagination :paginator="$wallets" size="sm" /></div>
 @endsection

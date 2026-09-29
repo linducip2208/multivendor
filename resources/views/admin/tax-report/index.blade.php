@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title', 'Tax Report')
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i>Laporan Pajak</h4></div>
+<div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="receipt" :size="16" class="me-2" />Laporan Pajak</h4></div>
 
 <div class="row g-3 mb-4">
     <div class="col-md-3">
@@ -18,14 +18,14 @@
     </div>
 </div>
 
-<div class="card border-0 rounded-4 shadow-sm mb-4">
+<x-admin.card :padding="false" class="mb-4">
     <div class="card-body">
         <h5 class="fw-bold">Pajak per Bulan — {{ $year }}</h5>
         <canvas id="taxChart" height="80"></canvas>
     </div>
-</div>
+</x-admin.card>
 
-<div class="card border-0 rounded-4 shadow-sm">
+<x-admin.card :padding="false">
     <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
         <h5 class="fw-bold mb-0">Daftar Pajak (PPN)</h5>
         <a href="{{ route('admin.tax-report.settings') }}" class="btn btn-outline-primary btn-sm">Pengaturan Pajak</a>
@@ -35,12 +35,12 @@
             <thead class="table-light"><tr><th class="text-uppercase small">NAMA</th><th class="text-uppercase small">TARIF</th><th class="text-uppercase small">STATUS</th></tr></thead>
             <tbody>
                 @foreach($vatTaxes as $tax)
-                <tr><td>{{ $tax->name }}</td><td><span class="badge bg-primary-subtle text-primary">{{ $tax->rate }}%</span></td><td><span class="badge bg-success-subtle text-success">Aktif</span></td></tr>
+                <tr><td>{{ $tax->name }}</td><td><x-admin.badge color="primary">{{ $tax->rate }}%</x-admin.badge></td><td><x-admin.badge color="success">Aktif</x-admin.badge></td></tr>
                 @endforeach
             </tbody>
         </table>
     </div>
-</div>
+</x-admin.card>
 @endsection
 @push('scripts')
 <script>

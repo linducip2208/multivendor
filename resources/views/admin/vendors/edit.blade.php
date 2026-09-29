@@ -5,18 +5,18 @@
 @section('content')
 <div class="mb-4">
     <a href="{{ route('admin.vendors.index') }}" class="text-decoration-none small">
-        <i class="fas fa-arrow-left me-1"></i> Kembali ke daftar vendor
+        <x-admin.icon name="arrow-left" :size="16" class="me-1" /> Kembali ke daftar vendor
     </a>
     <h4 class="fw-bold mt-2 mb-1">Edit Vendor: {{ $shop->name }}</h4>
     <p class="text-muted small mb-0">Perbarui data vendor dan toko</p>
 </div>
 
-<div class="card border-0 rounded-4 shadow-sm">
+<x-admin.card :padding="false">
     <div class="card-body p-4">
         <form method="POST" action="{{ route('admin.vendors.update', $shop) }}">
             @csrf @method('PUT')
             <div class="row g-3">
-                <div class="col-12"><h6 class="fw-bold mb-3"><i class="fas fa-user me-2 text-primary"></i> Data Vendor</h6></div>
+                <div class="col-12"><h6 class="fw-bold mb-3"><x-admin.icon name="user" :size="16" class="me-2 text-primary" /> Data Vendor</h6></div>
                 <div class="col-md-6">
                     <label class="form-label fw-medium">Nama Vendor <span class="text-danger">*</span></label>
                     <input type="text" name="name" class="form-control @error('name') is-invalid @enderror" value="{{ old('name', $shop->vendor->name) }}" required>
@@ -46,7 +46,7 @@
                     </select>
                 </div>
 
-                <div class="col-12 mt-4"><h6 class="fw-bold mb-3"><i class="fas fa-store me-2 text-success"></i> Data Toko</h6></div>
+                <div class="col-12 mt-4"><h6 class="fw-bold mb-3"><x-admin.icon name="store" :size="16" class="me-2 text-success" /> Data Toko</h6></div>
                 <div class="col-md-6">
                     <label class="form-label fw-medium">Nama Toko <span class="text-danger">*</span></label>
                     <input type="text" name="shop_name" class="form-control @error('shop_name') is-invalid @enderror" value="{{ old('shop_name', $shop->name) }}" required>
@@ -62,7 +62,7 @@
                     <textarea name="shop_description" class="form-control" rows="3">{{ old('shop_description', $shop->description) }}</textarea>
                 </div>
 
-                <div class="col-12 mt-4"><h6 class="fw-bold mb-3"><i class="fas fa-percent me-2 text-warning"></i> Komisi</h6></div>
+                <div class="col-12 mt-4"><h6 class="fw-bold mb-3"><x-admin.icon name="percent" :size="16" class="me-2 text-warning" /> Komisi</h6></div>
                 <div class="col-md-3">
                     <label class="form-label fw-medium">Tipe Komisi <span class="text-danger">*</span></label>
                     <select name="commission_type" class="form-select @error('commission_type') is-invalid @enderror" required>
@@ -78,12 +78,12 @@
 
                 <div class="col-12 mt-4">
                     <button type="submit" class="btn btn-primary px-4">
-                        <i class="fas fa-save me-2"></i> Perbarui Vendor
+                        <x-admin.icon name="check" :size="16" class="me-2" /> Perbarui Vendor
                     </button>
                     <a href="{{ route('admin.vendors.index') }}" class="btn btn-outline-secondary ms-2">Batal</a>
                 </div>
             </div>
         </form>
     </div>
-</div>
+</x-admin.card>
 @endsection

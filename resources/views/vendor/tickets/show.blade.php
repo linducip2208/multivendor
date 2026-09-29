@@ -38,7 +38,7 @@
                         <div class="flex-grow-1">
                             <div class="d-flex align-items-baseline gap-2">
                                 <span class="fw-medium">{{ $reply->author ?? 'Tim Dukungan' }}</span>
-                                <span class="badge bg-{{ $isVendor ? 'primary' : 'secondary' }}-lt text-{{ $isVendor ? 'primary' : 'secondary' }}">{{ $isVendor ? 'Anda' : 'Dukungan' }}</span>
+                                <x-admin.badge :color="$isVendor ? 'primary' : 'secondary' }}-lt text-{{ $isVendor ? 'primary' : 'secondary'" :text="$isVendor ? 'Anda' : 'Dukungan'" />
                                 <span class="text-secondary small">{{ \Carbon\Carbon::parse($reply->created_at)->format('d M Y H:i') }}</span>
                             </div>
                             <p class="mb-0 mt-1">{{ $reply->body }}</p>

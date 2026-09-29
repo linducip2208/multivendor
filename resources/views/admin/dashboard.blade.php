@@ -21,7 +21,7 @@
                     <div class="stat-label">Vendor</div>
                 </div>
                 <span class="badge bg-indigo-light text-indigo rounded-3 p-2">
-                    <i class="fas fa-store"></i>
+                    <x-admin.icon name="store" :size="16" />
                 </span>
             </div>
         </div>
@@ -34,7 +34,7 @@
                     <div class="stat-label">Pelanggan</div>
                 </div>
                 <span class="badge bg-success-light text-success rounded-3 p-2">
-                    <i class="fas fa-users"></i>
+                    <x-admin.icon name="users" :size="16" />
                 </span>
             </div>
         </div>
@@ -47,7 +47,7 @@
                     <div class="stat-label">Produk</div>
                 </div>
                 <span class="badge bg-warning-light text-warning rounded-3 p-2">
-                    <i class="fas fa-box"></i>
+                    <x-admin.icon name="box" :size="16" />
                 </span>
             </div>
         </div>
@@ -60,7 +60,7 @@
                     <div class="stat-label">Pesanan</div>
                 </div>
                 <span class="badge bg-info-light text-info rounded-3 p-2">
-                    <i class="fas fa-shopping-cart"></i>
+                    <x-admin.icon name="shopping-cart" :size="16" />
                 </span>
             </div>
         </div>
@@ -73,7 +73,7 @@
                     <div class="stat-label">Pendapatan</div>
                 </div>
                 <span class="badge bg-primary-light text-primary rounded-3 p-2">
-                    <i class="fas fa-money-bill-wave"></i>
+                    <x-admin.icon name="wallet" :size="16" />
                 </span>
             </div>
         </div>
@@ -86,7 +86,7 @@
     <div class="col-md-4">
         <div class="card border-warning border-2 rounded-4">
             <div class="card-body d-flex align-items-center gap-3">
-                <i class="fas fa-clock fa-2x text-warning"></i>
+                <x-admin.icon name="clock" :size="32" class="text-warning" />
                 <div>
                     <div class="fw-bold">{{ $stats['pending_shops'] }} Toko</div>
                     <small class="text-muted">Menunggu persetujuan</small>
@@ -99,7 +99,7 @@
     <div class="col-md-4">
         <div class="card border-warning border-2 rounded-4">
             <div class="card-body d-flex align-items-center gap-3">
-                <i class="fas fa-box-open fa-2x text-warning"></i>
+                <x-admin.icon name="box" :size="32" class="text-warning" />
                 <div>
                     <div class="fw-bold">{{ $stats['pending_products'] }} Produk</div>
                     <small class="text-muted">Menunggu persetujuan</small>
@@ -112,7 +112,7 @@
     <div class="col-md-4">
         <div class="card border-danger border-2 rounded-4">
             <div class="card-body d-flex align-items-center gap-3">
-                <i class="fas fa-exclamation-triangle fa-2x text-danger"></i>
+                <x-admin.icon name="alert-triangle" :size="32" class="text-danger" />
                 <div>
                     <div class="fw-bold">{{ $stats['pending_orders'] }} Pesanan</div>
                     <small class="text-muted">Perlu diproses</small>
@@ -126,10 +126,10 @@
 {{-- Recent Orders + Recent Shops --}}
 <div class="row g-4">
     <div class="col-lg-8">
-        <div class="card border-0 rounded-4 shadow-sm">
+        <x-admin.card :padding="false">
             <div class="card-header bg-transparent border-0 pt-3 px-3 d-flex justify-content-between">
-                <h6 class="fw-bold mb-0"><i class="fas fa-shopping-cart me-2 text-primary"></i> Pesanan Terbaru</h6>
-                <a href="#" class="text-decoration-none small">Lihat semua <i class="fas fa-arrow-right ms-1"></i></a>
+                <h6 class="fw-bold mb-0"><x-admin.icon name="shopping-cart" :size="16" class="me-2 text-primary" /> Pesanan Terbaru</h6>
+                <a href="#" class="text-decoration-none small">Lihat semua <x-admin.icon name="arrow-right" :size="16" class="ms-1" /></a>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
@@ -159,9 +159,7 @@
                                             'delivered' => 'success', 'canceled' => 'danger',
                                         ];
                                     @endphp
-                                    <span class="badge bg-{{ $badges[$order->order_status] ?? 'secondary' }}-subtle text-{{ $badges[$order->order_status] ?? 'secondary' }}">
-                                        {{ ucfirst($order->order_status) }}
-                                    </span>
+                                    <x-admin.badge :color="$badges[$order->order_status] ?? 'secondary'" :text="ucfirst($order->order_status)" />
                                 </td>
                                 <td class="small text-muted">{{ $order->created_at->format('d/m/Y H:i') }}</td>
                             </tr>
@@ -172,32 +170,30 @@
                     </table>
                 </div>
             </div>
-        </div>
+        </x-admin.card>
     </div>
     <div class="col-lg-4">
-        <div class="card border-0 rounded-4 shadow-sm">
+        <x-admin.card :padding="false">
             <div class="card-header bg-transparent border-0 pt-3 px-3">
-                <h6 class="fw-bold mb-0"><i class="fas fa-store me-2 text-success"></i> Toko Baru</h6>
+                <h6 class="fw-bold mb-0"><x-admin.icon name="store" :size="16" class="me-2 text-success" /> Toko Baru</h6>
             </div>
             <div class="card-body">
                 @forelse($recentShops as $shop)
                 <div class="d-flex align-items-center gap-3 mb-3 pb-3 border-bottom">
                     <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width:44px;height:44px;">
-                        <i class="fas fa-store text-primary"></i>
+                        <x-admin.icon name="store" :size="16" class="text-primary" />
                     </div>
                     <div class="flex-grow-1">
                         <div class="fw-semibold small">{{ $shop->name }}</div>
                         <div class="text-muted" style="font-size:.75rem;">{{ $shop->vendor->name ?? '-' }}</div>
                     </div>
-                    <span class="badge bg-{{ $shop->status === 'active' ? 'success' : ($shop->status === 'pending' ? 'warning' : 'danger') }}-subtle">
-                        {{ $shop->status }}
-                    </span>
+                    <x-admin.badge :color="$shop->status === 'active' ? 'success' : ($shop->status === 'pending' ? 'warning' : 'danger')" :text="$shop->status" />
                 </div>
                 @empty
-                <p class="text-muted text-center py-3">Belum ada toko terdaftar</p>
+                <x-admin.empty-state title="Belum ada toko terdaftar" compact />
                 @endforelse
             </div>
-        </div>
+        </x-admin.card>
     </div>
 </div>
 @endsection

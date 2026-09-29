@@ -4,11 +4,11 @@
 
 @section('content')
 <div class="mb-4">
-    <a href="{{ route('vendor.products.index') }}" class="text-decoration-none small"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
+    <a href="{{ route('vendor.products.index') }}" class="text-decoration-none small"><x-admin.icon name="arrow-left" :size="16" class="me-1" /> Kembali</a>
     <h4 class="fw-bold mt-2 mb-1">Edit: {{ $product->name }}</h4>
 </div>
 
-<div class="card border-0 rounded-4 shadow-sm">
+<x-admin.card :padding="false">
     <div class="card-body p-4">
         <form method="POST" action="{{ route('vendor.products.update', $product) }}" enctype="multipart/form-data">
             @csrf @method('PUT')
@@ -73,11 +73,11 @@
                 <div class="col-md-2"><label class="form-label fw-medium">Satuan</label><input type="text" name="unit" class="form-control" value="{{ old('unit', $product->unit) }}"></div>
                 <div class="col-12"><label class="form-label fw-medium">Deskripsi Singkat</label><div id="quillShort" style="height:120px;"></div><input type="hidden" name="short_description" id="shortInput" value="{{ old('short_description', $product->short_description) }}"></div>
                 <div class="col-12"><label class="form-label fw-medium">Deskripsi Lengkap</label><div id="quillEditor" style="height:250px;"></div><input type="hidden" name="description" id="descriptionInput" value="{{ old('description', $product->description) }}"></div>
-                <div class="col-12"><button type="submit" class="btn btn-success px-4"><i class="fas fa-save me-2"></i>Perbarui</button></div>
+                <div class="col-12"><button type="submit" class="btn btn-success px-4"><x-admin.icon name="check" :size="16" class="me-2" />Perbarui</button></div>
             </div>
         </form>
     </div>
-</div>
+</x-admin.card>
 @endsection
 
 @push('scripts')

@@ -5,15 +5,15 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h4 class="fw-bold mb-1"><i class="fas fa-store me-2 text-primary"></i> Manajemen Vendor</h4>
+        <h4 class="fw-bold mb-1"><x-admin.icon name="store" :size="16" class="me-2 text-primary" /> Manajemen Vendor</h4>
         <p class="text-muted small mb-0">Kelola semua toko dan vendor di platform</p>
     </div>
     <a href="{{ route('admin.vendors.create') }}" class="btn btn-primary">
-        <i class="fas fa-plus me-2"></i> Tambah Vendor
+        <x-admin.icon name="plus" :size="16" class="me-2" /> Tambah Vendor
     </a>
 </div>
 
-<div class="card border-0 rounded-4 shadow-sm">
+<x-admin.card :padding="false">
     <div class="card-body p-0">
         <div class="p-3 border-bottom">
             <form method="GET" class="row g-2">
@@ -30,7 +30,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-outline-primary w-100"><i class="fas fa-search me-1"></i> Filter</button>
+                    <button type="submit" class="btn btn-outline-primary w-100"><x-admin.icon name="search" :size="16" class="me-1" /> Filter</button>
                 </div>
             </form>
         </div>
@@ -53,7 +53,7 @@
                         <td class="ps-3">
                             <div class="d-flex align-items-center gap-2">
                                 <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center" style="width:36px;height:36px;">
-                                    <i class="fas fa-store text-primary small"></i>
+                                    <x-admin.icon name="store" :size="16" class="text-primary small" />
                                 </div>
                                 <div>
                                     <div class="fw-semibold">{{ $shop->name }}</div>
@@ -71,35 +71,33 @@
                         </td>
                         <td>
                             @if($shop->commission_type === 'percentage')
-                                <span class="badge bg-info-subtle text-info">{{ $shop->commission_value }}%</span>
+                                <x-admin.badge color="info">{{ $shop->commission_value }}%</x-admin.badge>
                             @else
-                                <span class="badge bg-secondary-subtle text-secondary">Rp {{ number_format($shop->commission_value, 0, ',', '.') }}</span>
+                                <x-admin.badge color="secondary">Rp {{ number_format($shop->commission_value, 0, ',', '.') }}</x-admin.badge>
                             @endif
                         </td>
                         <td>
                             @php
                                 $badges = ['pending' => 'warning', 'active' => 'success', 'suspended' => 'danger', 'rejected' => 'dark'];
                             @endphp
-                            <span class="badge bg-{{ $badges[$shop->status] ?? 'secondary' }}-subtle text-{{ $badges[$shop->status] ?? 'secondary' }}">
-                                {{ ucfirst($shop->status) }}
-                            </span>
+                            <x-admin.badge :color="$badges[$shop->status] ?? 'secondary'" :text="ucfirst($shop->status)" />
                         </td>
                         <td class="small text-muted">{{ $shop->created_at->format('d/m/Y') }}</td>
                         <td class="text-end pe-3">
                             <div class="dropdown">
                                 <button class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown">
-                                    <i class="fas fa-ellipsis-v"></i>
+                                    <x-admin.icon name="menu" :size="16" />
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="{{ route('admin.vendors.show', $shop) }}"><i class="fas fa-eye me-2"></i> Detail</a></li>
-                                    <li><a class="dropdown-item" href="{{ route('admin.vendors.edit', $shop) }}"><i class="fas fa-edit me-2"></i> Edit</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('admin.vendors.show', $shop) }}"><x-admin.icon name="eye" :size="16" class="me-2" /> Detail</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('admin.vendors.edit', $shop) }}"><x-admin.icon name="edit" :size="16" class="me-2" /> Edit</a></li>
                                     <li><hr class="dropdown-divider"></li>
                                     @if($shop->status !== 'active')
                                     <li>
                                         <form action="{{ route('admin.vendors.update-status', $shop) }}" method="POST">
                                             @csrf @method('PUT')
                                             <input type="hidden" name="status" value="active">
-                                            <button class="dropdown-item text-success"><i class="fas fa-check me-2"></i> Aktifkan</button>
+                                            <button class="dropdown-item text-success"><x-admin.icon name="check" :size="16" class="me-2" /> Aktifkan</button>
                                         </form>
                                     </li>
                                     @endif
@@ -108,7 +106,7 @@
                                         <form action="{{ route('admin.vendors.update-status', $shop) }}" method="POST">
                                             @csrf @method('PUT')
                                             <input type="hidden" name="status" value="suspended">
-                                            <button class="dropdown-item text-warning"><i class="fas fa-pause me-2"></i> Suspended</button>
+                                            <button class="dropdown-item text-warning"><x-admin.icon name="minus" :size="16" class="me-2" /> Suspended</button>
                                         </form>
                                     </li>
                                     @endif
@@ -116,7 +114,7 @@
                                     <li>
                                         <form action="{{ route('admin.vendors.destroy', $shop) }}" method="POST" onsubmit="return confirm('Hapus vendor ini?')">
                                             @csrf @method('DELETE')
-                                            <button class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i> Hapus</button>
+                                            <button class="dropdown-item text-danger"><x-admin.icon name="trash" :size="16" class="me-2" /> Hapus</button>
                                         </form>
                                     </li>
                                 </ul>
@@ -125,7 +123,7 @@
                     </tr>
                     @empty
                     <tr><td colspan="7" class="text-center py-5 text-muted">
-                        <i class="fas fa-store-slash fa-3x mb-3 opacity-25"></i>
+                        <x-admin.icon name="store" :size="48" class="mb-3 opacity-25" />
                         <p>Belum ada vendor terdaftar</p>
                     </td></tr>
                     @endforelse
@@ -134,9 +132,9 @@
         </div>
         @if($shops->hasPages())
         <div class="p-3 border-top">
-            {{ $shops->links() }}
+            <x-admin.pagination :paginator="$shops" />
         </div>
         @endif
     </div>
-</div>
+</x-admin.card>
 @endsection

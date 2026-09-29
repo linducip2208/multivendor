@@ -6,7 +6,6 @@
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <title>Masuk Admin — {{ config('app.name') }}</title>
     @vite(['resources/css/tabler.css', 'resources/js/tabler.js'])
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         :root { --brand-primary: {{ $whitelabel['brandColor'] }}; --brand-dark: {{ $whitelabel['brandColorDark'] }}; }
@@ -49,26 +48,26 @@
     <div class="col-lg-5 d-none d-lg-flex login-left flex-column justify-content-center p-5 text-white">
         <div style="position:relative;z-index:1;">
             <div class="mb-4">
-                <i class="fas fa-store-alt fa-3x mb-3"></i>
+                <x-admin.icon name="store" :size="48" class="mb-3" />
                 <h1 class="display-5 fw-bold">{{ config('app.name') }}</h1>
                 <p class="opacity-75 fs-5">Platform Multivendor E-Commerce</p>
             </div>
             <div class="row g-3 mt-5">
                 <div class="col-4">
                     <div class="p-3 rounded-4" style="background:rgba(255,255,255,.1);backdrop-filter:blur(8px);">
-                        <i class="fas fa-users fa-2x mb-2 opacity-75"></i>
+                        <x-admin.icon name="users" :size="32" class="mb-2 opacity-75" />
                         <div class="fw-semibold small">Multi Vendor</div>
                     </div>
                 </div>
                 <div class="col-4">
                     <div class="p-3 rounded-4" style="background:rgba(255,255,255,.1);backdrop-filter:blur(8px);">
-                        <i class="fas fa-credit-card fa-2x mb-2 opacity-75"></i>
+                        <x-admin.icon name="credit-card" :size="32" class="mb-2 opacity-75" />
                         <div class="fw-semibold small">Payment Gateway</div>
                     </div>
                 </div>
                 <div class="col-4">
                     <div class="p-3 rounded-4" style="background:rgba(255,255,255,.1);backdrop-filter:blur(8px);">
-                        <i class="fas fa-chart-bar fa-2x mb-2 opacity-75"></i>
+                        <x-admin.icon name="bar-chart" :size="32" class="mb-2 opacity-75" />
                         <div class="fw-semibold small">Analytics</div>
                     </div>
                 </div>
@@ -81,7 +80,7 @@
         <div class="card login-form-card w-100" style="max-width:460px;">
             <div class="card-body p-5">
                 <div class="d-lg-none text-center mb-4">
-                    <i class="fas fa-store-alt fa-2x text-primary mb-2"></i>
+                    <x-admin.icon name="store" :size="32" class="text-primary mb-2" />
                     <h4 class="fw-bold">{{ config('app.name') }}</h4>
                 </div>
                 <h2 class="fw-bold mb-1">Masuk Admin</h2>
@@ -89,7 +88,7 @@
 
                 @if($errors->any())
                     <div class="alert alert-danger py-2">
-                        <i class="fas fa-exclamation-circle me-2"></i>
+                        <x-admin.icon name="alert-circle" :size="16" class="me-2" />
                         {{ $errors->first() }}
                     </div>
                 @endif
@@ -111,13 +110,13 @@
                         <label class="form-check-label" for="remember">Ingat saya</label>
                     </div>
                     <button type="submit" class="btn btn-login w-100">
-                        <i class="fas fa-sign-in-alt me-2"></i> Masuk
+                        <x-admin.icon name="arrow-right" :size="16" class="me-2" /> Masuk
                     </button>
                 </form>
 
                 <div class="demo-box p-4 mt-4">
                     <div class="fw-semibold mb-2 text-dark">
-                        <i class="fas fa-flask me-1 text-warning"></i> Demo Login
+                        <x-admin.icon name="sparkles" :size="16" class="me-1 text-warning" /> Demo Login
                     </div>
                     <div class="small text-muted font-monospace">
                         <div><span class="fw-bold">Admin:</span> admin@multivendor.test / password</div>
@@ -126,7 +125,7 @@
 
                 <div class="text-center mt-3">
                     <a href="{{ url('/') }}" class="text-decoration-none small text-muted">
-                        <i class="fas fa-arrow-left me-1"></i> Kembali ke toko
+                        <x-admin.icon name="arrow-left" :size="16" class="me-1" /> Kembali ke toko
                     </a>
                 </div>
             </div>

@@ -2,7 +2,7 @@
 @section('title', 'Onboarding - Step 3')
 @section('content')
 <div style="max-width:500px;margin:0 auto">
-    <div class="text-center mb-4"><div class="mb-2"><span class="badge bg-primary">Step 3/4</span></div><h4 class="fw-bold">Pengaturan Pengiriman</h4><p class="text-muted small">Pilih metode pengiriman yang tersedia</p></div>
+    <div class="text-center mb-4"><div class="mb-2"><x-admin.badge color="primary">Step 3/4</x-admin.badge></div><h4 class="fw-bold">Pengaturan Pengiriman</h4><p class="text-muted small">Pilih metode pengiriman yang tersedia</p></div>
     <form method="POST" action="{{ route('vendor.onboarding.step3.store') }}">
         @csrf
         @foreach($shippingMethods as $method)
@@ -12,8 +12,8 @@
         <div class="text-muted text-center py-4">Belum ada metode pengiriman. Bisa diatur nanti.</div>
         @endif
         <div class="d-flex justify-content-between mt-3">
-            <a href="{{ route('vendor.onboarding.step2') }}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-1"></i>Sebelumnya</a>
-            <button type="submit" class="btn btn-primary">Lanjut <i class="fas fa-arrow-right ms-1"></i></button>
+            <a href="{{ route('vendor.onboarding.step2') }}" class="btn btn-outline-secondary"><x-admin.icon name="arrow-left" :size="16" class="me-1" />Sebelumnya</a>
+            <button type="submit" class="btn btn-primary">Lanjut <x-admin.icon name="arrow-right" :size="16" class="ms-1" /></button>
         </div>
     </form>
 </div>

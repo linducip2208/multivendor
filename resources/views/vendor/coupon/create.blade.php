@@ -1,8 +1,8 @@
 @extends('layouts.vendor')
 @section('title', 'Buat Kupon')
 @section('content')
-<div class="mb-4"><a href="{{ route('vendor.coupon.index') }}" class="small"><i class="fas fa-arrow-left me-1"></i>Kembali</a><h4 class="fw-bold mt-2">Buat Kupon Baru</h4></div>
-<div class="card border-0 rounded-4 shadow-sm"><div class="card-body p-4">
+<div class="mb-4"><a href="{{ route('vendor.coupon.index') }}" class="small"><x-admin.icon name="arrow-left" :size="16" class="me-1" />Kembali</a><h4 class="fw-bold mt-2">Buat Kupon Baru</h4></div>
+<x-admin.card :padding="false"><div class="card-body p-4">
 <form method="POST" action="{{ route('vendor.coupon.store') }}">@csrf
 <div class="row g-3">
     <div class="col-md-4"><label class="fw-medium">Kode Kupon <span class="text-danger">*</span></label><input type="text" name="code" class="form-control" value="{{ old('code') }}" placeholder="HEMAT50" required></div>
@@ -15,6 +15,6 @@
     <div class="col-md-3"><label class="fw-medium">Mulai</label><input type="datetime-local" name="start_date" class="form-control" value="{{ old('start_date') }}"></div>
     <div class="col-md-3"><label class="fw-medium">Berakhir</label><input type="datetime-local" name="end_date" class="form-control" value="{{ old('end_date') }}"></div>
     <div class="col-md-2"><div class="form-check mt-4"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" checked><label for="st" class="fw-medium">Aktif</label></div></div>
-    <div class="col-12"><button class="btn btn-success px-4"><i class="fas fa-save me-2"></i>Buat Kupon</button></div>
-</div></form></div></div>
+    <div class="col-12"><button class="btn btn-success px-4"><x-admin.icon name="check" :size="16" class="me-2" />Buat Kupon</button></div>
+</div></form></div></x-admin.card>
 @endsection

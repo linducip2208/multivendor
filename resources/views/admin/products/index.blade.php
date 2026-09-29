@@ -5,12 +5,12 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
-        <h4 class="fw-bold mb-1"><i class="fas fa-box me-2 text-warning"></i> Moderasi Produk</h4>
+        <h4 class="fw-bold mb-1"><x-admin.icon name="box" :size="16" class="me-2 text-warning" /> Moderasi Produk</h4>
         <p class="text-muted small mb-0">Review, approve, atau tolak produk dari semua vendor</p>
     </div>
 </div>
 
-<div class="card border-0 rounded-4 shadow-sm">
+<x-admin.card :padding="false">
     <div class="card-body p-0">
         <div class="p-3 border-bottom">
             <form method="GET" class="row g-2">
@@ -26,7 +26,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-outline-primary w-100"><i class="fas fa-search me-1"></i> Filter</button>
+                    <button type="submit" class="btn btn-outline-primary w-100"><x-admin.icon name="search" :size="16" class="me-1" /> Filter</button>
                 </div>
             </form>
         </div>
@@ -52,7 +52,7 @@
                                     @if($product->thumbnail)
                                         <img src="{{ url('img/'.$product->thumbnail) }}" class="rounded" style="width:40px;height:40px;object-fit:contain;">
                                     @else
-                                        <i class="fas fa-box text-muted"></i>
+                                        <x-admin.icon name="box" :size="16" class="text-muted" />
                                     @endif
                                 </div>
                                 <div>
@@ -66,22 +66,20 @@
                         <td>{{ $product->current_stock }}</td>
                         <td>
                             @php $badges = ['pending' => 'warning', 'approved' => 'success', 'suspended' => 'danger']; @endphp
-                            <span class="badge bg-{{ $badges[$product->status] ?? 'secondary' }}-subtle text-{{ $badges[$product->status] ?? 'secondary' }}">
-                                {{ ucfirst($product->status) }}
-                            </span>
+                            <x-admin.badge :color="$badges[$product->status] ?? 'secondary'" :text="ucfirst($product->status)" />
                         </td>
                         <td class="small text-muted">{{ $product->created_at->format('d/m/Y') }}</td>
                         <td class="text-end pe-3">
                             <div class="dropdown">
-                                <button class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown"><i class="fas fa-ellipsis-v"></i></button>
+                                <button class="btn btn-sm btn-light dropdown-toggle" data-bs-toggle="dropdown"><x-admin.icon name="menu" :size="16" /></button>
                                 <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="{{ route('admin.products.show', $product) }}"><i class="fas fa-eye me-2"></i> Detail</a></li>
+                                    <li><a class="dropdown-item" href="{{ route('admin.products.show', $product) }}"><x-admin.icon name="eye" :size="16" class="me-2" /> Detail</a></li>
                                     @if($product->status !== 'approved')
                                     <li>
                                         <form action="{{ route('admin.products.update-status', $product) }}" method="POST">
                                             @csrf @method('PUT')
                                             <input type="hidden" name="status" value="approved">
-                                            <button class="dropdown-item text-success"><i class="fas fa-check me-2"></i> Approve</button>
+                                            <button class="dropdown-item text-success"><x-admin.icon name="check" :size="16" class="me-2" /> Approve</button>
                                         </form>
                                     </li>
                                     @endif
@@ -90,7 +88,7 @@
                                         <form action="{{ route('admin.products.update-status', $product) }}" method="POST">
                                             @csrf @method('PUT')
                                             <input type="hidden" name="status" value="suspended">
-                                            <button class="dropdown-item text-warning"><i class="fas fa-pause me-2"></i> Suspend</button>
+                                            <button class="dropdown-item text-warning"><x-admin.icon name="minus" :size="16" class="me-2" /> Suspend</button>
                                         </form>
                                     </li>
                                     @endif
@@ -98,7 +96,7 @@
                                     <li>
                                         <form action="{{ route('admin.products.destroy', $product) }}" method="POST" onsubmit="return confirm('Hapus produk ini?')">
                                             @csrf @method('DELETE')
-                                            <button class="dropdown-item text-danger"><i class="fas fa-trash me-2"></i> Hapus</button>
+                                            <button class="dropdown-item text-danger"><x-admin.icon name="trash" :size="16" class="me-2" /> Hapus</button>
                                         </form>
                                     </li>
                                 </ul>
@@ -112,8 +110,8 @@
             </table>
         </div>
         @if($products->hasPages())
-        <div class="p-3 border-top">{{ $products->links() }}</div>
+        <div class="p-3 border-top"><x-admin.pagination :paginator="$products" /></div>
         @endif
     </div>
-</div>
+</x-admin.card>
 @endsection

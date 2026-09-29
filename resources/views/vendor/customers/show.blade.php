@@ -98,7 +98,7 @@
                             ])
                             ->rows(
                                 $reviews->map(fn ($review) => [
-                                    'rating' => '<span class="text-warning">'.str_repeat('<i class="fa-solid fa-star"></i>', (int) $review->rating).'</span>',
+                                    'rating' => '<span class="text-warning">'.str_repeat('<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2.8 2.9 5.9 6.5.95-4.7 4.6 1.1 6.5-5.8-3.05L6.2 20.8l1.1-6.5-4.7-4.6 6.5-.95z" fill="currentColor" stroke="none"/></svg>', (int) $review->rating).'</span>',
                                     'product' => '<span class="text-truncate d-block">'.e($review->product?->name ?? '—').'</span>',
                                     'comment' => e(\Illuminate\Support\Str::limit((string) $review->comment, 140)),
                                     'date' => '<span class="text-secondary small">'.e($review->created_at->format('d/m/Y')).'</span>',

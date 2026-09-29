@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 @section('title', 'Subscription Plans')
 @section('content')
-<div class="mb-4 d-flex justify-content-between"><h4 class="fw-bold"><i class="fas fa-crown me-2"></i>Paket Langganan Vendor</h4><a href="{{ route('admin.subscriptions.index') }}" class="btn btn-outline-secondary btn-sm">Daftar Langganan</a></div>
-<div class="card border-0 rounded-4 shadow-sm mb-4" style="max-width:600px">
+<div class="mb-4 d-flex justify-content-between"><h4 class="fw-bold"><x-admin.icon name="award" :size="16" class="me-2" />Paket Langganan Vendor</h4><a href="{{ route('admin.subscriptions.index') }}" class="btn btn-outline-secondary btn-sm">Daftar Langganan</a></div>
+<x-admin.card :padding="false" class="mb-4" style="max-width:600px">
     <div class="card-body">
         <h6 class="fw-bold">Tambah Paket</h6>
         <form method="POST" action="{{ route('admin.subscriptions.plans.store') }}">
@@ -20,13 +20,13 @@
             <div class="mt-2"><button type="submit" class="btn btn-primary btn-sm">Tambah</button></div>
         </form>
     </div>
-</div>
+</x-admin.card>
 <div class="row g-3">
     @foreach($plans as $plan)
     <div class="col-md-4">
-        <div class="card border-0 rounded-4 shadow-sm h-100">
+        <x-admin.card :padding="false" class="h-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between"><h5 class="fw-bold">{{ $plan->name }}</h5><span class="badge bg-{{ $plan->is_active ? 'success' : 'secondary' }}-subtle">{{ $plan->is_active ? 'Aktif' : 'Nonaktif' }}</span></div>
+                <div class="d-flex justify-content-between"><h5 class="fw-bold">{{ $plan->name }}</h5><x-admin.badge :color="$plan->is_active ? 'success' : 'secondary'" :text="$plan->is_active ? 'Aktif' : 'Nonaktif'" /></div>
                 <div class="fs-3 fw-bold text-primary mb-2">Rp {{ number_format($plan->price,0,',','.') }}<small class="fs-6 fw-normal text-muted">/{{ $plan->billing_period }}</small></div>
                 <p class="small text-muted">{{ $plan->description }}</p>
                 <ul class="small mb-3">
@@ -42,7 +42,7 @@
                     <button class="btn btn-sm btn-outline-danger w-100">Hapus</button>
                 </form>
             </div>
-        </div>
+        </x-admin.card>
     </div>
     @endforeach
 </div>

@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 @section('title', 'Order & Invoice Settings')
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><i class="fas fa-receipt me-2"></i>Pengaturan Order & Invoice</h4></div>
-<div class="card border-0 rounded-4 shadow-sm" style="max-width:700px">
+<div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="receipt" :size="16" class="me-2" />Pengaturan Order & Invoice</h4></div>
+<x-admin.card :padding="false" style="max-width:700px">
     <div class="card-body">
         <form method="POST" action="{{ route('admin.order-settings.update') }}">
             @csrf @method('PUT')
@@ -22,8 +22,8 @@
             <div class="mb-3"><div class="form-check"><input type="checkbox" name="delivery_verification" class="form-check-input" value="1" {{ \App\Models\SystemSetting::get('delivery_verification') ? 'checked' : '' }}><label class="form-check-label">Aktifkan verifikasi kode pengiriman</label></div></div>
             <div class="mb-3"><label class="form-label fw-medium">Panjang Kode OTP</label><input type="number" name="delivery_otp_length" class="form-control" value="{{ \App\Models\SystemSetting::get('delivery_otp_length','6') }}"></div>
 
-            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Simpan Pengaturan</button>
+            <button type="submit" class="btn btn-primary"><x-admin.icon name="check" :size="16" class="me-2" />Simpan Pengaturan</button>
         </form>
     </div>
-</div>
+</x-admin.card>
 @endsection

@@ -46,7 +46,7 @@
                                     'actions' => $member->is_active
                                         ? '<form method="POST" action="'.route('vendor.staff.destroy', $member->id).'" data-confirm="Cabut akses '.e($member->name).'?">'
                                             .csrf().'@method("DELETE")'
-                                            .'<button type="submit" class="btn btn-sm btn-ghost-danger" aria-label="Cabut akses"><i class="fa-solid fa-user-slash"></i></button></form>'
+                                            .'<button type="submit" class="btn btn-sm btn-ghost-danger" aria-label="Cabut akses"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 21v-1.2a6 6 0 0 1 6-6h3a6 6 0 0 1 6 6V21"/></svg></button></form>'
                                         : '<span class="text-secondary small">Nonaktif</span>',
                                 ])->all()
                             )

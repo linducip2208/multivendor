@@ -4,11 +4,11 @@
 
 @section('content')
 <div class="mb-4">
-    <a href="{{ route('admin.categories.index') }}" class="text-decoration-none small"><i class="fas fa-arrow-left me-1"></i> Kembali</a>
+    <a href="{{ route('admin.categories.index') }}" class="text-decoration-none small"><x-admin.icon name="arrow-left" :size="16" class="me-1" /> Kembali</a>
     <h4 class="fw-bold mt-2 mb-1">Tambah Kategori</h4>
 </div>
 
-<div class="card border-0 rounded-4 shadow-sm">
+<x-admin.card :padding="false">
     <div class="card-body p-4">
         <form method="POST" action="{{ route('admin.categories.store') }}">
             @csrf
@@ -27,7 +27,7 @@
                     <input type="text" name="name" class="form-control" value="{{ old('name') }}" required>
                 </div>
                 <div class="col-md-4">
-                    <label class="form-label fw-medium">Icon (Font Awesome)</label>
+                    <label class="form-label fw-medium">Icon</label>
                     <input type="text" name="icon" class="form-control" value="{{ old('icon') }}" placeholder="fa-laptop">
                 </div>
                 <div class="col-md-4">
@@ -42,10 +42,10 @@
                     <textarea name="description" class="form-control" rows="3">{{ old('description') }}</textarea>
                 </div>
                 <div class="col-12">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i> Simpan</button>
+                    <button type="submit" class="btn btn-primary"><x-admin.icon name="check" :size="16" class="me-2" /> Simpan</button>
                 </div>
             </div>
         </form>
     </div>
-</div>
+</x-admin.card>
 @endsection

@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 @section('title', 'Discount Settings')
 @section('content')
-<div class="mb-4"><h4 class="fw-bold"><i class="fas fa-tags me-2"></i>Pengaturan Diskon</h4></div>
-<div class="card border-0 rounded-4 shadow-sm" style="max-width:600px">
+<div class="mb-4"><h4 class="fw-bold"><x-admin.icon name="tag" :size="16" class="me-2" />Pengaturan Diskon</h4></div>
+<x-admin.card :padding="false" style="max-width:600px">
     <div class="card-body">
         <form method="POST" action="{{ route('admin.discount-settings.update') }}">
             @csrf @method('PUT')
@@ -30,8 +30,8 @@
             <div class="mb-3"><label class="form-label fw-medium">Diskon Maksimal (%)</label><input type="number" name="discount_max_percentage" class="form-control" value="{{ \App\Models\SystemSetting::get('discount_max_percentage','70') }}" max="100"></div>
             <div class="mb-3"><div class="form-check"><input type="checkbox" name="discount_require_approval" class="form-check-input" value="1" {{ \App\Models\SystemSetting::get('discount_require_approval') ? 'checked' : '' }}><label class="form-check-label">Diskon besar perlu approval admin</label></div></div>
 
-            <button type="submit" class="btn btn-primary"><i class="fas fa-save me-2"></i>Simpan</button>
+            <button type="submit" class="btn btn-primary"><x-admin.icon name="check" :size="16" class="me-2" />Simpan</button>
         </form>
     </div>
-</div>
+</x-admin.card>
 @endsection

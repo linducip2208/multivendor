@@ -4,7 +4,7 @@
 <style>.step-wizard{display:flex;gap:0;margin-bottom:24px}.step-wizard .step{flex:1;text-align:center;padding:12px 8px;background:#f1f5f9;border-right:2px solid #fff;font-size:.8rem;font-weight:600;color:#94a3b8;cursor:pointer;transition:all .2s}.step-wizard .step.active{background:#4F46E5;color:#fff}.step-wizard .step.done{background:#dbeafe;color:#1e40af}.tab-pane{display:none}.tab-pane.active{display:block}.variant-row{border:1px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:8px}</style>
 @endpush
 @section('content')
-<div class="mb-4"><a href="{{ route('vendor.products.index') }}" class="small"><i class="fas fa-arrow-left me-1"></i>Kembali</a><h4 class="fw-bold mt-2">Tambah Produk Baru</h4></div>
+<div class="mb-4"><a href="{{ route('vendor.products.index') }}" class="small"><x-admin.icon name="arrow-left" :size="16" class="me-1" />Kembali</a><h4 class="fw-bold mt-2">Tambah Produk Baru</h4></div>
 
 <form method="POST" action="{{ route('vendor.products.store') }}" enctype="multipart/form-data" id="productForm">@csrf
 
@@ -16,7 +16,7 @@
     <div class="step" onclick="showTab(4)">5. SEO & Tag</div>
 </div>
 
-<div class="card border-0 rounded-4 shadow-sm"><div class="card-body p-4">
+<x-admin.card :padding="false"><div class="card-body p-4">
 
 {{-- Tab 1: Basic Info --}}
 <div class="tab-pane active" id="tab0">
@@ -63,10 +63,10 @@
             <div class="col-md-2"><label class="small">SKU</label><input type="text" name="variants[0][sku]" class="form-control form-control-sm"></div>
             <div class="col-md-2"><label class="small">Harga</label><input type="number" name="variants[0][price]" class="form-control form-control-sm" step="1"></div>
             <div class="col-md-2"><label class="small">Stok</label><input type="number" name="variants[0][stock]" class="form-control form-control-sm" value="0"></div>
-            <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.variant-row').remove()"><i class="fas fa-times"></i></button></div>
+            <div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.variant-row').remove()"><x-admin.icon name="x" :size="16" /></button></div>
         </div>
     </div>
-    <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addVariant()"><i class="fas fa-plus me-1"></i>Tambah Varian</button>
+    <button type="button" class="btn btn-sm btn-outline-primary mt-2" onclick="addVariant()"><x-admin.icon name="plus" :size="16" class="me-1" />Tambah Varian</button>
 </div>
 
 {{-- Tab 5: SEO & Tags --}}
@@ -81,12 +81,12 @@
 </div>
 
 <div class="d-flex justify-content-between mt-4">
-    <button type="button" class="btn btn-outline-secondary" id="prevBtn" onclick="prevTab()" style="display:none"><i class="fas fa-arrow-left me-1"></i>Sebelumnya</button>
-    <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextTab()">Selanjutnya <i class="fas fa-arrow-right ms-1"></i></button>
-    <button type="submit" class="btn btn-success" id="submitBtn" style="display:none"><i class="fas fa-save me-2"></i>Simpan Produk</button>
+    <button type="button" class="btn btn-outline-secondary" id="prevBtn" onclick="prevTab()" style="display:none"><x-admin.icon name="arrow-left" :size="16" class="me-1" />Sebelumnya</button>
+    <button type="button" class="btn btn-primary" id="nextBtn" onclick="nextTab()">Selanjutnya <x-admin.icon name="arrow-right" :size="16" class="ms-1" /></button>
+    <button type="submit" class="btn btn-success" id="submitBtn" style="display:none"><x-admin.icon name="check" :size="16" class="me-2" />Simpan Produk</button>
 </div>
 
-</div></div></form>
+</div></x-admin.card></form>
 @endsection
 
 @push('scripts')
@@ -104,7 +104,7 @@ function nextTab(){if(currentTab<totalTabs-1)showTab(currentTab+1)}
 function prevTab(){if(currentTab>0)showTab(currentTab-1)}
 let vCount=1;
 function addVariant(){
-    const html=`<div class="variant-row row g-2"><div class="col-md-3"><input type="text" name="variants[${vCount}][name]" class="form-control form-control-sm" placeholder="Warna: Biru"></div><div class="col-md-2"><input type="text" name="variants[${vCount}][sku]" class="form-control form-control-sm"></div><div class="col-md-2"><input type="number" name="variants[${vCount}][price]" class="form-control form-control-sm"></div><div class="col-md-2"><input type="number" name="variants[${vCount}][stock]" class="form-control form-control-sm" value="0"></div><div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.variant-row').remove()"><i class="fas fa-times"></i></button></div></div>`;
+    const html=`<div class="variant-row row g-2"><div class="col-md-3"><input type="text" name="variants[${vCount}][name]" class="form-control form-control-sm" placeholder="Warna: Biru"></div><div class="col-md-2"><input type="text" name="variants[${vCount}][sku]" class="form-control form-control-sm"></div><div class="col-md-2"><input type="number" name="variants[${vCount}][price]" class="form-control form-control-sm"></div><div class="col-md-2"><input type="number" name="variants[${vCount}][stock]" class="form-control form-control-sm" value="0"></div><div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.variant-row').remove()">×</button></div></div>`;
     document.getElementById('variantContainer').insertAdjacentHTML('beforeend',html);vCount++;
 }
 var quillShort=new Quill('#quillShort',{theme:'snow',modules:{toolbar:[['bold','italic','underline'],['link'],['clean']]}});

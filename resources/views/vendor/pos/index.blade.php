@@ -36,7 +36,7 @@
                 </x-slot:actions>
 
                 <x-slot:footer>
-                    {{ $products->links() }}
+                    <x-admin.pagination :paginator="$products" />
                 </x-slot:footer>
 
                 @if ($products->isEmpty())
@@ -209,7 +209,7 @@
                     remove.type = 'button';
                     remove.className = 'btn btn-sm btn-ghost-light';
                     remove.setAttribute('aria-label', 'Hapus ' + line.name);
-                    remove.textContent = '×';
+                    remove.textContent = 'ï¿½';
                     remove.addEventListener('click', function () {
                         cart.splice(index, 1);
                         render();

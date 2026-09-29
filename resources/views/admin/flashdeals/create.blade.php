@@ -1,8 +1,8 @@
 @extends('layouts.admin')
 @section('title', 'Tambah Flash Deal')
 @section('content')
-<div class="mb-4"><a href="{{ route('admin.flashdeals.index') }}" class="small"><i class="fas fa-arrow-left me-1"></i>Kembali</a><h4 class="fw-bold mt-2">Tambah Flash Deal</h4></div>
-<div class="card border-0 rounded-4 shadow-sm"><div class="card-body p-4">
+<div class="mb-4"><a href="{{ route('admin.flashdeals.index') }}" class="small"><x-admin.icon name="arrow-left" :size="16" class="me-1" />Kembali</a><h4 class="fw-bold mt-2">Tambah Flash Deal</h4></div>
+<x-admin.card :padding="false"><div class="card-body p-4">
 <form method="POST" action="{{ route('admin.flashdeals.store') }}">@csrf
 <div class="row g-3">
     <div class="col-md-6"><label class="fw-medium">Judul <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" value="{{ old('title') }}" required></div>
@@ -21,7 +21,7 @@
             @endforeach
         </div>
     </div>
-    <div class="col-12"><button class="btn btn-primary"><i class="fas fa-save me-2"></i>Simpan</button></div>
+    <div class="col-12"><button class="btn btn-primary"><x-admin.icon name="check" :size="16" class="me-2" />Simpan</button></div>
 </div>
-</form></div></div>
+</form></div></x-admin.card>
 @endsection

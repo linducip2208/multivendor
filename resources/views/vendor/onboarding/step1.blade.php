@@ -3,7 +3,7 @@
 @section('content')
 <div style="max-width:500px;margin:0 auto">
     <div class="text-center mb-4">
-        <div class="mb-2"><span class="badge bg-primary">Step 1/4</span></div>
+        <div class="mb-2"><x-admin.badge color="primary">Step 1/4</x-admin.badge></div>
         <h4 class="fw-bold">Info Toko</h4>
         <p class="text-muted small">Isi informasi dasar toko Anda</p>
     </div>
@@ -15,7 +15,7 @@
         <div class="mb-3"><label class="form-label fw-medium">No HP</label><input type="text" name="phone" class="form-control" value="{{ old('phone', $shop->phone) }}"></div>
         <div class="d-flex justify-content-between">
             <a href="{{ route('vendor.onboarding.skip') }}" class="btn btn-outline-secondary">Skip</a>
-            <button type="submit" class="btn btn-primary">Lanjut <i class="fas fa-arrow-right ms-1"></i></button>
+            <button type="submit" class="btn btn-primary">Lanjut <x-admin.icon name="arrow-right" :size="16" class="ms-1" /></button>
         </div>
     </form>
 </div>

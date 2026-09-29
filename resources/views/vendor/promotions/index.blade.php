@@ -61,7 +61,7 @@
                                         'actions' => '<form method="POST" action="'.route('vendor.promotions.destroy').'" data-confirm="Hapus kupon '.e($coupon->code).'?">'
                                             .csrf()
                                             .'<input type="hidden" name="kind" value="coupon"><input type="hidden" name="id" value="'.(int) $coupon->id.'">'
-                                            .'<button type="submit" class="btn btn-sm btn-ghost-danger" aria-label="Hapus"><i class="fa-solid fa-trash"></i></button></form>',
+                                            .'<button type="submit" class="btn btn-sm btn-ghost-danger" aria-label="Hapus"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M9.5 6.5V4.8A1.3 1.3 0 0 1 10.8 3.5h2.4a1.3 1.3 0 0 1 1.3 1.3v1.7"/><path d="m6.5 6.5 1 13.2a1.3 1.3 0 0 0 1.3 1.2h6.4a1.3 1.3 0 0 0 1.3-1.2l1-13.2"/></svg></button></form>',
                                     ])->all()
                                 )
                                 ->empty('Belum ada kupon. Buat kupon pertama Anda di panel sebelah kanan.')
@@ -91,7 +91,7 @@
                                         'actions' => '<form method="POST" action="'.route('vendor.promotions.destroy').'" data-confirm="Hapus kampanye '.e($campaign->name).'?">'
                                             .csrf().'@method("DELETE")'
                                             .'<input type="hidden" name="kind" value="campaign"><input type="hidden" name="id" value="'.(int) $campaign->id.'">'
-                                            .'<button type="submit" class="btn btn-sm btn-ghost-danger" aria-label="Hapus"><i class="fa-solid fa-trash"></i></button></form>',
+                                            .'<button type="submit" class="btn btn-sm btn-ghost-danger" aria-label="Hapus"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6.5h16M9.5 6.5V4.8A1.3 1.3 0 0 1 10.8 3.5h2.4a1.3 1.3 0 0 1 1.3 1.3v1.7"/><path d="m6.5 6.5 1 13.2a1.3 1.3 0 0 0 1.3 1.2h6.4a1.3 1.3 0 0 0 1.3-1.2l1-13.2"/></svg></button></form>',
                                     ])->all()
                                 )
                                 ->empty('Belum ada kampanye promotion.')
