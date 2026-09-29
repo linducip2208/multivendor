@@ -124,6 +124,19 @@
                         @endif
                     </div>
                     <p class="sf-tiny sf-muted sf-mb-0" style="margin-top:6px">Harga sudah termasuk pajak produk yang ditampilkan.</p>
+                    @php
+                        try {
+                            $tierHtml = app(\App\Services\B2b\B2bPricingService::class)->renderTierTableHtml($product);
+                        } catch (\Throwable) {
+                            $tierHtml = '';
+                        }
+                    @endphp
+                    @if ($tierHtml !== '')
+                        <div style="margin-top:12px">
+                            <p class="sf-small sf-bold sf-mb-0" style="margin-bottom:6px">Harga Grosir</p>
+                            {!! $tierHtml !!}
+                        </div>
+                    @endif
                 </div>
 
                 @if (($trenHarga['titik'] ?? []) !== [])

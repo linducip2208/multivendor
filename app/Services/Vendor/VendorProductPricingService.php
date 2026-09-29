@@ -182,4 +182,50 @@ final class VendorProductPricingService
             'source' => $source,
         ];
     }
+
+    // ===== Kapabilitas B2B/grosir (aditif — bulkReprice tidak berubah) =====
+
+    /**
+     * Baris tier grosir sebuah produk milik toko ini (kosong bila belum ada).
+     *
+     * @return list<array{min_qty: int, price: float, hemat_pct: ?float, note: ?string}>
+     */
+    public function wholesaleTiers(Product $product): array
+    {
+        try {
+            return app(\App\Services\B2b\B2bPricingService::class)->tierTableRows($product);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Pratinjau harga satuan grosir untuk beberapa qty (hemat vs harga ecer).
+     *
+     * @param  list<int>  $quantities
+     * @return list<array{qty: int, unit_price: float, subtotal: float, savings: float}>
+     */
+    public function previewWholesale(Product $product, array $quantities): array
+    {
+        try {
+            $layanan = app(\App\Services\B2b\B2bPricingService::class);
+            $ecer = $product->getEffectivePrice();
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $hasil = [];
+        foreach ($quantities as $qty) {
+            $qty = max(1, (int) $qty);
+            $unit = $layanan->unitPriceFor($product, $qty);
+            $hasil[] = [
+                'qty' => $qty,
+                'unit_price' => $unit,
+                'subtotal' => round($unit * $qty, 2),
+                'savings' => round(max(0.0, $ecer - $unit) * $qty, 2),
+            ];
+        }
+
+        return $hasil;
+    }
 }

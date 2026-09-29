@@ -44,6 +44,15 @@ class CheckoutCalculator
             }
 
             $price = Money::of($variant?->getEffectivePrice() ?? $product->getEffectivePrice());
+            if ($variant === null) {
+                try {
+                    $tierPrice = app(\App\Services\B2b\B2bPricingService::class)->unitPriceFor($product, (int) $cartItem->quantity);
+                    if ($tierPrice > 0 && $tierPrice < (float) $price->toFloat()) {
+                        $price = Money::of($tierPrice);
+                    }
+                } catch (\Throwable) {
+                }
+            }
             $taxRate = $this->taxRateFor($product);
 
             $lines->push((object) [
@@ -83,12 +92,19 @@ class CheckoutCalculator
 
         $this->allocateCoupon($coupon, $shops);
 
+        // Gift fee resmi per toko (aditif): bungkus kado + kartu ucapan.
+        $this->allocateGiftFee($shops, $shippingSelections, $options);
+
+        // Pre-order: DP ditagih saat checkout, sisa dilunasi sebelum kirim.
+        $preorder = $this->summarizePreorder($shops);
+
         $grandTotal = Money::zero();
 
         foreach ($shops as $shop) {
             $shop->total = Money::of($shop->subtotal)
                 ->add($shop->tax)
                 ->add($shop->shipping)
+                ->add($shop->giftFee ?? 0.0)
                 ->subtract($shop->couponDiscount)
                 ->maxZero()
                 ->toFloat();
@@ -103,8 +119,11 @@ class CheckoutCalculator
             'shipping' => (float) $shops->sum('shipping'),
             'insurance' => (float) $shops->sum('insurance'),
             'discount' => (float) $shops->sum('couponDiscount'),
+            'gift_fee' => (float) $shops->sum('giftFee'),
             'grand_total' => $grandTotal->toFloat(),
             'coupon' => $coupon,
+            'preorder' => $preorder,
+            'amount_due_now' => max(0.0, $grandTotal->toFloat() - $preorder['remaining']),
         ];
     }
 
@@ -183,6 +202,84 @@ class CheckoutCalculator
         }
 
         return Money::of($cost);
+    }
+
+    /** Premi asuransi opsional per toko (kolom existing: digabung ke shipping_cost). */
+    /**
+     * Biaya gift resmi per toko yang dibungkus kado; masuk grand total
+     * sebagai fee (bukan note hack). Seleksi per toko via
+     * shippingSelections[shopId]['gift_wrap'] atau global options['gift']['wrap'].
+     */
+    private function allocateGiftFee(\Illuminate\Support\Collection $shops, array $shippingSelections, array $options): void
+    {
+        $global = $options['gift'] ?? null;
+        $globalWrap = is_array($global) && ! empty($global['wrap']);
+
+        $fee = is_array($global) && isset($global['fee']) && is_numeric($global['fee'])
+            ? (float) $global['fee']
+            : (float) (SystemSetting::get('gift_wrap_fee', '5000') ?: 5000);
+
+        foreach ($shops as $shop) {
+            $selection = $shippingSelections[$shop->shop->id] ?? [];
+            $wrap = $globalWrap || ! empty($selection['gift_wrap']);
+            $shop->giftFee = $wrap ? max(0.0, $fee) : 0.0;
+            $shop->giftWrap = $wrap;
+        }
+    }
+
+    /**
+     * Ringkasan pre-order: DP (uang muka) ditagih saat checkout, sisanya
+     * dilunasi sebelum kirim. DP dihitung per produk pre-order dari
+     * preorder_dp_percent; ETA dari preorder_lead_days terjauh.
+     *
+     * @return array{has_preorder:bool,dp_due:float,remaining:float,eta:?string}
+     */
+    private function summarizePreorder(\Illuminate\Support\Collection $shops): array
+    {
+        $dp = Money::zero();
+        $remaining = Money::zero();
+        $eta = null;
+        $hasPreorder = false;
+
+        foreach ($shops as $shop) {
+            $shopDp = Money::zero();
+            $shopRemaining = Money::zero();
+
+            foreach ($shop->shopLines as $line) {
+                $product = $line->product;
+
+                if (! $product || ! (bool) ($product->getAttribute('is_preorder') ?? false)) {
+                    continue;
+                }
+
+                $hasPreorder = true;
+                $gross = $line->line_total->add($line->line_total->multiply($line->tax_rate / 100));
+                $down = Money::of(method_exists($product, 'downPaymentFor')
+                    ? $product->downPaymentFor($gross->toFloat())
+                    : 0.0)->min($gross)->maxZero();
+
+                $shopDp = $shopDp->add($down);
+                $shopRemaining = $shopRemaining->add($gross->subtract($down));
+
+                if (method_exists($product, 'preorderEtaDate') && ($date = $product->preorderEtaDate()) !== null) {
+                    $formatted = $date->toDateString();
+                    $eta = $eta === null || $formatted > $eta ? $formatted : $eta;
+                }
+            }
+
+            $shop->preorderDp = $shopDp->toFloat();
+            $shop->preorderRemaining = $shopRemaining->toFloat();
+            $shop->isPreorder = $shopRemaining->isPositive() || $shopDp->isPositive();
+            $dp = $dp->add($shopDp);
+            $remaining = $remaining->add($shopRemaining);
+        }
+
+        return [
+            'has_preorder' => $hasPreorder,
+            'dp_due' => $dp->toFloat(),
+            'remaining' => $remaining->toFloat(),
+            'eta' => $eta,
+        ];
     }
 
     /** Premi asuransi opsional per toko (kolom existing: digabung ke shipping_cost). */

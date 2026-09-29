@@ -23,7 +23,8 @@ use Throwable;
     'meta_image', 'video_url', 'digital_file', 'request_status', 'approved_by',
     'approved_at', 'status',
     'rating_average', 'rating_count', 'sold_count', 'view_count', 'search_keywords',
-    'warranty', 'warranty_unit', 'condition', 'low_stock_threshold', 'seo_score'
+    'warranty', 'warranty_unit', 'condition', 'low_stock_threshold', 'seo_score',
+    'is_preorder', 'preorder_lead_days', 'preorder_dp_percent',
 ])]
 class Product extends Model
 {
@@ -45,6 +46,9 @@ class Product extends Model
             'view_count' => 'integer',
             'low_stock_threshold' => 'integer',
             'seo_score' => 'integer',
+            'is_preorder' => 'boolean',
+            'preorder_lead_days' => 'integer',
+            'preorder_dp_percent' => 'decimal:2',
             'discount_start' => 'datetime',
             'discount_end' => 'datetime',
             'approved_at' => 'datetime',
@@ -139,6 +143,38 @@ class Product extends Model
         $stock = (int) $this->current_stock;
 
         return $stock > 0 && $stock <= (int) $this->low_stock_threshold;
+    }
+
+    // ── Pre-order (aditif) ──
+
+    /** Flag pre-order: produk dijual dengan ETA + uang muka (DP). */
+    public function isPreorder(): bool
+    {
+        return (bool) ($this->getAttribute('is_preorder') ?? false);
+    }
+
+    /** Estimasi tanggal ready (ETA) dari lead time hari. */
+    public function preorderEtaDate(): ?\Carbon\CarbonInterface
+    {
+        if (! $this->isPreorder()) {
+            return null;
+        }
+
+        $days = (int) ($this->getAttribute('preorder_lead_days') ?? 0);
+
+        return now()->addDays(max(0, $days))->startOfDay();
+    }
+
+    /** Uang muka (DP) untuk nominal tertentu, dibatasi 0–100%. */
+    public function downPaymentFor(float $amount): float
+    {
+        if (! $this->isPreorder() || $amount <= 0) {
+            return 0.0;
+        }
+
+        $percent = min(100.0, max(0.0, (float) ($this->getAttribute('preorder_dp_percent') ?? 0)));
+
+        return round($amount * $percent / 100, 2);
     }
 
     /**
@@ -331,5 +367,42 @@ class Product extends Model
         }
 
         return $exists;
+    }
+
+    // ===== Kapabilitas B2B/grosir (aditif — tidak mengubah logika existing) =====
+
+    /**
+     * Tier harga grosir (min. qty → harga) dari tabel `b2b_price_tiers`.
+     * Koleksi kosong bila tabel belum termigrasi — aman untuk semua pemanggil.
+     *
+     * @return HasMany<\App\Services\B2b\B2bPriceTier, $this>
+     */
+    public function b2bPriceTiers(): HasMany
+    {
+        return $this->hasMany(\App\Services\B2b\B2bPriceTier::class)->orderBy('min_qty');
+    }
+
+    /** Harga satuan B2B untuk qty tertentu (fallback ke harga ecer efektif). */
+    public function b2bUnitPrice(int $qty): float
+    {
+        try {
+            return app(\App\Services\B2b\B2bPricingService::class)->unitPriceFor($this, $qty);
+        } catch (Throwable) {
+            return $this->getEffectivePrice();
+        }
+    }
+
+    /** True bila produk punya minimal satu tier grosir. */
+    public function hasB2bTiers(): bool
+    {
+        try {
+            if (! Schema::hasTable('b2b_price_tiers') || $this->getKey() === null) {
+                return false;
+            }
+
+            return $this->b2bPriceTiers()->exists();
+        } catch (Throwable) {
+            return false;
+        }
     }
 }

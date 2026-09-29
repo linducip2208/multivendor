@@ -73,6 +73,28 @@
                 <div class="col-md-2"><label class="form-label fw-medium">Satuan</label><input type="text" name="unit" class="form-control" value="{{ old('unit', $product->unit) }}"></div>
                 <div class="col-12"><label class="form-label fw-medium">Deskripsi Singkat</label><div id="quillShort" style="height:120px;"></div><input type="hidden" name="short_description" id="shortInput" value="{{ old('short_description', $product->short_description) }}"></div>
                 <div class="col-12"><label class="form-label fw-medium">Deskripsi Lengkap</label><div id="quillEditor" style="height:250px;"></div><input type="hidden" name="description" id="descriptionInput" value="{{ old('description', $product->description) }}"></div>
+                @php
+                    $b2bRowsEdit = [];
+                    try { $b2bRowsEdit = app(\App\Services\B2b\B2bPricingService::class)->tierTableRows($product); } catch (\Throwable) {}
+                @endphp
+                <div class="col-12">
+                    <div class="border rounded-3 p-3 bg-light">
+                        <div class="fw-medium mb-1">Harga Grosir (Tier)</div>
+                        @if($b2bRowsEdit === [])
+                            <small class="text-muted">Belum ada tier. Harga ecer di atas berlaku untuk semua jumlah. Tier dikelola via layanan B2B dan tampil otomatis sebagai tabel tier di halaman produk pembeli.</small>
+                        @else
+                            <div class="table-responsive"><table class="table table-sm table-bordered mb-1 bg-white">
+                                <thead><tr><th>Min. Qty</th><th class="text-end">Harga</th><th class="text-end">Hemat</th></tr></thead>
+                                <tbody>
+                                @foreach($b2bRowsEdit as $tier)
+                                    <tr><td>{{ number_format($tier['min_qty'],0,',','.') }}+</td><td class="text-end">Rp {{ number_format($tier['price'],0,',','.') }}</td><td class="text-end">@if($tier['hemat_pct'] !== null)<span class="badge bg-success-lt text-success rounded-pill">{{ number_format($tier['hemat_pct'],1,',','.') }}%</span>@else — @endif</td></tr>
+                                @endforeach
+                                </tbody>
+                            </table></div>
+                            <small class="text-muted">Ubah harga ecer/ tier via layanan B2B — harga checkout ecer tidak terpengaruh.</small>
+                        @endif
+                    </div>
+                </div>
                 <div class="col-12"><button type="submit" class="btn btn-success px-4"><x-admin.icon name="check" :size="16" class="me-2" />Perbarui</button></div>
             </div>
         </form>

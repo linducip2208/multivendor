@@ -20,6 +20,25 @@
             @foreach(($product->variants ?? []) as $v)<div class="border rounded-3 p-2 mb-2 small"><span class="fw-medium">{{ $v->variant }}</span> · Rp {{ number_format($v->price,0,',','.') }} · Stok: {{ $v->stock }}</div>@endforeach
         </div></x-admin.card>
         @endif
+        @php
+            $b2bRows = [];
+            try { $b2bRows = app(\App\Services\B2b\B2bPricingService::class)->tierTableRows($product); } catch (\Throwable) {}
+        @endphp
+        <x-admin.card :padding="false" class="mt-3"><div class="card-body"><h6 class="fw-bold mb-1">Harga Grosir (Tier)</h6>
+            <p class="text-muted small mb-3">Tampil juga di halaman produk pembeli sebagai tabel tier. Kosong = harga ecer berlaku.</p>
+            @if($b2bRows === [])
+                <p class="text-muted small mb-0">Belum ada tier grosir untuk produk ini.</p>
+            @else
+                <div class="table-responsive"><table class="table table-sm table-bordered mb-0">
+                    <thead><tr><th>Min. Qty</th><th class="text-end">Harga</th><th class="text-end">Hemat</th></tr></thead>
+                    <tbody>
+                    @foreach($b2bRows as $tier)
+                        <tr><td><span class="fw-medium">{{ number_format($tier['min_qty'],0,',','.') }}+</span></td><td class="text-end fw-medium">Rp {{ number_format($tier['price'],0,',','.') }}</td><td class="text-end">@if($tier['hemat_pct'] !== null)<span class="badge bg-success-lt text-success rounded-pill">{{ number_format($tier['hemat_pct'],1,',','.') }}%</span>@else<span class="text-secondary">—</span>@endif</td></tr>
+                    @endforeach
+                    </tbody>
+                </table></div>
+            @endif
+        </div></x-admin.card>
         <div class="mt-2"><a href="{{ route('vendor.products.edit', $product) }}" class="btn btn-outline-primary w-100"><x-admin.icon name="edit" :size="16" class="me-1" />Ubah Produk</a></div>
     </div>
 </div>

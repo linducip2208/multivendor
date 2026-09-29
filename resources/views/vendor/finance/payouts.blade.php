@@ -140,4 +140,51 @@
             </x-admin.card>
         </div>
     </div>
+
+    <div class="row g-3 mt-1">
+        <div class="col-12">
+            <x-admin.card title="Termin & Tagihan B2B" icon="receipt">
+                <p class="text-secondary small mb-3">
+                    Pesanan grosir bertahap memakai status <span class="font-monospace">partial</span> dan dilunasi per termin (mis. via transfer offline).
+                    Ingatkan pembeli yang terminnya mendekati atau lewat jatuh tempo.
+                </p>
+                @isset($b2bTermins)
+                    @if($b2bTermins->isEmpty())
+                        <x-admin.alert type="info">Belum ada tagihan termin pada periode ini.</x-admin.alert>
+                    @else
+                        <x-admin.table dense>
+                            <x-slot:table>
+                                \App\Support\TableBuilder::make()
+                                    ->columns([
+                                        'order' => ['label' => 'Pesanan'],
+                                        'termin' => ['label' => 'Termin'],
+                                        'amount' => ['label' => 'Nominal', 'align' => 'end'],
+                                        'paid' => ['label' => 'Terbayar', 'align' => 'end'],
+                                        'due' => ['label' => 'Jatuh tempo', 'align' => 'end'],
+                                        'status' => ['label' => 'Status'],
+                                    ])
+                                    ->rows(
+                                        $b2bTermins->map(fn ($termin) => [
+                                            'order' => '<span class="fw-medium font-monospace small">'.e($termin->order->order_number ?? ('#'.$termin->order_id)).'</span>',
+                                            'termin' => '<span class="d-block fw-medium">'.e($termin->label ?? ('Termin '.$termin->sequence)).'</span>',
+                                            'amount' => '<span class="fw-medium">'.e(Currency::format($termin->amount)).'</span>',
+                                            'paid' => '<span class="text-success fw-medium">'.e(Currency::format($termin->paid_amount)).'</span>',
+                                            'due' => '<span class="text-secondary small">'.e($termin->due_at ? \Carbon\Carbon::parse($termin->due_at)->format('d/m/Y') : '—').'</span>',
+                                            'status' => $__status($termin->status, [
+                                                'scheduled' => ['Dijadwalkan', 'info'],
+                                                'partial' => ['Dibayar sebagian', 'warning'],
+                                                'paid' => ['Lunas', 'success'],
+                                            ]),
+                                        ])->all()
+                                    )
+                                    ->empty('Belum ada tagihan termin.')
+                            </x-slot:table>
+                        </x-admin.table>
+                    @endif
+                @else
+                    <x-admin.alert type="info">Ringkasan termin tampil di sini setelah ada pesanan grosir bertahap.</x-admin.alert>
+                @endisset
+            </x-admin.card>
+        </div>
+    </div>
 @endsection

@@ -47,7 +47,9 @@ class CartController extends Controller
 
         $this->trackAbandoned($customerId, $active, (float) $total);
 
-        return view('storefront.cart.index', compact('shops', 'total', 'saved'));
+        $repeatSchedules = $this->repeatSchedules($customerId);
+
+        return view('storefront.cart.index', compact('shops', 'total', 'saved', 'repeatSchedules'));
     }
 
     public function add(Request $request)
@@ -61,6 +63,10 @@ class CartController extends Controller
         $product = Product::with('shop')->findOrFail($request->product_id);
         $quantity = $request->quantity;
         $price = $product->getEffectivePrice();
+        try {
+            $price = app(\App\Services\B2b\B2bPricingService::class)->unitPriceFor($product, (int) $quantity);
+        } catch (\Throwable) {
+        }
         $variant = null;
 
         $this->assertCartable($product, $quantity);
@@ -146,6 +152,51 @@ class CartController extends Controller
     {
         Cart::where('customer_id', auth()->id())->delete();
         return back()->with('success', 'Keranjang dikosongkan.');
+    }
+
+    /**
+     * Daftarkan repeat-order langganan: jadwal ulang otomatis yang membuat
+     * draf cart (bukan order langsung). Dieksekusi via Cart::runDueRepeats().
+     */
+    public function scheduleRepeat(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'variant_id' => 'nullable|exists:product_variants,id',
+            'quantity' => 'required|integer|min:1|max:1000',
+            'frequency' => 'required|string|in:daily,weekly,monthly',
+        ]);
+
+        Cart::scheduleRepeat([
+            'customer_id' => auth()->id(),
+            'product_id' => $validated['product_id'],
+            'product_variant_id' => $validated['variant_id'] ?? null,
+            'quantity' => $validated['quantity'],
+            'frequency' => $validated['frequency'],
+        ]);
+
+        return back()->with('success', 'Jadwal repeat-order dibuat. Draf cart akan dibuat otomatis sesuai jadwal.');
+    }
+
+    /** Daftar jadwal repeat-order aktif milik pelanggan (kosong bila tabel belum ada). */
+    private function repeatSchedules(int $customerId): array
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('order_repeat_schedules')) {
+                return [];
+            }
+
+            return \Illuminate\Support\Facades\DB::table('order_repeat_schedules')
+                ->join('products', 'products.id', '=', 'order_repeat_schedules.product_id')
+                ->where('order_repeat_schedules.customer_id', $customerId)
+                ->where('order_repeat_schedules.is_active', true)
+                ->orderBy('order_repeat_schedules.next_run_at')
+                ->select('order_repeat_schedules.*', 'products.name as product_name')
+                ->get()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function assertCartable(Product $product, int $quantity, ?ProductVariant $variant = null): void
