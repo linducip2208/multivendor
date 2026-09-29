@@ -154,7 +154,7 @@
                 @break
 
             @case('deals_of_the_day')
-                @php $dotd = $payloadData['deal'] ?? null; $dotdProduct = $dotd['product'] ?? null; @endphp
+                @php $dotd = $payloadData['deal'] ?? null; $dotdProduct = (is_array($dotd) ? ($dotd['product'] ?? null) : null); $dotdProduct = is_object($dotdProduct) ? $dotdProduct : null; @endphp
                 @if ($dotdProduct)
                     <section class="sf-section sf-section--subtle" aria-labelledby="{{ $headingId }}">
                         <div class="sf-container">
@@ -318,6 +318,9 @@
                             </div>
                             <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
                                 @foreach ($posts as $post)
+                                    @if (! is_object($post))
+                                        @continue
+                                    @endif
                                     @php
                                         $cover = $post->featured_image ? url('img/'.ltrim((string) $post->featured_image, '/')) : null;
                                     @endphp

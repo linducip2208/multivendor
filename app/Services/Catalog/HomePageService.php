@@ -147,7 +147,7 @@ class HomePageService
 
     private function query(int $limit, array $where = [], string $orderBy = 'id', string $direction = 'desc')
     {
-        return Cache::remember(
+        $rows = Cache::remember(
             'home:products:'.md5(serialize([$limit, $where, $orderBy, $direction])),
             self::CACHE_TTL,
             fn () => $this->saleable()
@@ -157,11 +157,13 @@ class HomePageService
                 ->limit(min(24, max(1, $limit)))
                 ->get()
         );
+
+        return collect($rows)->filter(fn ($row) => $row instanceof Product)->values();
     }
 
     private function mostDemanded(int $limit)
     {
-        return Cache::remember('home:demanded:'.$limit, self::CACHE_TTL, function () use ($limit) {
+        $rows = Cache::remember('home:demanded:'.$limit, self::CACHE_TTL, function () use ($limit) {
             $ids = \App\Models\OrderItem::query()
                 ->join('orders', 'orders.id', '=', 'order_items.order_id')
                 ->whereIn('orders.order_status', ['processing', 'packed', 'shipped', 'delivered', 'completed'])
@@ -172,6 +174,8 @@ class HomePageService
 
             return $this->saleable()->whereIn('id', $ids)->with(['shop', 'category', 'brand'])->get();
         });
+
+        return collect($rows)->filter(fn ($row) => $row instanceof Product)->values();
     }
 
     private function recommended(?int $customerId, int $limit)
@@ -194,7 +198,7 @@ class HomePageService
             return $this->query($limit, ['featured' => true]);
         }
 
-        return Cache::remember('home:reco:'.$customerId.':'.$limit, self::CACHE_TTL, function () use ($limit, $categoryIds) {
+        $rows = Cache::remember('home:reco:'.$customerId.':'.$limit, self::CACHE_TTL, function () use ($limit, $categoryIds) {
             return $this->saleable()
                 ->whereIn('category_id', $categoryIds)
                 ->with(['shop', 'category', 'brand'])
@@ -202,17 +206,21 @@ class HomePageService
                 ->limit(min(24, max(1, $limit)))
                 ->get();
         });
+
+        return collect($rows)->filter(fn ($row) => $row instanceof Product)->values();
     }
 
     private function activeFlashDeal(): ?FlashDeal
     {
-        return FlashDeal::query()
+        $deal = FlashDeal::query()
             ->where('status', true)
             ->where('start_date', '<=', now())
             ->where('end_date', '>=', now())
             ->withCount('products')
             ->orderByBestDiscount()
             ->first();
+
+        return $deal instanceof FlashDeal ? $deal : null;
     }
 
     private function flashDealProducts(int $limit)
@@ -226,12 +234,14 @@ class HomePageService
             ->whereHas('flashDeals', fn ($q) => $q->where('flash_deals.id', $deal->id))
             ->with(['shop', 'category', 'brand'])
             ->limit(min(24, max(1, $limit)))
-            ->get();
+            ->get()
+            ->filter(fn ($row) => $row instanceof \App\Models\Product)
+            ->values();
     }
 
-    private function dealOfTheDay(): ?object
+    private function dealOfTheDay(): ?array
     {
-        return Cache::remember('home:dotd:'.now()->toDateString(), self::CACHE_TTL, function () {
+        $deal = Cache::remember('home:dotd:'.now()->toDateString(), self::CACHE_TTL, function () {
             $row = \Illuminate\Support\Facades\DB::table('deals_of_the_day')
                 ->join('products', 'products.id', '=', 'deals_of_the_day.product_id')
                 ->where('date', now()->toDateString())
@@ -251,6 +261,13 @@ class HomePageService
 
             return $product ? ['product' => $product, 'discount' => $discount] : null;
         });
+
+        // Normalisasi di luar: cache-hit beracun tidak boleh lolos.
+        if (! is_array($deal) || ! ($deal['product'] ?? null) instanceof \App\Models\Product) {
+            return null;
+        }
+
+        return ['product' => $deal['product'], 'discount' => (int) ($deal['discount'] ?? 0)];
     }
 
     private function banners(string $position, int $limit)
@@ -259,39 +276,36 @@ class HomePageService
             return collect();
         }
 
-        // v2 key + model normalization: stale/mixed cache entries must
-        // never reach Blade as strings (cf. home:categories:v2).
-        return Cache::remember("home:banners:v2:{$position}:{$limit}", self::CACHE_TTL, function () use ($position, $limit) {
+        // Normalisasi di LUAR closure (lindungi dari cache-hit beracun).
+        $rows = Cache::remember("home:banners:v2:{$position}:{$limit}", self::CACHE_TTL, function () use ($position, $limit) {
             return Banner::query()
                 ->where('status', true)
                 ->where('position', $position)
                 ->orderBy('sort_order')
                 ->limit($limit)
-                ->get()
-                ->filter(fn ($row) => $row instanceof Banner)
-                ->values();
+                ->get();
         });
+
+        return collect($rows)->filter(fn ($row) => $row instanceof Banner)->values();
     }
 
     private function rootCategories(int $limit)
     {
-        // v2 key: v1 payloads could be poisoned by stale/mixed cache
-        // entries; the key version plus model normalization below
-        // guarantees the Collection<Category> component contract.
-        return Cache::remember('home:categories:v2:'.$limit, self::CACHE_TTL, function () use ($limit) {
+        // v2 key + normalisasi di LUAR closure (lindungi dari cache-hit beracun).
+        $rows = Cache::remember('home:categories:v2:'.$limit, self::CACHE_TTL, function () use ($limit) {
             $query = Category::query()->whereNull('parent_id')->where('status', true);
 
-            $rows = Schema::hasColumn('categories', 'sort_order')
+            return Schema::hasColumn('categories', 'sort_order')
                 ? $query->orderBy('sort_order')->limit($limit)->get()
                 : $query->limit($limit)->get();
-
-            return $rows->filter(fn ($row) => $row instanceof Category)->values();
         });
+
+        return collect($rows)->filter(fn ($row) => $row instanceof Category)->values();
     }
 
     private function topBrands(int $limit)
     {
-        return Cache::remember('home:brands:'.$limit, self::CACHE_TTL, function () use ($limit) {
+        $rows = Cache::remember('home:brands:'.$limit, self::CACHE_TTL, function () use ($limit) {
             $ids = \Illuminate\Support\Facades\DB::table('products')
                 ->where('status', 'approved')->where('published', true)
                 ->whereNotNull('brand_id')
@@ -302,11 +316,13 @@ class HomePageService
 
             return \App\Models\Brand::whereIn('id', $ids)->limit($limit)->get();
         });
+
+        return collect($rows)->filter(fn ($row) => $row instanceof \App\Models\Brand)->values();
     }
 
     private function topStores(int $limit)
     {
-        return Cache::remember('home:shops:'.$limit, self::CACHE_TTL, function () use ($limit) {
+        $rows = Cache::remember('home:shops:'.$limit, self::CACHE_TTL, function () use ($limit) {
             $ids = \Illuminate\Support\Facades\DB::table('products')
                 ->where('status', 'approved')->where('published', true)
                 ->groupBy('shop_id')
@@ -316,6 +332,8 @@ class HomePageService
 
             return Shop::whereIn('id', $ids)->where('status', 'active')->limit($limit)->get();
         });
+
+        return collect($rows)->filter(fn ($row) => $row instanceof Shop)->values();
     }
 
     private function guides(int $limit)
@@ -324,13 +342,17 @@ class HomePageService
             return collect();
         }
 
-        return Cache::remember('home:blog:'.$limit, self::CACHE_TTL, fn () => \App\Models\BlogPost::query()
+        // Normalisasi di LUAR closure: melindungi dari cache-hit beracun
+        // (payload basi/campuran), bukan hanya saat cache miss.
+        $rows = Cache::remember('home:blog:v2:'.$limit, self::CACHE_TTL, fn () => \App\Models\BlogPost::query()
             ->where('is_published', true)
             ->where('published_at', '<=', now())
             ->with('author')
             ->latest('published_at')
             ->limit($limit)
             ->get());
+
+        return collect($rows)->filter(fn ($row) => $row instanceof \App\Models\BlogPost)->values();
     }
 
     /** @return list<array{icon:string, title:string, text:string}> */
