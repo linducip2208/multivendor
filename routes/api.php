@@ -37,7 +37,7 @@ use App\Http\Middleware\ResponseEnvelope;
 use App\Services\Api\RateLimitRegistry;
 use Illuminate\Support\Facades\Route;
 
-RateLimitRegistry::register();
+RateLimitRegistry::ensure();
 
 $envelope = [
     ApiRequestId::class,
@@ -55,7 +55,7 @@ $mutation = [
     'throttle:60,1',
     ApiAuthenticate::class,
     ApiScope::class.':write',
-    'throttle:api,write',
+    'throttle:api:write',
     ApiIdempotency::class,
 ];
 
@@ -103,8 +103,8 @@ Route::middleware($envelope)->group(function () use ($authenticated, $mutation):
 
     Route::prefix('v1')->name('api.v1.')->group(function () use ($authenticated, $mutation): void {
         Route::prefix('auth')->name('auth.')->group(function (): void {
-            Route::post('register', [AuthController::class, 'register'])->middleware('throttle:api,auth')->name('register');
-            Route::post('login', [AuthController::class, 'login'])->middleware('throttle:api,auth')->name('login');
+            Route::post('register', [AuthController::class, 'register'])->middleware('throttle:api:auth')->name('register');
+            Route::post('login', [AuthController::class, 'login'])->middleware('throttle:api:auth')->name('login');
         });
 
         Route::middleware($authenticated)->prefix('auth')->name('auth.')->group(function () use ($mutation): void {
@@ -130,7 +130,7 @@ Route::middleware($envelope)->group(function () use ($authenticated, $mutation):
             Route::get('vendors/{vendor}', [CatalogController::class, 'vendor'])->whereNumber('vendor')->name('vendors.show');
         });
 
-        Route::get('search', SearchController::class)->middleware('throttle:api,search')->name('search');
+        Route::get('search', SearchController::class)->middleware('throttle:api:search')->name('search');
         Route::get('shipping/methods', [ShippingController::class, 'methods'])->name('shipping.methods');
         Route::get('shipping/providers', [ShippingController::class, 'providers'])->name('shipping.providers');
         Route::get('shipping/rates', [ShippingController::class, 'rates'])->name('shipping.rates');
@@ -253,7 +253,7 @@ Route::middleware($envelope)->group(function () use ($authenticated, $mutation):
         Route::get('brands', [PublicReadController::class, 'brands'])->name('brands.index');
         Route::get('stores', [PublicReadController::class, 'stores'])->name('stores.index');
         Route::get('stores/{slug}', [PublicReadController::class, 'store'])->name('stores.show');
-        Route::get('search', [PublicReadController::class, 'search'])->middleware('throttle:api,search')->name('search');
+        Route::get('search', [PublicReadController::class, 'search'])->middleware('throttle:api:search')->name('search');
     });
 });
 

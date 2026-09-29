@@ -72,16 +72,9 @@ return new class extends Migration
             ['closed_at', 'timestamp', [], ['nullable' => true]],
         ]);
 
-        if (! Schema::hasTable('support_ticket_replies')) {
-            Schema::create('support_ticket_replies', function (Blueprint $table): void {
-                $table->id();
-                $table->foreignId('support_ticket_id')->constrained('support_tickets')->cascadeOnDelete();
-                $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-                $table->text('message');
-                $table->json('attachments')->nullable();
-                $table->timestamps();
-            });
-        }
+        // NOTE: support_ticket_replies is created once by
+        // 2026_06_09_000014_create_support_tickets_table.php — do not
+        // duplicate it here (previously a hasTable-guarded duplicate).
 
         $this->addIndex('support_tickets', ['shop_id', 'status'], 'support_tickets_shop_status_idx');
     }

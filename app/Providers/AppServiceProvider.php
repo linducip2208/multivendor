@@ -23,9 +23,11 @@ class AppServiceProvider extends ServiceProvider
         // consistent and avoids silent fallback to the default limiter).
         RateLimiter::for('search', fn (Request $request) => Limit::perMinute(60)->by($request->ip()));
         RateLimiter::for('track-order', fn (Request $request) => Limit::perMinute(10)->by($request->ip()));
-        RateLimiter::for('api,search', fn (Request $request) => Limit::perMinute(60)->by(($request->user()?->id ?? $request->ip())));
-        RateLimiter::for('api,auth', fn (Request $request) => Limit::perMinute(10)->by(strtolower((string) $request->input('email')).'|'.$request->ip()));
-        RateLimiter::for('api,write', fn (Request $request) => Limit::perMinute(60)->by(($request->user()?->id ?? $request->ip())));
+        // NOTE: api:auth / api:write / api:search live in
+        // RateLimitRegistry (colon form, registered from routes/api.php).
+        // Do not re-register comma-named duplicates here — the throttle
+        // middleware splits parameters on commas, so only the colon form
+        // resolves to the intended limiter.
         \Illuminate\Support\Facades\View::composer('*', function ($view) {
             // Unit/feature tests boot the full app: skip the SystemSetting DB
             // hit entirely so sqlite :memory: suites never depend on project

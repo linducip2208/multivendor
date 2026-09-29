@@ -25,7 +25,7 @@ class LoyaltyController extends ApiController
             ['points' => 0]
         );
 
-        return $this->ok(new LoyaltyResource($points->load('transactions')));
+        return $this->ok(new LoyaltyResource($points->load(['transactions' => fn ($q) => $q->latest('id')->limit(50)])));
     }
 
     public function transactions(Request $request): JsonResponse
