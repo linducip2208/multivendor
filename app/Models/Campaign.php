@@ -64,6 +64,33 @@ class Campaign extends Model
         return $this->usage_limit === null || (int) $this->used_count < (int) $this->usage_limit;
     }
 
+    /**
+     * ID segmen audiens kampanye (dibaca dari kolom audience, tanpa migrasi).
+     *
+     * @return list<int>
+     */
+    public function segmentIds(): array
+    {
+        $audience = is_array($this->audience) ? $this->audience : [];
+        $ids = $audience['segment_ids'] ?? [];
+
+        return array_values(array_unique(array_map(
+            'intval',
+            is_array($ids) ? $ids : [$ids],
+        )));
+    }
+
+    /**
+     * Apakah kampanye ini menargetkan segmen tertentu.
+     * Kampanye tanpa segmen dianggap menargetkan semua pelanggan.
+     */
+    public function menargetkanSegmen(int $segmentId): bool
+    {
+        $ids = $this->segmentIds();
+
+        return $ids === [] || in_array($segmentId, $ids, true);
+    }
+
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'campaign_products');

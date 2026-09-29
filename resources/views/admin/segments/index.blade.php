@@ -85,6 +85,16 @@
         </div>
     </x-admin.card>
 
+    @isset($retention)
+        <x-admin.card class="mb-3" title="Retensi Berbasis Segmen" icon="target">
+            <div class="row g-3">
+                <div class="col-6 col-xl-4"><x-admin.stat label="Banner Tertarget" :value="$retention['banner_tertarget'] ?? 0" icon="image" color="primary" hint="Banner dengan aturan segmen" /></div>
+                <div class="col-6 col-xl-4"><x-admin.stat label="Pengingat Flash" :value="$retention['langganan_flash'] ?? 0" icon="bell" color="warning" hint="Langganan ingatkan-saya aktif" /></div>
+                <div class="col-6 col-xl-4"><x-admin.stat label="Voucher Ultah" :value="$retention['voucher_ultah'] ?? 0" icon="gift" color="success" hint="Kode ULTAH-* terbit" /></div>
+            </div>
+        </x-admin.card>
+    @endisset
+
     <x-admin.card title="Pola Perilaku Bawaan" subtitle="Siap pakai, dapat disesuaikan setelah pembuatan." icon="target">
         <div class="row g-3">
             @foreach ($presets as $key => $preset)

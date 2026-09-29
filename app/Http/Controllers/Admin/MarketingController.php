@@ -176,6 +176,32 @@ class MarketingController extends Controller
         return back()->with($result['queued'] ? 'success' : 'error', $result['reason']);
     }
 
+    /**
+     * Pengingat abandoned cart bertahap (tahap 1-3 + kupon pemulih di akhir).
+     * Untuk integrator: daftarkan route POST sendiri bila dibutuhkan.
+     */
+    public function remindStaged(Request $request, AbandonedCart $cart): RedirectResponse
+    {
+        $result = $this->growth->sendStagedReminder($cart, auth('admin')->id(), $request->boolean('force'));
+
+        return back()->with($result['queued'] ? 'success' : 'error', $result['reason']);
+    }
+
+    /**
+     * Panel retensi (abandoned, voucher ultah, banner segmen, flash reminder).
+     * Untuk integrator: daftarkan route GET sendiri bila dibutuhkan.
+     * Memakai ulang view campaigns.index agar tanpa file blade baru.
+     */
+    public function retention(Request $request): View
+    {
+        return view('admin.campaigns.index', $this->campaigns->index(
+            (int) $request->query('page', 1),
+            trim((string) $request->query('search', '')),
+            (string) $request->query('status', ''),
+            (string) $request->query('type', ''),
+        ) + ['retention' => $this->growth->retentionOverview()]);
+    }
+
     public function referrals(Request $request): View
     {
         return view('admin.referrals', $this->growth->referrals(

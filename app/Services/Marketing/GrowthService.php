@@ -413,4 +413,25 @@ final class GrowthService
             return 0;
         }
     }
+
+    /**
+     * Pengingat abandoned cart bertahap (tahap 1-3, kupon pemulih di akhir).
+     * Delegasi ke RetentionService; batas dan jeda dihormati di sana.
+     *
+     * @return array{queued: bool, stage: int, reason: string, coupon_code: string|null}
+     */
+    public function sendStagedReminder(AbandonedCart $cart, ?int $actorId, bool $force = false): array
+    {
+        return app(RetentionService::class)->sendStagedReminder($cart, $actorId, $force);
+    }
+
+    /**
+     * Ringkasan retensi untuk panel admin (dihitung ulang dari data nyata).
+     *
+     * @return array<string, mixed>
+     */
+    public function retentionOverview(): array
+    {
+        return app(RetentionService::class)->overview();
+    }
 }

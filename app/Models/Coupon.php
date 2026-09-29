@@ -146,6 +146,72 @@ class Coupon extends Model
         ];
     }
 
+    /**
+     * Kode voucher ulang tahun deterministik agar idempoten:
+     * satu pelanggan hanya menerima satu kode per tahun.
+     */
+    public static function kodeUltah(int $customerId, int $tahun): string
+    {
+        return 'ULTAH-'.$customerId.'-'.$tahun;
+    }
+
+    /**
+     * Buat (atau ambil bila sudah ada) voucher ulang tahun personal.
+     * Opsi: discount_value, max_discount, valid_days.
+     */
+    public static function buatVoucherUltah(int $customerId, int $tahun, array $opsi = []): self
+    {
+        $kode = static::kodeUltah($customerId, $tahun);
+        $validDays = max(1, min(90, (int) ($opsi['valid_days'] ?? 30)));
+
+        $ada = static::query()->where('code', $kode)->first();
+        if ($ada instanceof self) {
+            return $ada;
+        }
+
+        return static::query()->create([
+            'shop_id' => null,
+            'code' => $kode,
+            'title' => 'Voucher Ulang Tahun '.$tahun,
+            'coupon_type' => 'percentage',
+            'discount_value' => (float) ($opsi['discount_value'] ?? 15),
+            'min_purchase' => 0,
+            'max_discount' => (float) ($opsi['max_discount'] ?? 50000),
+            'start_date' => now(),
+            'end_date' => now()->addDays($validDays),
+            'usage_limit' => null,
+            'usage_per_customer' => 1,
+            'usage_count' => 0,
+            'status' => true,
+        ]);
+    }
+
+    /**
+     * Kupon pemulih untuk pengingat abandoned cart tahap akhir.
+     * Selalu berkode unik personal agar tidak bisa ditebak.
+     * Opsi: discount_value, max_discount, valid_days.
+     */
+    public static function buatKuponPemulih(?int $customerId, array $opsi = []): self
+    {
+        $validDays = max(1, min(30, (int) ($opsi['valid_days'] ?? 7)));
+
+        return static::query()->create([
+            'shop_id' => null,
+            'code' => static::buatKodePersonal('KEMBALI'),
+            'title' => 'Kupon Kembali Belanja'.($customerId !== null ? ' #'.$customerId : ''),
+            'coupon_type' => 'percentage',
+            'discount_value' => (float) ($opsi['discount_value'] ?? 10),
+            'min_purchase' => 0,
+            'max_discount' => (float) ($opsi['max_discount'] ?? 25000),
+            'start_date' => now(),
+            'end_date' => now()->addDays($validDays),
+            'usage_limit' => null,
+            'usage_per_customer' => 1,
+            'usage_count' => 0,
+            'status' => true,
+        ]);
+    }
+
     public function calculateDiscount(float $orderTotal): float
     {
         if ($orderTotal < $this->min_purchase) return 0;

@@ -15,6 +15,15 @@
         </x-slot:actions>
     </x-admin.page-header>
 
+    @isset($retention)
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-xl-3"><x-admin.stat label="Keranjang Menunggu" :value="$retention['abandoned_pending'] ?? 0" icon="shopping-cart" color="warning" :hint="($retention['abandoned_jatuh_tempo'] ?? 0).' jatuh tempo diingatkan'" /></div>
+            <div class="col-6 col-xl-3"><x-admin.stat label="Nilai Tertinggal" :value="$retention['abandoned_nilai'] ?? 0" money icon="cash" color="danger" /></div>
+            <div class="col-6 col-xl-3"><x-admin.stat label="Voucher Ultah" :value="$retention['voucher_ultah'] ?? 0" icon="gift" color="info" hint="Kode ULTAH-* terbit" /></div>
+            <div class="col-6 col-xl-3"><x-admin.stat label="Pengingat Flash" :value="$retention['langganan_flash'] ?? 0" icon="bell" color="primary" :hint="($retention['banner_tertarget'] ?? 0).' banner tertarget segmen'" /></div>
+        </div>
+    @endisset
+
     <x-admin.card class="mb-3" title="Filter" icon="filter">
         <x-admin.filters
             :action="route('admin.campaigns.index')"

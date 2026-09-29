@@ -256,6 +256,47 @@ final class CampaignService
         return $slug;
     }
 
+    /**
+     * Ringkasan audiens segmen sebuah kampanye (nama segmen dibaca dari
+     * customer_segments; kampanye tanpa segmen menargetkan semua).
+     *
+     * @return array{segment_ids: list<int>, segments: list<array{id: int, name: string}>, terbuka: bool}
+     */
+    public function audienceSummary(Campaign $campaign): array
+    {
+        $ids = $campaign->segmentIds();
+
+        $segments = [];
+        if ($ids !== []) {
+            try {
+                $segments = \App\Models\CustomerSegment::query()
+                    ->whereIn('id', $ids)
+                    ->orderBy('name')
+                    ->get(['id', 'name'])
+                    ->map(fn ($s): array => ['id' => (int) $s->id, 'name' => (string) $s->name])
+                    ->all();
+            } catch (\Throwable) {
+                $segments = [];
+            }
+        }
+
+        return [
+            'segment_ids' => $ids,
+            'segments' => $segments,
+            'terbuka' => $ids === [],
+        ];
+    }
+
+    /**
+     * Ringkasan retensi (abandoned, ultah, banner, flash) untuk panel admin.
+     *
+     * @return array<string, mixed>
+     */
+    public function retentionSnapshot(): array
+    {
+        return app(RetentionService::class)->overview();
+    }
+
     public function toggle(Campaign $campaign, ?int $actorId): Campaign
     {
         $next = $campaign->status === 'active' ? 'paused' : 'active';

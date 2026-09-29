@@ -781,6 +781,33 @@ class CmsController extends Controller
         return back()->with('success', count($validated['ids']).' izin diperbarui.');
     }
 
+    /**
+     * Data penargetan banner per segmen untuk panel admin.
+     * Untuk integrator: daftarkan route GET sendiri bila dibutuhkan.
+     * Memakai ulang view banners.index agar tanpa file blade baru.
+     *
+     * @return array<string, mixed>
+     */
+    public function bannerSegmentData(): array
+    {
+        $retensi = app(\App\Services\Marketing\RetentionService::class);
+
+        try {
+            $segments = \App\Models\CustomerSegment::query()
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->map(fn ($s): array => ['id' => (int) $s->id, 'name' => (string) $s->name])
+                ->all();
+        } catch (\Throwable) {
+            $segments = [];
+        }
+
+        return [
+            'segmentMap' => $retensi->bannerSegmentMap(),
+            'segmentOptions' => $segments,
+        ];
+    }
+
     public function index(): View
     {
         return view('admin.bundles.index', $this->bundlePayload());

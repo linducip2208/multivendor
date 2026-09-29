@@ -103,6 +103,20 @@
         </div>
 
         <div class="col-lg-4">
+            @isset($audience)
+                <x-admin.card title="Segmen Sasaran" icon="layers" class="mb-3">
+                    @if ($audience['terbuka'] ?? true)
+                        <span class="text-secondary small">Terbuka untuk semua pelanggan.</span>
+                    @else
+                        <div class="d-flex flex-wrap gap-2">
+                            @foreach ($audience['segments'] as $segmen)
+                                <x-admin.badge :text="$segmen['name']" color="info" pill />
+                            @endforeach
+                        </div>
+                    @endif
+                </x-admin.card>
+            @endisset
+
             <x-admin.card title="Kategori" icon="category" class="mb-3">
                 <div class="d-flex flex-wrap gap-2">
                     @forelse ($categories as $category)
