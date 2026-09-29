@@ -331,5 +331,94 @@ class PaymentGatewayService
             ];
         }
 
-        return ['external_id' => null, 'gateway_transaction_id' => null, 'status' => null];    }
+        return ['external_id' => null, 'gateway_transaction_id' => null, 'status' => null];
+    }
+
+    // ── COD OTP: verifikasi saat terima untuk COD di atas ambang nominal ──
+
+    public const COD_OTP_MAX_ATTEMPTS = 5;
+
+    public const COD_OTP_TTL_MINUTES = 15;
+
+    /** Ambang nominal COD yang wajib OTP (rupiah), via SystemSetting. */
+    public static function codOtpThreshold(): float
+    {
+        $raw = \App\Models\SystemSetting::get('cod_otp_threshold', '500000');
+
+        return max(0.0, is_numeric($raw) ? (float) $raw : 500000.0);
+    }
+
+    public function codOtpRequired(\App\Models\Order $order): bool
+    {
+        return $order->codOtpRequired(static::codOtpThreshold());
+    }
+
+    /**
+     * Generate OTP 6-digit untuk order COD. Disimpan sebagai hash + expiry,
+     * upaya direset; atomik via lockForUpdate dalam transaksi.
+     *
+     * @return string kode plaintext (disalurkan via SMS/notifikasi di lapisan pemanggil)
+     */
+    public function generateCodOtp(\App\Models\Order $order): string
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($order): string {
+            $locked = \App\Models\Order::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! $locked->codOtpRequired(static::codOtpThreshold())) {
+                throw new \DomainException('Order ini tidak wajib verifikasi OTP COD.');
+            }
+
+            $code = (string) random_int(100000, 999999);
+
+            $locked->forceFill([
+                'cod_otp_hash' => \Illuminate\Support\Facades\Hash::make($code),
+                'cod_otp_expires_at' => now()->addMinutes(self::COD_OTP_TTL_MINUTES),
+                'cod_otp_attempts' => 0,
+                'cod_otp_verified_at' => null,
+            ])->save();
+
+            return $code;
+        }, 3);
+    }
+
+    /**
+     * Validasi OTP COD. Idempoten bila sudah terverifikasi; rate-limit
+     * maksimal COD_OTP_MAX_ATTEMPTS upaya gagal; kedaluwarsa ditolak.
+     */
+    public function verifyCodOtp(\App\Models\Order $order, string $code): bool
+    {
+        return \Illuminate\Support\Facades\DB::transaction(function () use ($order, $code): bool {
+            $locked = \App\Models\Order::whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($locked->codOtpVerified()) {
+                return true;
+            }
+
+            if ($locked->cod_otp_hash === null) {
+                return false;
+            }
+
+            if ($locked->cod_otp_expires_at !== null && now()->greaterThan($locked->cod_otp_expires_at)) {
+                return false;
+            }
+
+            if ((int) $locked->cod_otp_attempts >= self::COD_OTP_MAX_ATTEMPTS) {
+                return false;
+            }
+
+            if (! \Illuminate\Support\Facades\Hash::check(trim($code), (string) $locked->cod_otp_hash)) {
+                $locked->forceFill([
+                    'cod_otp_attempts' => ((int) $locked->cod_otp_attempts) + 1,
+                ])->save();
+
+                return false;
+            }
+
+            $locked->forceFill([
+                'cod_otp_verified_at' => now(),
+            ])->save();
+
+            return true;
+        }, 3);
+    }
 }

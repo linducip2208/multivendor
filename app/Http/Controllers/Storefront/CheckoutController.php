@@ -79,6 +79,13 @@ class CheckoutController extends Controller
             'shop_notes.*' => 'nullable|string|max:1000',
             'insurance' => 'nullable|boolean',
             'coupon_code' => 'nullable|string|max:50',
+            'dropship_enabled' => 'nullable|boolean',
+            'dropship_sender_name' => 'nullable|string|max:255',
+            'dropship_sender_store' => 'nullable|string|max:255',
+            'dropship_hide_price' => 'nullable|boolean',
+            'gift_wrap' => 'nullable|boolean',
+            'gift_message' => 'nullable|string|max:500',
+            'referral_code' => 'nullable|string|max:50',
         ]);
 
         $customer = $request->user();
@@ -132,25 +139,47 @@ class CheckoutController extends Controller
 
                 $quote = $calculator->calculate($customer, $cartItems, $shippingMethods, $validated['coupon_code'] ?? null, $address->toArray(), [
                     'insurance' => (bool) ($validated['insurance'] ?? false),
+                    'gift' => [
+                        'wrap' => (bool) ($validated['gift_wrap'] ?? false),
+                        'message' => isset($validated['gift_message']) ? (string) $validated['gift_message'] : null,
+                    ],
                 ]);
+
+                $amountDueNow = (float) ($quote['amount_due_now'] ?? $quote['grand_total']);
+                $hasPreorder = (bool) ($quote['preorder']['has_preorder'] ?? false);
 
                 $group = PaymentGroup::create([
                     'payment_number' => PaymentGroup::generateNumber(), 'customer_id' => $customer->id, 'provider_id' => $provider->id,
                     'subtotal' => $quote['subtotal'], 'tax' => $quote['tax'], 'shipping_cost' => $quote['shipping'],
-                    'discount' => $quote['discount'], 'grand_total' => $quote['grand_total'], 'status' => PaymentStatus::Pending->value,
+                    'discount' => $quote['discount'], 'grand_total' => $hasPreorder ? $amountDueNow : $quote['grand_total'], 'status' => PaymentStatus::Pending->value,
                     'expired_at' => now()->addMinutes($this->expiryMinutes()),
                 ]);
+
+                $dropshipEnabled = (bool) ($validated['dropship_enabled'] ?? false);
+                $dropshipName = $dropshipEnabled && isset($validated['dropship_sender_name']) ? trim((string) $validated['dropship_sender_name']) : null;
+                $dropshipStore = $dropshipEnabled && isset($validated['dropship_sender_store']) ? trim((string) $validated['dropship_sender_store']) : null;
+                $dropshipHidePrice = $dropshipEnabled && ! empty($validated['dropship_hide_price']);
+                $giftWrap = (bool) ($validated['gift_wrap'] ?? false);
+                $giftMessage = $giftWrap && isset($validated['gift_message']) ? trim((string) $validated['gift_message']) : null;
+                if ($giftMessage === '') {
+                    $giftMessage = null;
+                }
 
                 $orders = collect();
                 $first = true;
 
                 foreach ($quote['shops'] as $shopQuote) {
                     $selection = $shippingMethods[$shopQuote->shop->id] ?? [];
+                    $giftFee = (float) ($shopQuote->giftFee ?? 0.0);
                     $total = Money::of($shopQuote->subtotal)
                         ->add($shopQuote->tax)
                         ->add($shopQuote->shipping)
+                        ->add($giftFee)
                         ->subtract($shopQuote->couponDiscount)
                         ->maxZero();
+                    $shopIsPreorder = (bool) ($shopQuote->isPreorder ?? false);
+                    $shopPreorderRemaining = $shopIsPreorder ? (float) ($shopQuote->preorderRemaining ?? 0.0) : 0.0;
+                    $shopPreorderDp = $shopIsPreorder ? (float) ($shopQuote->preorderDp ?? 0.0) : 0.0;
 
                     $shopNote = Order::formatShopNote(
                         (string) $shopQuote->shop->name,
@@ -165,13 +194,26 @@ class CheckoutController extends Controller
                     $order = Order::create([
                         'payment_group_id' => $group->id, 'order_number' => Order::generateOrderNumber(), 'customer_id' => $customer->id,
                         'shop_id' => $shopQuote->shop->id, 'coupon_code' => $quote['coupon']?->code,
+                        'referral_code' => isset($validated['referral_code']) && is_string($validated['referral_code']) ? strtoupper(trim($validated['referral_code'])) ?: null : null,
                         'coupon_discount' => $shopQuote->couponDiscount, 'sub_total' => $shopQuote->subtotal, 'tax' => $shopQuote->tax,
                         'shipping_cost' => $shopQuote->shipping, 'discount' => 0, 'total' => $total->toDecimal(),
                         'idempotency_key' => $first ? $idempotencyKey : null,
                         'shipping_method' => $selection['courier'] ?? null, 'shipping_service' => $selection['service'] ?? null,
                         'shipping_address' => $address->only(['label', 'receiver_name', 'receiver_phone', 'address', 'city', 'province', 'postal_code']),
-                        'payment_method' => $provider->api_format, 'payment_status' => PaymentStatus::Unpaid->value,
+                        'payment_method' => $provider->api_format, 'payment_status' => $shopPreorderRemaining > 0 ? PaymentStatus::Partial->value : PaymentStatus::Unpaid->value,
                         'order_status' => OrderStatus::Pending->stored(), 'note' => $combinedNote,
+                        'is_dropship' => $dropshipEnabled,
+                        'dropship_sender_name' => $dropshipName ?: null,
+                        'dropship_sender_store' => $dropshipStore ?: null,
+                        'hide_price_in_package' => $dropshipHidePrice,
+                        'is_preorder' => $shopIsPreorder,
+                        'preorder_eta' => $shopIsPreorder ? ($quote['preorder']['eta'] ?? null) : null,
+                        'preorder_dp_amount' => $shopPreorderDp,
+                        'preorder_remaining' => $shopPreorderRemaining,
+                        'is_gift' => $giftWrap,
+                        'gift_wrap' => $giftWrap,
+                        'gift_message' => $giftMessage,
+                        'gift_fee' => $giftFee,
                     ]);
 
                     $first = false;
@@ -542,6 +584,16 @@ class CheckoutController extends Controller
             $discount = Money::of($order->coupon_discount);
             if ($discount->isPositive()) {
                 $items[] = ['id' => 'DISC-'.$order->id, 'name' => 'Diskon', 'price' => -(int) $discount->toDecimal(), 'quantity' => 1];
+            }
+
+            $gift = Money::of($order->getAttribute('gift_fee') ?? 0);
+            if ($gift->isPositive()) {
+                $items[] = ['id' => 'GIFT-'.$order->id, 'name' => 'Bungkus kado', 'price' => (int) $gift->toDecimal(), 'quantity' => 1];
+            }
+
+            $remaining = Money::of($order->getAttribute('preorder_remaining') ?? 0);
+            if ($remaining->isPositive()) {
+                $items[] = ['id' => 'PREDP-'.$order->id, 'name' => 'Pelunasan pre-order (dibayar sebelum kirim)', 'price' => -(int) $remaining->toDecimal(), 'quantity' => 1];
             }
         }
 

@@ -33,6 +33,9 @@ class OrderController extends Controller
             'order' => $order,
             'invoiceNumber' => $order->invoiceNumber(),
             'returnReasons' => \App\Models\OrderReturn::reasonLabels(),
+            'labelSender' => $order->shippingLabelSender(),
+            'codOtpRequired' => $order->codOtpRequired(),
+            'codOtpVerified' => $order->codOtpVerified(),
         ]);
     }
 

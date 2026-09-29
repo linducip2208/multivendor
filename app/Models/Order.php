@@ -20,7 +20,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'parent_order_id', 'source', 'fulfillment_status', 'warehouse_id',
     'packed_at', 'completed_at', 'returned_at', 'refunded_at', 'return_reason',
     'refunded_amount', 'currency', 'idempotency_key', 'pos_shift_id', 'pos_register_id',
-    'reconciled_at',
+    'reconciled_at', 'referral_code',
+    'is_dropship', 'dropship_sender_name', 'dropship_sender_store', 'hide_price_in_package',
+    'is_preorder', 'preorder_eta', 'preorder_dp_amount', 'preorder_remaining', 'preorder_settled_at',
+    'is_gift', 'gift_wrap', 'gift_message', 'gift_fee',
+    'cod_otp_hash', 'cod_otp_expires_at', 'cod_otp_attempts', 'cod_otp_verified_at',
 ])]
 class Order extends Model
 {
@@ -47,6 +51,18 @@ class Order extends Model
             'returned_at' => 'datetime',
             'refunded_at' => 'datetime',
             'reconciled_at' => 'datetime',
+            'is_dropship' => 'boolean',
+            'hide_price_in_package' => 'boolean',
+            'is_preorder' => 'boolean',
+            'preorder_eta' => 'date',
+            'preorder_dp_amount' => 'decimal:2',
+            'preorder_remaining' => 'decimal:2',
+            'preorder_settled_at' => 'datetime',
+            'is_gift' => 'boolean',
+            'gift_wrap' => 'boolean',
+            'gift_fee' => 'decimal:2',
+            'cod_otp_expires_at' => 'datetime',
+            'cod_otp_verified_at' => 'datetime',
         ];
     }
 
@@ -156,5 +172,88 @@ class Order extends Model
             $number = "{$prefix}-".now()->format('Ymd').'-'.strtoupper(\Illuminate\Support\Str::random(10));
         } while (static::where('order_number', $number)->exists());
         return $number;
+    }
+
+    // ── Kapabilitas operasional (aditif, tanpa mengubah logika existing) ──
+
+    /** Dropship: order dikirim atas nama dropshipper. */
+    public function isDropship(): bool
+    {
+        return (bool) ($this->getAttribute('is_dropship') ?? false);
+    }
+
+    /** Nama pengirim pada label: toko/nama dropshipper bila dropship, nama toko bila tidak. */
+    public function shippingLabelSender(): string
+    {
+        if ($this->isDropship()) {
+            $sender = trim((string) ($this->getAttribute('dropship_sender_store') ?: $this->getAttribute('dropship_sender_name')));
+
+            return $sender !== '' ? $sender : (string) ($this->shop?->name ?? '');
+        }
+
+        return (string) ($this->shop?->name ?? '');
+    }
+
+    /** Harga disembunyikan dari paket (label/invoice paket) untuk dropship. */
+    public function shouldHidePrices(): bool
+    {
+        return (bool) ($this->getAttribute('hide_price_in_package') ?? false);
+    }
+
+    /** Pre-order: masih ada sisa pelunasan yang harus dibayar sebelum kirim. */
+    public function isPreorder(): bool
+    {
+        return (bool) ($this->getAttribute('is_preorder') ?? false);
+    }
+
+    public function preorderBalanceDue(): float
+    {
+        if (! $this->isPreorder()) {
+            return 0.0;
+        }
+
+        if ($this->getAttribute('preorder_settled_at') !== null) {
+            return 0.0;
+        }
+
+        return max(0.0, (float) ($this->getAttribute('preorder_remaining') ?? 0));
+    }
+
+    public function hasSettledPreorder(): bool
+    {
+        return ! $this->isPreorder() || $this->preorderBalanceDue() <= 0;
+    }
+
+    /** Gift: order memakai bungkus kado. */
+    public function isGift(): bool
+    {
+        return (bool) ($this->getAttribute('is_gift') ?? false);
+    }
+
+    /** Kartu ucapan untuk paket gift. */
+    public function giftCardMessage(): ?string
+    {
+        $message = trim((string) ($this->getAttribute('gift_message') ?? ''));
+
+        return $message === '' ? null : $message;
+    }
+
+    /** COD di atas ambang nominal wajib verifikasi OTP saat terima. */
+    public function codOtpRequired(?float $threshold = null): bool
+    {
+        $method = strtolower((string) ($this->getAttribute('payment_method') ?? ''));
+
+        if (! str_contains($method, 'cod')) {
+            return false;
+        }
+
+        $limit = $threshold ?? (float) (\App\Models\SystemSetting::get('cod_otp_threshold', '500000') ?: 500000);
+
+        return (float) ($this->getAttribute('total') ?? 0) >= $limit;
+    }
+
+    public function codOtpVerified(): bool
+    {
+        return $this->getAttribute('cod_otp_verified_at') !== null;
     }
 }

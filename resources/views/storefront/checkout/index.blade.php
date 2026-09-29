@@ -318,6 +318,45 @@
                                     Tambah asuransi untuk semua pengiriman (premi dihitung dari nilai barang)
                                 </label>
                                 <p class="sf-tiny sf-muted sf-mb-0">Nomor invoice bernomor seri otomatis (INV-...) diterbitkan per pesanan toko.</p>
+
+                                <hr class="sf-divider" style="margin:16px 0">
+
+                                <h3 class="sf-footer__title" style="font-size:.95rem">Dropship (opsional)</h3>
+                                <label class="sf-small sf-row" style="gap:6px;align-items:center">
+                                    <input type="checkbox" name="dropship_enabled" value="1" @checked((bool) old('dropship_enabled'))>
+                                    Kirim sebagai dropship (nama pengirim diganti, harga disembunyikan dari paket)
+                                </label>
+                                <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:10px">
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-dropship-name">Nama pengirim</label>
+                                        <input class="sf-input" id="sf-dropship-name" type="text" name="dropship_sender_name"
+                                               value="{{ old('dropship_sender_name') }}" maxlength="255" placeholder="Nama Anda">
+                                    </div>
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-dropship-store">Toko pengirim (label paket)</label>
+                                        <input class="sf-input" id="sf-dropship-store" type="text" name="dropship_sender_store"
+                                               value="{{ old('dropship_sender_store') }}" maxlength="255" placeholder="Nama toko Anda">
+                                    </div>
+                                </div>
+                                <label class="sf-small sf-row" style="gap:6px;align-items:center;margin-top:8px">
+                                    <input type="checkbox" name="dropship_hide_price" value="1" @checked((bool) old('dropship_hide_price', true))>
+                                    Sembunyikan harga dari paket
+                                </label>
+
+                                <hr class="sf-divider" style="margin:16px 0">
+
+                                <h3 class="sf-footer__title" style="font-size:.95rem">Gift / kado (opsional)</h3>
+                                <label class="sf-small sf-row" style="gap:6px;align-items:center">
+                                    <input type="checkbox" name="gift_wrap" value="1" @checked((bool) old('gift_wrap'))>
+                                    Bungkus kado (biaya resmi masuk grand total)
+                                </label>
+                                <div class="sf-field" style="margin-top:10px">
+                                    <label class="sf-label" for="sf-gift-message">Kartu ucapan</label>
+                                    <textarea class="sf-textarea" id="sf-gift-message" name="gift_message" rows="2" maxlength="500"
+                                              placeholder="Tulis ucapan untuk penerima">{{ old('gift_message') }}</textarea>
+                                    @error('gift_message')<span class="sf-error">{{ $message }}</span>@enderror
+                                </div>
+                                <p class="sf-tiny sf-muted sf-mb-0">Produk pre-order hanya menagih uang muka (DP) saat checkout; sisa dilunasi sebelum pengiriman.</p>
                             </div>
                         </section>
                     </div>

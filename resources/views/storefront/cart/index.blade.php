@@ -106,6 +106,9 @@
                                                     @if ($item->product?->is_out_of_stock)
                                                         <span class="sf-badge sf-badge--danger" style="margin-left:6px">Stok habis</span>
                                                     @endif
+                                                    @if ($item->product && method_exists($item->product, 'isPreorder') && $item->product->isPreorder())
+                                                        <span class="sf-badge sf-badge--brand" style="margin-left:6px">Pre-order (DP saat checkout)</span>
+                                                    @endif
                                                 </p>
                                                 <p class="sf-small sf-muted sf-mb-0" style="margin-top:4px">
                                                     {{ \App\Support\Currency::format($item->price) }}
@@ -204,6 +207,19 @@
                             Pesanan diproses terpisah untuk setiap toko. Ongkos kirim dan pajak akhir dihitung
                             setelah Anda memilih metode pengiriman pada halaman checkout.
                         </p>
+                        @if (! empty($repeatSchedules ?? []))
+                            <div class="sf-panel" style="margin-top:14px">
+                                <h3 class="sf-footer__title" style="font-size:.9rem">Repeat-order langganan ({{ count($repeatSchedules) }})</h3>
+                                <p class="sf-tiny sf-muted">Jadwal aktif membuat draf cart otomatis, bukan order langsung.</p>
+                                @foreach ($repeatSchedules as $schedule)
+                                    <p class="sf-tiny sf-muted sf-mb-0">
+                                        {{ $schedule->product_name ?? 'Produk' }} × {{ (int) $schedule->quantity }} ·
+                                        {{ $schedule->frequency }} · berikutnya
+                                        {{ $schedule->next_run_at ? \Carbon\Carbon::parse($schedule->next_run_at)->format('d/m/Y') : '-' }}
+                                    </p>
+                                @endforeach
+                            </div>
+                        @endif
                         <div class="sf-panel" style="margin-top:14px">
                             <h3 class="sf-footer__title" style="font-size:.9rem">Estimasi ongkir di keranjang</h3>
                             @foreach ($groups as $group)

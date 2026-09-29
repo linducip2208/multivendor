@@ -57,6 +57,12 @@ class OrderWorkflowService
 
     public function ship(Order $order, ?int $actorId = null, ?string $tracking = null, ?string $note = null): Order
     {
+        $fresh = Order::whereKey($order->getKey())->firstOrFail();
+
+        if (! $fresh->hasSettledPreorder()) {
+            throw ValidationException::withMessages(['preorder' => 'Pre-order belum dilunasi. Selesaikan pelunasan sebelum pengiriman.']);
+        }
+
         return $this->transition($order, OrderStatus::Shipped, $actorId, $note, $tracking);
     }
 
@@ -130,6 +136,39 @@ class OrderWorkflowService
     public function markRefunded(Order $order, ?int $actorId = null, ?string $note = null): Order
     {
         return $this->transition($order, OrderStatus::Refunded, $actorId, $note);
+    }
+
+    /**
+     * Pelunasan pre-order sebelum kirim. Atomik via lockForUpdate dalam
+     * transaksi; idempoten bila sudah lunas (kembalikan order apa adanya).
+     */
+    public function recordPreorderSettlement(Order $order, ?int $actorId = null, ?string $note = null): Order
+    {
+        return DB::transaction(function () use ($order, $actorId, $note) {
+            $locked = Order::lockForUpdate()->findOrFail($order->getKey());
+
+            if (! $locked->isPreorder()) {
+                throw ValidationException::withMessages(['preorder' => 'Order ini bukan pre-order.']);
+            }
+
+            if ($locked->hasSettledPreorder()) {
+                return $locked;
+            }
+
+            $locked->forceFill([
+                'preorder_remaining' => 0,
+                'preorder_settled_at' => now(),
+                'payment_status' => 'paid',
+            ])->save();
+
+            $locked->statusHistory()->create([
+                'status' => $locked->order_status,
+                'changed_by' => $actorId,
+                'note' => $note ?? 'Pelunasan pre-order diterima.',
+            ]);
+
+            return $locked->fresh();
+        }, 3);
     }
 
     /**
