@@ -125,8 +125,110 @@ class RefundWorkflowService
         }, 3);
     }
 
-    public function execute(
-        OrderItem|Refund $target,
+    /**
+     * Grading QC retur (aditif). Atomik via lockForUpdate dalam satu
+     * transaksi; idempoten bila grade + jumlah sama sudah tercatat.
+     *
+     * - baik: jumlah kembali ke stok produk + movement type=return.
+     * - rusak: ditahan (tidak menambah stok) + movement type=adjustment.
+     * - buang: dimusnahkan (tidak menambah stok) + movement type=adjustment.
+     */
+    public function gradeReturn(
+        \App\Models\OrderReturn $retur,
+        string $grade,
+        ?int $actorId = null,
+        ?string $note = null,
+        ?int $quantity = null,
+    ): \App\Models\OrderReturn {
+        return DB::transaction(function () use ($retur, $grade, $actorId, $note, $quantity) {
+            $grade = \App\Models\OrderReturn::normalizeQcGrade($grade);
+
+            if ($grade === '') {
+                throw ValidationException::withMessages(['qc_grade' => 'Grade QC harus salah satu: baik, rusak, buang.']);
+            }
+
+            $locked = \App\Models\OrderReturn::lockForUpdate()->findOrFail($retur->getKey());
+            $order = Order::lockForUpdate()->findOrFail($locked->order_id);
+            $item = $locked->order_item_id !== null
+                ? OrderItem::lockForUpdate()->find($locked->order_item_id)
+                : null;
+
+            $maxQty = $item !== null ? max(1, (int) $item->quantity) : 1;
+            $qty = $quantity === null ? $maxQty : max(1, min($quantity, $maxQty));
+
+            $currentGrade = (string) ($locked->getAttribute('qc_grade') ?? '');
+            $currentQty = (int) ($locked->getAttribute('stock_restored_qty') ?? 0);
+
+            if ($currentGrade === $grade && $currentQty === ($grade === 'baik' ? $qty : 0)) {
+                return $locked->fresh();
+            }
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('order_returns', 'qc_grade')) {
+                $locked->forceFill([
+                    'qc_grade' => $grade,
+                    'qc_note' => $note !== null ? mb_substr(trim($note), 0, 2000) : $locked->getAttribute('qc_note'),
+                    'qc_at' => now(),
+                    'qc_by' => $actorId,
+                    'stock_restored_qty' => $grade === 'baik' ? $qty : 0,
+                ])->save();
+            }
+
+            if ($item !== null) {
+                $product = \App\Models\Product::query()
+                    ->where('shop_id', $order->shop_id)
+                    ->lockForUpdate()
+                    ->find($item->product_id);
+
+                if ($product !== null) {
+                    if ($grade === 'baik') {
+                        $product->increment('current_stock', $qty);
+
+                        DB::table('stock_movements')->insert([
+                            'warehouse_id' => null,
+                            'product_id' => $product->getKey(),
+                            'product_variant_id' => $item->product_variant_id,
+                            'type' => 'return',
+                            'quantity' => $qty,
+                            'balance_after' => (int) $product->fresh()->current_stock,
+                            'reference_type' => 'order_return',
+                            'reference_id' => $locked->getKey(),
+                            'note' => 'QC retur grade baik (RMA '.$locked->rma_number.') kembali ke stok.',
+                            'created_by' => $actorId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    } else {
+                        $label = $grade === 'rusak' ? 'rusak — ditahan' : 'buang — dimusnahkan';
+
+                        DB::table('stock_movements')->insert([
+                            'warehouse_id' => null,
+                            'product_id' => $product->getKey(),
+                            'product_variant_id' => $item->product_variant_id,
+                            'type' => 'adjustment',
+                            'quantity' => $qty,
+                            'balance_after' => (int) $product->fresh()->current_stock,
+                            'reference_type' => 'order_return',
+                            'reference_id' => $locked->getKey(),
+                            'note' => 'QC retur grade '.$label.' (RMA '.$locked->rma_number.') — stok tidak kembali.',
+                            'created_by' => $actorId,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+                }
+            }
+
+            $order->statusHistory()->create([
+                'status' => 'qc_graded',
+                'changed_by' => $actorId,
+                'note' => 'QC retur '.$locked->rma_number.' dinilai: '.\App\Models\OrderReturn::qcGradeLabels()[$grade].'.',
+            ]);
+
+            return $locked->fresh();
+        }, 3);
+    }
+
+    public function execute(        OrderItem|Refund $target,
         float|int|string|null $amount = null,
         ?int $actorId = null,
         ?string $idempotencyKey = null,

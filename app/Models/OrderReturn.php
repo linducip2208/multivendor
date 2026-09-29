@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['rma_number', 'order_id', 'order_item_id', 'reason', 'description', 'images', 'status', 'amount', 'decided_by', 'decided_at', 'admin_note'])]
+#[Fillable(['rma_number', 'order_id', 'order_item_id', 'reason', 'description', 'images', 'status', 'amount', 'decided_by', 'decided_at', 'admin_note', 'qc_grade', 'qc_note', 'qc_at', 'qc_by', 'stock_restored_qty'])]
 class OrderReturn extends Model
 {
     protected function casts(): array
@@ -17,6 +17,7 @@ class OrderReturn extends Model
             'images' => 'array',
             'amount' => 'decimal:2',
             'decided_at' => 'datetime',
+            'qc_at' => 'datetime',
         ];
     }
 
@@ -51,6 +52,42 @@ class OrderReturn extends Model
     public function reasonLabel(): string
     {
         return self::REASONS[(string) $this->reason] ?? self::REASONS['lainnya'];
+    }
+
+    /**
+     * Grading QC retur (aditif): baik = stok kembali, rusak = ditahan tanpa
+     * menambah stok, buang = dimusnahkan tanpa menambah stok. Setiap grade
+     * tercatat di stock_movements oleh RefundWorkflowService::gradeReturn().
+     */
+    public const QC_GRADES = [
+        'baik' => 'Baik — kembali ke stok',
+        'rusak' => 'Rusak — ditahan, tidak kembali ke stok',
+        'buang' => 'Buang — dimusnahkan, tidak kembali ke stok',
+    ];
+
+    /** @return array<string,string> */
+    public static function qcGradeLabels(): array
+    {
+        return self::QC_GRADES;
+    }
+
+    public static function normalizeQcGrade(?string $grade): string
+    {
+        $grade = is_string($grade) ? trim(mb_strtolower($grade)) : '';
+
+        return array_key_exists($grade, self::QC_GRADES) ? $grade : '';
+    }
+
+    public function isQcDone(): bool
+    {
+        return ((string) ($this->getAttribute('qc_grade') ?? '')) !== '';
+    }
+
+    public function qcGradeLabel(): ?string
+    {
+        $grade = (string) ($this->getAttribute('qc_grade') ?? '');
+
+        return $grade === '' ? null : (self::QC_GRADES[$grade] ?? $grade);
     }
 
     /** Analitik alasan retur per toko (group by kolom reason existing). */

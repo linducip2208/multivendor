@@ -51,13 +51,20 @@ class PosController extends Controller
             'customer_name' => ['nullable', 'string', 'max:255'],
             'customer_phone' => ['nullable', 'string', 'max:20'],
             'discount' => ['nullable', 'numeric', 'min:0', 'max:1000000000000'],
-            'payment_method' => ['required', 'in:cash,transfer,qris'],
+            // Split tender: bila diisi, total semua tender harus pas dengan
+            // total belanja (ditegakkan di PosService, atomik + idempoten).
+            'tenders' => ['nullable', 'array', 'min:1', 'max:5'],
+            'tenders.*.method' => ['required_with:tenders', 'string', 'in:'.implode(',', \App\Services\Vendor\PosService::TENDER_METHODS)],
+            'tenders.*.amount' => ['required_with:tenders', 'numeric', 'min:1', 'max:1000000000000'],
+            'idempotency_key' => ['nullable', 'string', 'max:80'],
+            'payment_method' => ['required', 'in:cash,transfer,qris,split'],
             'hold' => ['nullable', 'boolean'],
             'pos_shift_id' => ['nullable', 'integer', 'exists:pos_shifts,id'],
             'pos_register_id' => ['nullable', 'integer', 'exists:pos_registers,id'],
         ]);
 
         $order = $this->pos->sell($validated);
+        $tenders = $this->pos->tendersFor($order);
 
         return response()->json([
             'success' => true,
@@ -65,6 +72,15 @@ class PosController extends Controller
             'total' => (float) $order->total,
             'total_formatted' => Currency::format((float) $order->total),
             'hold' => (bool) ($validated['hold'] ?? false),
+            'payment_method' => (string) $order->payment_method,
+            'tenders' => array_map(fn ($row) => [
+                'method' => $row['method'],
+                'amount' => (float) $row['amount'],
+                'amount_formatted' => Currency::format((float) $row['amount']),
+            ], $tenders),
+            // Struk digital: tautan verifikasi (token) + WA bila ada nomor.
+            'receipt_url' => $this->pos->receiptUrl($order),
+            'wa_url' => $this->pos->waLink($order),
             'redirect' => route('vendor.pos.held'),
         ]);
     }
@@ -106,11 +122,18 @@ class PosController extends Controller
     {
         $this->assertOwned($order);
 
+        // Verifikasi token struk digital: ?token= salah → 403. Tanpa token
+        // tetap diizinkan untuk kasir pemilik (order legacy belum bertoken).
+        abort_unless($this->pos->receiptVerifyOk($order, $request->query('token')), 403, 'Tautan verifikasi struk tidak valid.');
+
         $order->load(['items.product', 'customer', 'shop']);
 
         return view('vendor.pos.invoice-print', [
             'order' => $order,
             'currency' => Currency::config(),
+            'tenders' => $this->pos->tendersFor($order),
+            'receiptUrl' => $this->pos->receiptUrl($order),
+            'waUrl' => $this->pos->waLink($order),
         ]);
     }
 
@@ -118,11 +141,15 @@ class PosController extends Controller
     {
         $this->assertOwned($order);
 
+        abort_unless($this->pos->receiptVerifyOk($order, $request->query('token')), 403, 'Tautan verifikasi struk tidak valid.');
+
         $order->load(['items.product', 'customer', 'shop']);
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('vendor.pos.invoice-pdf', [
             'order' => $order,
             'currency' => Currency::config(),
+            'tenders' => $this->pos->tendersFor($order),
+            'receiptUrl' => $this->pos->receiptUrl($order),
         ]);
 
         return $pdf->download('pos-invoice-'.$order->order_number.'.pdf');

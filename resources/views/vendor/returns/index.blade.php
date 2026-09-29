@@ -50,6 +50,7 @@
                         'order' => ['label' => 'Pesanan'],
                         'item' => ['label' => 'Produk'],
                         'reason' => ['label' => 'Alasan'],
+                        'qc' => ['label' => 'Grade QC'],
                         'amount' => ['label' => 'Nilai', 'align' => 'end'],
                         'status' => ['label' => 'Status'],
                         'date' => ['label' => 'Diajukan', 'align' => 'end'],
@@ -60,6 +61,11 @@
                             'order' => '<a href="'.route('vendor.orders.show', $return->order_id).'" class="fw-medium">'.e($return->order?->order_number ?? '—').'</a>',
                             'item' => '<span class="text-truncate d-block">'.e($return->orderItem?->product_name ?? 'Seluruh pesanan').'</span>',
                             'reason' => '<span class="text-secondary small">'.e(\Illuminate\Support\Str::limit($return->description ?? $return->reason, 60)).'</span>',
+                            'qc' => ((string) ($return->getAttribute('qc_grade') ?? '') !== ''
+                                ? '<span class="badge bg-'.e(['baik' => 'success', 'rusak' => 'warning', 'buang' => 'danger'][$return->getAttribute('qc_grade')] ?? 'secondary').'-lt">'.e($return->qcGradeLabel()).'</span>'
+                                    .($return->getAttribute('qc_note') ? '<span class="text-secondary small d-block">'.e(\Illuminate\Support\Str::limit((string) $return->getAttribute('qc_note'), 60)).'</span>' : '')
+                                    .((int) ($return->getAttribute('stock_restored_qty') ?? 0) > 0 ? '<span class="text-success small d-block">+'.e((string) $return->getAttribute('stock_restored_qty')).' kembali ke stok</span>' : '')
+                                : '<span class="text-secondary small">Belum dinilai (baik/rusak/buang)</span>'),
                             'amount' => '<span class="fw-medium">'.e(Currency::format($return->amount)).'</span>',
                             'status' => $__status($return->status),
                             'date' => '<span class="text-secondary small">'.e(\Carbon\Carbon::parse($return->created_at)->format('d/m/Y')).'</span>',

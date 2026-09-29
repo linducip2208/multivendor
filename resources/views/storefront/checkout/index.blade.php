@@ -296,6 +296,48 @@
                             </div>
                         </section>
 
+                        <section class="sf-card" aria-labelledby="sf-checkout-slot">
+                            <div class="sf-card__body">
+                                <h2 class="sf-footer__title" id="sf-checkout-slot">Jadwal pengiriman (opsional)</h2>
+                                <p class="sf-small sf-muted">
+                                    Pilih hari dan jam kedatangan yang Anda inginkan. Kurir mengantar pada slot
+                                    yang dipilih; jadwal tersimpan di setiap pesanan dan tampil di fulfillment.
+                                </p>
+
+                                @php
+                                    $slotMin = now()->toDateString();
+                                    $slotMax = now()->addDays(14)->toDateString();
+                                    $slotTimes = \App\Services\OrderWorkflowService::DELIVERY_SLOT_TIMES;
+                                @endphp
+
+                                <div class="sf-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin-top:12px">
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-slot-date">Hari pengiriman</label>
+                                        <input class="sf-input" id="sf-slot-date" type="date" name="delivery_slot_date"
+                                               value="{{ old('delivery_slot_date') }}"
+                                               min="{{ $slotMin }}" max="{{ $slotMax }}"
+                                               @error('delivery_slot_date') aria-invalid="true" @enderror>
+                                        <span class="sf-hint">Hari ini s.d. 14 hari ke depan.</span>
+                                        @error('delivery_slot_date')<span class="sf-error">{{ $message }}</span>@enderror
+                                    </div>
+                                    <div class="sf-field">
+                                        <label class="sf-label" for="sf-slot-time">Jam pengiriman</label>
+                                        <select class="sf-select" id="sf-slot-time" name="delivery_slot_time"
+                                                @error('delivery_slot_time') aria-invalid="true" @enderror>
+                                            <option value="">Kapan pun (tanpa jam tertentu)</option>
+                                            @foreach ($slotTimes as $slotTime)
+                                                <option value="{{ $slotTime }}"
+                                                        @selected((string) old('delivery_slot_time') === (string) $slotTime)>
+                                                    Pukul {{ $slotTime }} WIB
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        @error('delivery_slot_time')<span class="sf-error">{{ $message }}</span>@enderror
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
                         <section class="sf-card" aria-labelledby="sf-checkout-payment">
                             <div class="sf-card__body">
                                 <h2 class="sf-footer__title" id="sf-checkout-payment">3. Metode pembayaran</h2>

@@ -88,6 +88,10 @@ class CheckoutController extends Controller
             'gift_wrap' => 'nullable|boolean',
             'gift_message' => 'nullable|string|max:500',
             'referral_code' => 'nullable|string|max:50',
+            // ADITIF slot jadwal pengiriman: pilihan hari (H s.d. H+14) + jam.
+            'delivery_slot_date' => 'nullable|date|after_or_equal:today',
+            'delivery_slot_time' => 'nullable|string|in:08:00-11:00,11:00-14:00,14:00-17:00,17:00-20:00',
+            'delivery_slot_label' => 'nullable|string|max:120',
         ]);
 
         $customer = $request->user();
@@ -95,6 +99,9 @@ class CheckoutController extends Controller
         if (! is_array($shippingMethods)) {
             $shippingMethods = [];
         }
+        // ADITIF slot: validasi jendela H s.d. H+14 + konsistensi tanggal/jam
+        // sebelum transaksi dibuka (gagal cepat, tanpa menulis apa pun).
+        $deliverySlot = $this->resolveDeliverySlot($validated);
         $idempotencyKey = $this->idempotencyKey($request, $validated);
         if (isset($validated['coupon_code']) && is_string($validated['coupon_code'])) {
             $validated['coupon_code'] = strtoupper(trim($validated['coupon_code'])) ?: null;
@@ -125,7 +132,7 @@ class CheckoutController extends Controller
         }
 
         try {
-            $created = DB::transaction(function () use ($validated, $shippingMethods, $customer, $provider, $calculator, $idempotencyKey) {
+            $created = DB::transaction(function () use ($validated, $shippingMethods, $customer, $provider, $calculator, $idempotencyKey, $deliverySlot) {
                 $address = $this->resolveAddress($validated, (int) $customer->id);
                 $cartItems = Cart::where('customer_id', $customer->id)->with(['product.shop', 'variant'])->lockForUpdate()->get();
 
@@ -205,6 +212,9 @@ class CheckoutController extends Controller
                     $combinedNote = trim(implode("\n", array_filter([
                         $validated['note'] ?? null,
                         $shopNote,
+                        // ADITIF slot: ditempel ke note agar langsung tampil di
+                        // fulfillment existing tanpa mengubah view fulfillment.
+                        $deliverySlot !== null ? '[Slot pengiriman: '.$deliverySlot['label'].']' : null,
                         ($shopQuote->insurance ?? 0) > 0 ? '[Asuransi pengiriman: Rp'.number_format((float) $shopQuote->insurance, 0, ',', '.').']' : null,
                     ]))) ?: null;
 
@@ -236,6 +246,14 @@ class CheckoutController extends Controller
 
                     $first = false;
                     $group->orders()->attach($order->id, ['amount' => $total->toDecimal()]);
+
+                    // ADITIF slot: kolom jadwal ditulis dalam transaksi yang
+                    // sama (atomicity terjaga), dijaga hasColumn agar
+                    // backward-compatible saat migrasi belum jalan.
+                    if ($deliverySlot !== null) {
+                        $this->persistDeliverySlot($order, $deliverySlot);
+                    }
+
                     $order->statusHistory()->create(['status' => OrderStatus::Pending->stored(), 'changed_by' => $customer->id, 'note' => 'Pesanan dibuat.']);
 
                     foreach ($shopQuote->shopLines as $line) {
@@ -545,6 +563,60 @@ class CheckoutController extends Controller
             'changed_by' => $order->customer_id,
             'note' => 'Ambil di toko '.$warehouse->name.'. Tanpa ongkir.',
         ]);
+    }
+
+    /**
+     * Validasi slot jadwal pengiriman (aditif checkout).
+     * Jam tanpa tanggal ditolak; jendela H s.d. H+14 ditegakkan di
+     * OrderWorkflowService agar satu sumber kebenaran dengan penjadwalan
+     * ulang. Mengembalikan null bila pelanggan tidak memilih slot.
+     *
+     * @return array{date: string, time: string|null, label: string}|null
+     */
+    private function resolveDeliverySlot(array $validated): ?array
+    {
+        $date = isset($validated['delivery_slot_date']) ? trim((string) $validated['delivery_slot_date']) : '';
+        $time = isset($validated['delivery_slot_time']) ? trim((string) $validated['delivery_slot_time']) : '';
+        $label = isset($validated['delivery_slot_label']) ? trim((string) $validated['delivery_slot_label']) : '';
+
+        if ($date === '' && $time === '' && $label === '') {
+            return null;
+        }
+
+        if ($date === '') {
+            throw ValidationException::withMessages(['delivery_slot_date' => 'Pilih hari pengiriman terlebih dahulu.']);
+        }
+
+        [$cleanDate, $cleanTime] = \App\Services\OrderWorkflowService::cleanDeliverySlot(
+            $date,
+            $time !== '' ? $time : null,
+        );
+
+        return [
+            'date' => $cleanDate,
+            'time' => $cleanTime,
+            'label' => $label !== '' ? mb_substr($label, 0, 120) : ($cleanTime !== null ? $cleanDate.', '.$cleanTime : $cleanDate),
+        ];
+    }
+
+    /**
+     * Tulis kolom slot pada order dalam transaksi checkout yang sedang
+     * berjalan (tanpa transaksi baru agar atomicity terjaga).
+     *
+     * @param  array{date: string, time: string|null, label: string}  $slot
+     */
+    private function persistDeliverySlot(Order $order, array $slot): void
+    {
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('orders', 'delivery_slot_date')) {
+            return;
+        }
+
+        $order->forceFill([
+            'delivery_slot_date' => $slot['date'],
+            'delivery_slot_time' => $slot['time'],
+            'delivery_slot_label' => $slot['label'],
+            'slot_scheduled_at' => now(),
+        ])->save();
     }
 
     private function abortPayment(PaymentGroup $group): void

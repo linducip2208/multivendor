@@ -77,6 +77,20 @@
         </tr>
     </table>
 
+    @php($tenderRows = $tenders ?? [])
+    @if (count($tenderRows) > 1 || (($tenderRows[0]['method'] ?? null) === 'split'))
+        <table class="meta">
+            <tr><td colspan="2"><strong>Rincian pembayaran (split tender)</strong></td></tr>
+            @foreach ($tenderRows as $tender)
+                <tr><td class="muted">{{ ucfirst($tender['method']) }}</td><td class="right">{{ \App\Support\Currency::format($tender['amount']) }}</td></tr>
+            @endforeach
+        </table>
+    @endif
+
+    @if (! empty($receiptUrl ?? null))
+        <p class="muted" style="text-align:center;">Verifikasi struk digital:<br>{{ $receiptUrl }}</p>
+    @endif
+
     <p class="muted" style="text-align:center;margin-top:14px;">
         {{ \App\Support\Currency::config()['name'] }} · {{ ucfirst((string) $order->payment_method) }}<br>
         Terima kasih telah berbelanja.

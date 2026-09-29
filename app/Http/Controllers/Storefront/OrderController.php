@@ -36,7 +36,42 @@ class OrderController extends Controller
             'labelSender' => $order->shippingLabelSender(),
             'codOtpRequired' => $order->codOtpRequired(),
             'codOtpVerified' => $order->codOtpVerified(),
+            // ADITIF slot: label siap tampil + daftar jam valid untuk form
+            // penjadwalan ulang (di-render bila view menyediakannya).
+            'deliverySlot' => \App\Services\OrderWorkflowService::deliverySlotLabel($order),
+            'deliverySlotTimes' => \App\Services\OrderWorkflowService::DELIVERY_SLOT_TIMES,
         ]);
+    }
+
+    /**
+     * ADITIF slot: ubah jadwal pengiriman milik pelanggan sendiri.
+     * Kepemilikan + validasi slot ditegakkan; penulisan atomik +
+     * idempoten di OrderWorkflowService::scheduleDeliverySlot().
+     * (Pengkabelan route diserahkan ke pemilik routes/*.php.)
+     */
+    public function updateSlot(Request $request, Order $order, \App\Services\OrderWorkflowService $workflow): RedirectResponse
+    {
+        if ($order->customer_id !== auth()->id()) {
+            abort(403);
+        }
+
+        $validated = $request->validate([
+            'delivery_slot_date' => 'required|date|after_or_equal:today',
+            'delivery_slot_time' => 'nullable|string|in:'.implode(',', \App\Services\OrderWorkflowService::DELIVERY_SLOT_TIMES),
+            'delivery_slot_label' => 'nullable|string|max:120',
+        ]);
+
+        $workflow->scheduleDeliverySlot(
+            $order,
+            (string) $validated['delivery_slot_date'],
+            $validated['delivery_slot_time'] ?? null,
+            auth()->id(),
+            isset($validated['delivery_slot_label']) && trim((string) $validated['delivery_slot_label']) !== ''
+                ? trim((string) $validated['delivery_slot_label'])
+                : null,
+        );
+
+        return back()->with('success', 'Jadwal pengiriman diperbarui.');
     }
 
     public function requestRefund(Request $request, OrderItem $orderItem, RefundWorkflowService $refunds): RedirectResponse

@@ -102,14 +102,46 @@
             <span>{{ $hidePrices ? '*** (dropship)' : \App\Support\Currency::format($order->total) }}</span>
         </div>
 
+        @php($tenderRows = $tenders ?? [])
+        @if (count($tenderRows) > 1 || (($tenderRows[0]['method'] ?? null) === 'split'))
+            <div class="small mt-2">
+                <div class="fw-medium mb-1">Rincian pembayaran (split tender)</div>
+                @foreach ($tenderRows as $tender)
+                    <div class="d-flex justify-content-between">
+                        <span>{{ ucfirst($tender['method']) }}</span>
+                        <span>{{ \App\Support\Currency::format($tender['amount']) }}</span>
+                    </div>
+                @endforeach
+            </div>
+        @endif
+
         <div class="text-center small text-muted mt-3">
             {{ \App\Support\Currency::config()['name'] }} · {{ ucfirst((string) $order->payment_method) }}
         </div>
+
+        @php($verifyUrl = $receiptUrl ?? null)
+        @if ($verifyUrl)
+            <hr>
+            <div class="text-center small">
+                <div class="fw-medium mb-1">Struk digital — pindai untuk verifikasi</div>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=140x140&amp;data={{ urlencode($verifyUrl) }}"
+                     alt="QR verifikasi struk {{ $order->order_number }}" width="140" height="140" loading="lazy">
+                <div class="mt-1"><a href="{{ $verifyUrl }}" class="text-break">{{ $verifyUrl }}</a></div>
+                @if (! empty($waUrl))
+                    <div class="mt-2 no-print">
+                        <a href="{{ $waUrl }}" target="_blank" rel="noopener" class="btn btn-success btn-sm">Kirim via WhatsApp</a>
+                    </div>
+                @endif
+            </div>
+        @endif
     </div>
 </div>
 
 <div class="no-print">
     <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">Cetak struk</button>
+    @if (! empty($waUrl))
+        <a href="{{ $waUrl }}" target="_blank" rel="noopener" class="btn btn-success btn-sm">Kirim via WhatsApp</a>
+    @endif
     <a href="{{ route('vendor.pos.held') }}" class="btn btn-outline-secondary btn-sm">Kembali ke kasir</a>
 </div>
 </body>

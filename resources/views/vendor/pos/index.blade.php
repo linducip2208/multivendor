@@ -97,6 +97,26 @@
                     'transfer' => 'Transfer',
                 ]" />
 
+                <div class="border rounded p-2 mb-2" data-pos-tenderbox>
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="fw-semibold small">Split tender (opsional)</span>
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-pos-tender-add>
+                            + Tambah pembayaran
+                        </button>
+                    </div>
+                    <p class="text-secondary small mb-2">
+                        Gabungkan tunai + QRIS/transfer dalam satu struk. Total semua tender harus pas
+                        dengan total belanja — server menolak bila selisih.
+                    </p>
+                    <div data-pos-tender-rows class="d-grid gap-2"></div>
+                    <div class="small mt-1" data-pos-tender-balance role="status" aria-live="polite"></div>
+                </div>
+
+                <p class="text-secondary small mb-2">
+                    Nomor telepon pelanggan dipakai untuk struk digital: tautan verifikasi + QR pada
+                    struk dan tombol kirim via WhatsApp.
+                </p>
+
                 <dl class="row mb-2 small">
                     <dt class="col-6 text-secondary fw-normal">Subtotal</dt>
                     <dd class="col-6 text-end" data-pos-subtotal>{{ Currency::format(0) }}</dd>
@@ -139,12 +159,21 @@
             const checkoutButton = document.querySelector('[data-pos-checkout]');
             const holdButton = document.querySelector('[data-pos-hold]');
             const searchInput = document.getElementById('pos-search');
+            const tenderRowsNode = document.querySelector('[data-pos-tender-rows]');
+            const tenderAddButton = document.querySelector('[data-pos-tender-add]');
+            const tenderBalanceNode = document.querySelector('[data-pos-tender-balance]');
 
             if (!cartNode || !checkoutButton) {
                 return;
             }
 
             let cart = [];
+            let tenders = [];
+            // Idempotency kasir: satu kunci per muat halaman, dikirim pada
+            // setiap submit agar double-tap tidak mencetak dua struk.
+            const idempotencyKey = 'pos-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+
+            const tenderMethods = { cash: 'Tunai', qris: 'QRIS', transfer: 'Transfer', debit: 'Debit', ewallet: 'E-Wallet' };
 
             function format(amount) {
                 return currency.symbol + ' ' + new Intl.NumberFormat('id-ID').format(amount);
@@ -167,6 +196,8 @@
 
                 subtotalNode.textContent = format(subtotal);
                 totalNode.textContent = format(total);
+
+                renderTenders(total);
 
                 checkoutButton.disabled = holdButton.disabled = cart.length === 0;
                 cartNode.innerHTML = '';
@@ -260,6 +291,19 @@
                     return;
                 }
 
+                const total = cartTotal();
+                const active = activeTenders();
+
+                // Cegah submit split tender yang tidak pas sejak di kasir;
+                // server tetap memvalidasi ulang secara atomik.
+                if (!hold && active.length > 0) {
+                    const paid = active.reduce(function (sum, tender) { return sum + (parseFloat(tender.amount) || 0); }, 0);
+                    if (Math.round(paid - total) !== 0) {
+                        showError('Total split tender harus pas dengan total belanja.');
+                        return;
+                    }
+                }
+
                 checkoutButton.disabled = holdButton.disabled = true;
 
                 try {
@@ -271,7 +315,9 @@
                             discount: discountInput.value || 0,
                             customer_name: nameInput.value,
                             customer_phone: phoneInput.value,
-                            payment_method: methodInput.value,
+                            payment_method: active.length > 0 ? 'split' : methodInput.value,
+                            tenders: active.map(function (tender) { return { method: tender.method, amount: parseFloat(tender.amount) || 0 }; }),
+                            idempotency_key: idempotencyKey,
                             hold: hold
                         })
                     });
@@ -286,7 +332,15 @@
                         return;
                     }
 
-                    window.alert('Pesanan ' + data.order_number + ' berhasil disimpan. Total: ' + (data.total_formatted || data.total));
+                    // Struk digital: tawarkan kirim WA bila nomor tersedia.
+                    let message = 'Pesanan ' + data.order_number + ' berhasil disimpan. Total: ' + (data.total_formatted || data.total);
+                    if (data.wa_url) {
+                        message += '\nKirim struk digital via WhatsApp?';
+                        window.alert(message);
+                        window.open(data.wa_url, '_blank', 'noopener');
+                    } else {
+                        window.alert(message);
+                    }
                     window.location.reload();
                 } catch (error) {
                     showError('Tidak dapat terhubung ke server.');
@@ -301,7 +355,113 @@
             if (searchInput) {
                 searchInput.addEventListener('input', function (event) {
                     const needle = event.target.value.toLowerCase();
-                    Array.prototype.forEach.call(document.querySelectorAll('[data-pos-product]'), function (tile) {
+            function cartTotal() {
+                const discount = Math.max(0, parseFloat(discountInput.value) || 0);
+                const subtotal = cart.reduce(function (sum, line) { return sum + (line.price * line.qty); }, 0);
+                return Math.max(0, subtotal - discount);
+            }
+
+            function activeTenders() {
+                return tenders.filter(function (tender) { return (parseFloat(tender.amount) || 0) > 0; });
+            }
+
+            function renderTenders(total) {
+                if (!tenderRowsNode) {
+                    return;
+                }
+
+                tenderRowsNode.innerHTML = '';
+
+                tenders.forEach(function (tender, index) {
+                    const row = document.createElement('div');
+                    row.className = 'd-flex gap-2 align-items-center';
+
+                    const method = document.createElement('select');
+                    method.className = 'form-select form-select-sm';
+                    method.style.maxWidth = '130px';
+                    Object.keys(tenderMethods).forEach(function (key) {
+                        const option = document.createElement('option');
+                        option.value = key;
+                        option.textContent = tenderMethods[key];
+                        if (tender.method === key) {
+                            option.selected = true;
+                        }
+                        method.appendChild(option);
+                    });
+                    method.addEventListener('change', function () {
+                        tender.method = method.value;
+                        renderTenders(cartTotal());
+                    });
+
+                    const amount = document.createElement('input');
+                    amount.type = 'number';
+                    amount.className = 'form-control form-control-sm';
+                    amount.min = 0;
+                    amount.step = 1;
+                    amount.placeholder = 'Nominal';
+                    amount.value = tender.amount;
+                    amount.setAttribute('aria-label', 'Nominal pembayaran ' + (index + 1));
+                    amount.addEventListener('input', function () {
+                        tender.amount = amount.value;
+                        renderTenderBalance(cartTotal());
+                    });
+
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'btn btn-sm btn-ghost-light';
+                    remove.setAttribute('aria-label', 'Hapus pembayaran ' + (index + 1));
+                    remove.textContent = '×';
+                    remove.addEventListener('click', function () {
+                        tenders.splice(index, 1);
+                        renderTenders(cartTotal());
+                    });
+
+                    row.appendChild(method);
+                    row.appendChild(amount);
+                    row.appendChild(remove);
+                    tenderRowsNode.appendChild(row);
+                });
+
+                renderTenderBalance(total);
+            }
+
+            function renderTenderBalance(total) {
+                if (!tenderBalanceNode) {
+                    return;
+                }
+
+                const active = activeTenders();
+
+                if (active.length === 0) {
+                    tenderBalanceNode.innerHTML = '<span class="text-secondary">Tanpa split tender: memakai satu metode pembayaran di atas.</span>';
+                    return;
+                }
+
+                const paid = active.reduce(function (sum, tender) { return sum + (parseFloat(tender.amount) || 0); }, 0);
+                const diff = Math.round(paid - total);
+
+                if (diff === 0) {
+                    tenderBalanceNode.innerHTML = '<span class="text-success fw-medium">Pas: ' + format(paid) + ' dari ' + format(total) + '.</span>';
+                } else if (diff < 0) {
+                    tenderBalanceNode.innerHTML = '<span class="text-danger fw-medium">Kurang ' + format(-diff) + ' (terkumpul ' + format(paid) + ' dari ' + format(total) + ').</span>';
+                } else {
+                    tenderBalanceNode.innerHTML = '<span class="text-danger fw-medium">Lebih ' + format(diff) + ' (terkumpul ' + format(paid) + ' dari ' + format(total) + ').</span>';
+                }
+            }
+
+            if (tenderAddButton) {
+                tenderAddButton.addEventListener('click', function () {
+                    if (tenders.length >= 5) {
+                        showError('Maksimal 5 metode pembayaran dalam satu struk.');
+                        return;
+                    }
+                    clearError();
+                    tenders.push({ method: 'cash', amount: '' });
+                    renderTenders(cartTotal());
+                });
+            }
+
+            Array.prototype.forEach.call(document.querySelectorAll('[data-pos-product]'), function (tile) {
                         tile.style.display = tile.dataset.name.toLowerCase().includes(needle) ? '' : 'none';
                     });
                 });

@@ -40,6 +40,14 @@ class OrderWorkflowService
         'refunded' => 'refunded',
     ];
 
+    /** Jam slot pengiriman yang ditawarkan di checkout (aditif). */
+    public const DELIVERY_SLOT_TIMES = [
+        '08:00-11:00',
+        '11:00-14:00',
+        '14:00-17:00',
+        '17:00-20:00',
+    ];
+
     public function confirm(Order $order, ?int $actorId = null, ?string $note = null): Order
     {
         return $this->transition($order, OrderStatus::Confirmed, $actorId, $note);
@@ -169,6 +177,107 @@ class OrderWorkflowService
 
             return $locked->fresh();
         }, 3);
+    }
+
+    /**
+     * Jadwalkan/ubah slot pengiriman (aditif, terkait slot saja).
+     * Atomik via lockForUpdate dalam transaksi; idempoten bila slot sama
+     * sudah tercatat (kembalikan order apa adanya). Status order_status
+     * tidak diubah — penjadwalan dicatat di status history + kolom slot
+     * sehingga fulfillment cukup membaca orders.delivery_slot_*.
+     */
+    public function scheduleDeliverySlot(
+        Order $order,
+        string $date,
+        ?string $time = null,
+        ?int $actorId = null,
+        ?string $note = null,
+    ): Order {
+        return DB::transaction(function () use ($order, $date, $time, $actorId, $note) {
+            $locked = Order::lockForUpdate()->findOrFail($order->getKey());
+
+            [$cleanDate, $cleanTime] = self::cleanDeliverySlot($date, $time);
+
+            $sameDate = (string) ($locked->getAttribute('delivery_slot_date') ?? '') === $cleanDate
+                || $locked->delivery_slot_date instanceof \DateTimeInterface
+                    && $locked->delivery_slot_date->format('Y-m-d') === $cleanDate;
+            $sameTime = (string) ($locked->getAttribute('delivery_slot_time') ?? '') === (string) $cleanTime;
+
+            if ($sameDate && $sameTime) {
+                return $locked;
+            }
+
+            $label = trim($note ?? '') !== ''
+                ? mb_substr(trim((string) $note), 0, 120)
+                : $cleanDate.($cleanTime !== null && $cleanTime !== '' ? ', '.$cleanTime : '');
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('orders', 'delivery_slot_date')) {
+                $locked->forceFill([
+                    'delivery_slot_date' => $cleanDate,
+                    'delivery_slot_time' => $cleanTime,
+                    'delivery_slot_label' => $label,
+                    'slot_scheduled_at' => now(),
+                ])->save();
+            }
+
+            $locked->statusHistory()->create([
+                'status' => 'slot_scheduled',
+                'changed_by' => $actorId,
+                'note' => 'Slot pengiriman dijadwalkan: '.$label.'.',
+            ]);
+
+            return $locked->fresh();
+        }, 3);
+    }
+
+    /** Label slot siap tampil untuk fulfillment/storefront. */
+    public static function deliverySlotLabel(Order $order): ?string
+    {
+        $label = trim((string) ($order->getAttribute('delivery_slot_label') ?? ''));
+
+        if ($label !== '') {
+            return $label;
+        }
+
+        $date = $order->getAttribute('delivery_slot_date');
+        $date = $date instanceof \DateTimeInterface ? $date->format('Y-m-d') : trim((string) ($date ?? ''));
+        $time = trim((string) ($order->getAttribute('delivery_slot_time') ?? ''));
+
+        if ($date === '') {
+            return null;
+        }
+
+        return $time !== '' ? $date.', '.$time : $date;
+    }
+
+    /**
+     * Validasi slot: tanggal hari ini s.d. 14 hari ke depan, jam sesuai
+     * daftar slot. Melempar 422 bila tidak valid.
+     *
+     * @return array{0: string, 1: string|null}
+     */
+    public static function cleanDeliverySlot(string $date, ?string $time = null): array
+    {
+        try {
+            $day = new \DateTimeImmutable($date);
+        } catch (\Throwable) {
+            throw ValidationException::withMessages(['delivery_slot_date' => 'Tanggal slot pengiriman tidak valid.']);
+        }
+
+        $today = new \DateTimeImmutable('today');
+        $max = $today->modify('+14 days');
+
+        if ($day < $today || $day > $max) {
+            throw ValidationException::withMessages(['delivery_slot_date' => 'Slot pengiriman hanya tersedia hari ini s.d. 14 hari ke depan.']);
+        }
+
+        $cleanTime = $time !== null && trim($time) !== '' ? trim($time) : null;
+
+        if ($cleanTime !== null && ! in_array($cleanTime, self::DELIVERY_SLOT_TIMES, true)) {
+            throw ValidationException::withMessages(['delivery_slot_time' => 'Jam slot pengiriman tidak valid.']);
+        }
+
+        return [$day->format('Y-m-d'), $cleanTime];
     }
 
     /**
