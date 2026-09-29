@@ -269,12 +269,17 @@ class HomePageService
 
     private function rootCategories(int $limit)
     {
-        return Cache::remember('home:categories:'.$limit, self::CACHE_TTL, function () use ($limit) {
+        // v2 key: v1 payloads could be poisoned by stale/mixed cache
+        // entries; the key version plus model normalization below
+        // guarantees the Collection<Category> component contract.
+        return Cache::remember('home:categories:v2:'.$limit, self::CACHE_TTL, function () use ($limit) {
             $query = Category::query()->whereNull('parent_id')->where('status', true);
 
-            return Schema::hasColumn('categories', 'sort_order')
+            $rows = Schema::hasColumn('categories', 'sort_order')
                 ? $query->orderBy('sort_order')->limit($limit)->get()
                 : $query->limit($limit)->get();
+
+            return $rows->filter(fn ($row) => $row instanceof Category)->values();
         });
     }
 

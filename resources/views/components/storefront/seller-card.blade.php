@@ -1,6 +1,7 @@
 @props(['shop' => null])
 
-@if ($shop)
+{{-- Contract: Shop model. Anything else renders nothing. --}}
+@if (is_object($shop))
     <div {{ $attributes->merge(['class' => 'sf-panel']) }}>
         <div class="sf-row" style="gap:14px;align-items:flex-start">
             @if ($shop->logo_url ?? null)

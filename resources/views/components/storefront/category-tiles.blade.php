@@ -1,8 +1,14 @@
 @props(['categories' => []])
 
+{{-- Contract: Collection<Category> (see HomePageService::rootCategories).
+     Non-model payloads (stale cache, misconfigured callers) are skipped
+     item-by-item so one bad entry never 500s the homepage. --}}
 @if (count($categories) > 0)
     <div {{ $attributes->merge(['class' => 'sf-cats']) }}>
         @foreach ($categories as $category)
+            @if (! is_object($category))
+                @continue
+            @endif
             <a href="{{ route('categories.show', $category->slug) }}" class="sf-cat">
                 <span class="sf-cat__icon">
                     @if ($category->icon && is_string($category->icon) && str_starts_with($category->icon, '<svg'))

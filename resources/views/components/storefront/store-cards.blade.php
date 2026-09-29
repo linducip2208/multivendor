@@ -1,8 +1,12 @@
 @props(['shops' => []])
 
+{{-- Contract: Collection<Shop>. Non-model entries are skipped. --}}
 @if (count($shops) > 0)
     <div {{ $attributes->merge(['class' => 'sf-stores']) }}>
         @foreach ($shops as $shop)
+            @if (! is_object($shop))
+                @continue
+            @endif
             <a href="{{ route('shop.show', $shop->slug) }}" class="sf-store">
                 @if ($shop->logo_url)
                     <img src="{{ $shop->logo_url }}" alt="Logo {{ $shop->name }}" class="sf-store__logo" loading="lazy" width="52" height="52" decoding="async">
