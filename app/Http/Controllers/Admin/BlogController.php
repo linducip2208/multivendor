@@ -17,7 +17,21 @@ class BlogController extends Controller
         if ($request->filled('search')) {
             $query->where('title', 'like', "%{$request->search}%");
         }
-        $posts = $query->paginate(15);
+        // Filter status publisitas: draf | terjadwal | terbit.
+        if ($request->filled('status')) {
+            if ($request->status === 'draft') {
+                $query->where(fn ($q) => $q->where('is_published', false)->orWhereNull('published_at'));
+            } elseif ($request->status === 'scheduled') {
+                $query->where('is_published', true)->where('published_at', '>', now());
+            } elseif ($request->status === 'published') {
+                $query->where('is_published', true)->where('published_at', '<=', now());
+            }
+        }
+        $posts = $query->paginate(15)->withQueryString();
+
+        foreach ($posts as $post) {
+            $post->schedule_status = self::scheduleStatus($post);
+        }
 
         return view('admin.blog.index', compact('posts'));
     }
@@ -36,6 +50,8 @@ class BlogController extends Controller
             'content' => 'required|string',
             'excerpt' => 'nullable|string|max:500',
             'is_published' => 'boolean',
+            'published_at' => 'nullable|date',
+            'featured_image' => 'nullable|string|max:500',
             'categories' => 'array',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:255',
@@ -49,7 +65,16 @@ class BlogController extends Controller
         while (BlogPost::where('slug', $validated['slug'])->exists()) {
             $validated['slug'] = $originalSlug.'-'.$counter++;
         }
-        $validated['published_at'] = $request->boolean('is_published') ? now() : null;
+        // Jadwal terbit: bila dicentang Terbit tanpa tanggal -> sekarang;
+        // bila tanggal di masa depan -> Terjadwal (storefront otomatis
+        // menyembunyikan via filter published_at<=now, tanpa command baru).
+        if ($request->boolean('is_published')) {
+            $validated['is_published'] = true;
+            $validated['published_at'] = $validated['published_at'] ?? now();
+        } else {
+            $validated['is_published'] = false;
+            $validated['published_at'] = $validated['published_at'] ?? null;
+        }
 
         $post = BlogPost::create($validated);
 
@@ -74,6 +99,8 @@ class BlogController extends Controller
             'content' => 'required|string',
             'excerpt' => 'nullable|string|max:500',
             'is_published' => 'boolean',
+            'published_at' => 'nullable|date',
+            'featured_image' => 'nullable|string|max:500',
             'categories' => 'array',
             'meta_title' => 'nullable|string|max:255',
             'meta_description' => 'nullable|string|max:255',
@@ -90,7 +117,11 @@ class BlogController extends Controller
         $validated['content'] = app(HtmlSanitizer::class)->sanitize($validated['content']);
 
         if ($request->boolean('is_published') && ! $blog->is_published) {
-            $validated['published_at'] = now();
+            $validated['published_at'] = $validated['published_at'] ?? now();
+        }
+
+        if (! $request->boolean('is_published')) {
+            $validated['is_published'] = false;
         }
 
         $blog->update($validated);
@@ -107,5 +138,25 @@ class BlogController extends Controller
         $blog->delete();
 
         return back()->with('success', 'Artikel dihapus.');
+    }
+
+    /**
+     * Status publisitas untuk badge admin: Draf | Terjadwal | Terbit.
+     * Terbit otomatis terjadi saat published_at<=now karena storefront
+     * (PageController::blogIndex/blogShow) memfilter demikian — tanpa command baru.
+     *
+     * @return array{key: string, label: string, color: string}
+     */
+    public static function scheduleStatus(BlogPost $post): array
+    {
+        if (! $post->is_published || $post->published_at === null) {
+            return ['key' => 'draft', 'label' => 'Draf', 'color' => 'secondary'];
+        }
+
+        if ($post->published_at->isFuture()) {
+            return ['key' => 'scheduled', 'label' => 'Terjadwal', 'color' => 'warning'];
+        }
+
+        return ['key' => 'published', 'label' => 'Terbit', 'color' => 'success'];
     }
 }

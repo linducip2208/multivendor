@@ -18,6 +18,12 @@
         'YouTube' => SystemSetting::get('youtube_url'),
     ]);
     $paymentLabels = \App\Models\Provider::ofType('payment')->active()->orderBy('is_default', 'desc')->pluck('name')->take(5);
+    // Menu footer CMS (Admin > Content > Menu > Menu Footer). Kosong = kolom statis existing di bawah.
+    try {
+        $cmsFooterItems = \App\Services\Cms\MenuRenderer::items('footer');
+    } catch (\Throwable) {
+        $cmsFooterItems = [];
+    }
 @endphp
 
 <footer class="sf-footer">
@@ -130,6 +136,26 @@
                     <a href="mailto:{{ $supportEmail }}" class="sf-small">{{ $supportEmail }}</a>
                 @endif
             </div>
+
+            @if ($cmsFooterItems !== [])
+                <div>
+                    <h4 class="sf-footer__title">Tautan</h4>
+                    <ul class="sf-footer__list">
+                        @foreach ($cmsFooterItems as $item)
+                            <li>
+                                <a href="{{ $item['url'] }}" @if ($item['target'] === '_blank') target="_blank" rel="noopener noreferrer" @endif>{{ $item['label'] }}</a>
+                                @if ($item['children'] !== [])
+                                    <ul class="sf-footer__list" style="margin-top:4px;padding-inline-start:12px">
+                                        @foreach ($item['children'] as $child)
+                                            <li><a href="{{ $child['url'] }}" @if ($child['target'] === '_blank') target="_blank" rel="noopener noreferrer" @endif>{{ $child['label'] }}</a></li>
+                                        @endforeach
+                                    </ul>
+                                @endif
+                            </li>
+                        @endforeach
+                    </ul>
+                </div>
+            @endif
         </div>
 
         <div class="sf-footer__bottom">

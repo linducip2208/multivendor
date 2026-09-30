@@ -13,7 +13,10 @@
             </p>
             <h1 class="sf-section-head__title" id="sf-page-title">{{ $title }}</h1>
 
-            @if (trim((string) $content) !== '')
+            {{-- Blok page builder (HTML aman dari PageBlockRenderer; hormati produk tayang) --}}
+            @if (! empty($hasBlocks ?? false) && trim((string) ($blocksHtml ?? '')) !== '')
+                <div class="sf-pageblocks" style="margin-top:20px">{!! $blocksHtml !!}</div>
+            @elseif (trim((string) $content) !== '')
                 <div class="sf-prose" style="margin-top:20px">{!! $content !!}</div>
             @else
                 <x-storefront.empty

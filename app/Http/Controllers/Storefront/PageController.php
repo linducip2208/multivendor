@@ -41,10 +41,19 @@ class PageController extends Controller
 
         $breadcrumb = [['label' => $title, 'href' => null]];
 
+        $blocksHtml = '';
+        try {
+            $blocksHtml = (string) app(\App\Services\Cms\PageBlockRenderer::class)->render($slug);
+        } catch (\Throwable) {
+            $blocksHtml = '';
+        }
+
         return view('storefront.pages.show', [
             'title' => $title,
             'icon' => $page['icon'],
             'content' => $this->sanitizer->clean($content),
+            'blocksHtml' => $blocksHtml,
+            'hasBlocks' => trim($blocksHtml) !== '',
             'breadcrumbItems' => $breadcrumb,
             'metaTitle' => $title,
             'metaDescription' => Str::limit(strip_tags($content), 155) ?: $title,

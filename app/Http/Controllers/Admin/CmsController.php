@@ -183,6 +183,7 @@ class CmsController extends Controller
                 'label' => $label,
                 'content' => (string) SystemSetting::get('page_'.$key, ''),
                 'configured' => (string) SystemSetting::get('page_'.$key, '') !== '',
+                'blocks' => $this->pageBlocks($key),
             ];
         }
 
@@ -194,6 +195,8 @@ class CmsController extends Controller
         $validated = $request->validate([
             'pages' => ['required', 'array'],
             'pages.*' => ['nullable', 'string', 'max:100000'],
+            'blocks' => ['nullable', 'array'],
+            'blocks.*' => ['nullable', 'string', 'max:200000'],
         ]);
 
         $before = [];
@@ -203,7 +206,8 @@ class CmsController extends Controller
         foreach (self::PAGES as $key => $_) {
             SystemSetting::set('page_'.$key, $validated['pages'][$key] ?? null);
         }
-        $this->snapshotPageVersions($validated['pages']);
+        $blocksByKey = $this->persistPageBlocks((array) ($validated['blocks'] ?? []));
+        $this->snapshotPageVersions($validated['pages'], $blocksByKey);
 
         $this->flush();
 
@@ -233,12 +237,115 @@ class CmsController extends Controller
         }
     }
 
+    /**
+     * Pulihkan satu versi halaman dari riwayat (10 snapshot terakhir).
+     * Di-wiring ke POST admin.pages.restore (lihat catatan integrasi).
+     */
+    public function restorePageVersion(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'index' => ['required', 'integer', 'min:0', 'max:9'],
+        ]);
+
+        $history = $this->pageVersions();
+        $index = (int) $validated['index'];
+        if (! isset($history[$index]) || ! is_array($history[$index]['pages'] ?? null)) {
+            return back()->withErrors(['index' => 'Versi riwayat tidak ditemukan.']);
+        }
+
+        $snapshot = $history[$index];
+        $before = [];
+        foreach (self::PAGES as $key => $_) {
+            $before[$key] = mb_substr((string) SystemSetting::get('page_'.$key, ''), 0, 200);
+        }
+
+        $pages = [];
+        foreach (self::PAGES as $key => $_) {
+            $value = $snapshot['pages'][$key] ?? null;
+            $pages[$key] = is_string($value) ? mb_substr($value, 0, 100000) : null;
+            SystemSetting::set('page_'.$key, $pages[$key]);
+        }
+
+        $blocksByKey = [];
+        foreach (self::PAGES as $key => $_) {
+            $rawBlocks = $snapshot['blocks'][$key] ?? null;
+            if (is_array($rawBlocks)) {
+                $normalized = \App\Services\Cms\PageBlockRenderer::normalize($rawBlocks);
+                $blocksByKey[$key] = $normalized;
+                SystemSetting::set('page_blocks_'.$key, json_encode($normalized, JSON_UNESCAPED_UNICODE));
+            } else {
+                $blocksByKey[$key] = $this->pageBlocks($key);
+            }
+        }
+
+        $this->snapshotPageVersions($pages, $blocksByKey);
+        $this->flush();
+
+        $after = [];
+        foreach (self::PAGES as $key => $_) {
+            $after[$key] = mb_substr((string) SystemSetting::get('page_'.$key, ''), 0, 200);
+        }
+        app(AuditLogger::class)->log('cms.pages_restored', null, $before, $after + ['restored_index' => $index, 'restored_at' => (string) ($snapshot['at'] ?? '')], auth('admin')->id());
+
+        return back()->with('success', 'Versi tanggal '.($snapshot['at'] ?? '—').' dipulihkan dan snapshot baru dibuat.');
+    }
+
+    /**
+     * Blok page builder tersimpan (kanonis, aman untuk editor).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function pageBlocks(string $key): array
+    {
+        return \App\Services\Cms\PageBlockRenderer::blocksFor($key);
+    }
+
+    /**
+     * Simpan blok per halaman dari field `blocks[{key}]` (string JSON).
+     *
+     * @param  array<string, mixed>  $raw
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function persistPageBlocks(array $raw): array
+    {
+        $out = [];
+        foreach (self::PAGES as $key => $_) {
+            if (! array_key_exists($key, $raw)) {
+                $out[$key] = $this->pageBlocks($key);
+                continue;
+            }
+            $value = $raw[$key];
+            if ($value === null || (is_string($value) && trim($value) === '')) {
+                $out[$key] = [];
+                SystemSetting::set('page_blocks_'.$key, json_encode([], JSON_UNESCAPED_UNICODE));
+                continue;
+            }
+            $normalized = \App\Services\Cms\PageBlockRenderer::normalize(is_string($value) ? $value : (array) $value);
+            $out[$key] = $normalized;
+            SystemSetting::set('page_blocks_'.$key, json_encode($normalized, JSON_UNESCAPED_UNICODE));
+        }
+
+        return $out;
+    }
+
     /** @param array<string, mixed> $pages */
-    private function snapshotPageVersions(array $pages): void
+    private function snapshotPageVersions(array $pages, array $blocksByKey = []): void
     {
         try {
             $history = $this->pageVersions();
-            array_unshift($history, ['at' => now()->format('Y-m-d H:i:s'), 'actor_id' => auth('admin')->id(), 'pages' => array_map(fn (mixed $v): string => mb_substr((string) $v, 0, 5000), $pages)]);
+            if ($blocksByKey === []) {
+                foreach (self::PAGES as $key => $_) {
+                    $blocksByKey[$key] = $this->pageBlocks($key);
+                }
+            }
+            $excerpt = function (mixed $v): string {
+                if (is_array($v)) {
+                    $v = json_encode($v, JSON_UNESCAPED_UNICODE) ?: '';
+                }
+
+                return mb_substr((string) $v, 0, 5000);
+            };
+            array_unshift($history, ['at' => now()->format('Y-m-d H:i:s'), 'actor_id' => auth('admin')->id(), 'pages' => array_map($excerpt, $pages), 'blocks' => array_map(fn ($blocks): array => array_slice(is_array($blocks) ? $blocks : [], 0, 30), $blocksByKey)]);
             SystemSetting::set('cms_page_versions', json_encode(array_slice($history, 0, 10), JSON_UNESCAPED_UNICODE));
         } catch (\Throwable) {
         }
@@ -259,7 +366,14 @@ class CmsController extends Controller
                 'items' => array_map(fn (mixed $item): array => [
                     'label' => is_array($item) ? (string) ($item['label'] ?? '') : (string) $item,
                     'url' => is_array($item) ? (string) ($item['url'] ?? '') : '',
-                    'target' => is_array($item) ? (string) ($item['target'] ?? '_self') : '_self',
+                    'target' => is_array($item) && ($item['target'] ?? '_self') === '_blank' ? '_blank' : '_self',
+                    'children' => is_array($item) && isset($item['children']) && is_array($item['children'])
+                        ? array_values(array_filter(array_map(fn (mixed $child): array => [
+                            'label' => is_array($child) ? (string) ($child['label'] ?? '') : '',
+                            'url' => is_array($child) ? (string) ($child['url'] ?? '') : '',
+                            'target' => is_array($child) && ($child['target'] ?? '_self') === '_blank' ? '_blank' : '_self',
+                        ], $item['children']), fn (array $child): bool => $child['label'] !== '' || $child['url'] !== ''))
+                        : [],
                 ], $decoded),
             ];
         }
@@ -272,23 +386,77 @@ class CmsController extends Controller
 
     public function updateMenus(Request $request): RedirectResponse
     {
+        $urlRule = function (string $attribute, mixed $value, \Closure $fail): void {
+            if (! is_string($value) || ! \App\Services\Cms\MenuRenderer::safeUrl(trim($value))) {
+                $fail('URL harus relatif (/tentang-kami, #bagian) atau http(s) absolut.');
+            }
+        };
+
         $validated = $request->validate([
             'key' => ['required', Rule::in(array_keys(self::MENUS))],
             'items' => ['nullable', 'array', 'max:50'],
             'items.*.label' => ['required', 'string', 'max:80'],
-            'items.*.url' => ['required', 'string', 'max:500'],
+            'items.*.url' => ['required', 'string', 'max:500', $urlRule],
             'items.*.target' => ['nullable', Rule::in(['_self', '_blank'])],
+            'items.*.children' => ['nullable', 'array', 'max:50'],
+            'items.*.children.*.label' => ['required_with:items.*.children', 'string', 'max:80'],
+            'items.*.children.*.url' => ['required_with:items.*.children', 'string', 'max:500', $urlRule],
+            'items.*.children.*.target' => ['nullable', Rule::in(['_self', '_blank'])],
         ]);
 
-        $items = array_values(array_map(fn (array $item): array => [
-            'label' => trim((string) $item['label']),
-            'url' => trim((string) $item['url']),
-            'target' => (string) ($item['target'] ?? '_self'),
-        ], (array) ($validated['items'] ?? [])));
+        $count = count((array) ($validated['items'] ?? []));
+        foreach ((array) ($validated['items'] ?? []) as $item) {
+            $count += count((array) ($item['children'] ?? []));
+        }
+        if ($count > 50) {
+            return back()->withErrors(['items' => 'Total item menu (induk + anak) maksimal 50.'])->withInput();
+        }
 
-        SystemSetting::set('menu_'.(string) $validated['key'], json_encode($items, JSON_UNESCAPED_UNICODE));
+        $clean = function (array $item): array {
+            return [
+                'label' => trim((string) $item['label']),
+                'url' => trim((string) $item['url']),
+                'target' => (string) ($item['target'] ?? '_self') === '_blank' ? '_blank' : '_self',
+            ];
+        };
 
-        $this->flush();
+        $items = [];
+        foreach (array_values((array) ($validated['items'] ?? [])) as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+            $row = $clean($item);
+            if ($row['label'] === '' && $row['url'] === '') {
+                continue;
+            }
+            $children = [];
+            foreach (array_values((array) ($item['children'] ?? [])) as $child) {
+                if (! is_array($child)) {
+                    continue;
+                }
+                $childRow = $clean($child);
+                if ($childRow['label'] === '' && $childRow['url'] === '') {
+                    continue;
+                }
+                $children[] = $childRow;
+            }
+            if ($children !== []) {
+                $row['children'] = array_slice($children, 0, 50);
+            }
+            $items[] = $row;
+        }
+
+        SystemSetting::set('menu_'.(string) $validated['key'], json_encode(array_slice($items, 0, 50), JSON_UNESCAPED_UNICODE));
+
+        // Invalidasi cache menu + branding tanpa memanggil SystemSetting::flush()
+        // (metode tersebut tidak ada di model dan akan fatal bila dipanggil).
+        Cache::forget('whitelabel_branding');
+        \App\Services\Cms\MenuRenderer::flush((string) $validated['key']);
+        try {
+            Currency::flush();
+            Feature::flush();
+        } catch (\Throwable) {
+        }
 
         return back()->with('success', 'Menu '.self::MENUS[$validated['key']].' disimpan dengan '.count($items).' item.');
     }

@@ -239,8 +239,12 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::get('file-manager', [FileManagerController::class, 'index'])->name('file-manager.index');
         Route::post('file-manager/upload', [FileManagerController::class, 'upload'])->name('file-manager.upload');
         Route::delete('file-manager', [FileManagerController::class, 'destroy'])->name('file-manager.destroy');
+        Route::get('file-manager/library', [FileManagerController::class, 'libraryJson'])->name('file-manager.library');
+        Route::post('file-manager/folder', [FileManagerController::class, 'makeFolder'])->name('file-manager.folder');
+        Route::post('file-manager/media', [FileManagerController::class, 'uploadMedia'])->name('file-manager.media');
         Route::get('pages', [CmsController::class, 'pages'])->name('pages.index');
         Route::put('pages', [CmsController::class, 'updatePages'])->name('pages.update');
+        Route::post('pages/restore', [CmsController::class, 'restorePageVersion'])->name('pages.restore');
         Route::get('menus', [CmsController::class, 'menus'])->name('menus.index');
         Route::put('menus', [CmsController::class, 'updateMenus'])->name('menus.update');
         Route::get('contacts', [CmsController::class, 'contacts'])->name('contacts.index');

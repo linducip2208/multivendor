@@ -11,6 +11,12 @@
         ->get());
     $wishlistCount = auth()->check() ? \App\Models\Wishlist::where('customer_id', auth()->id())->count() : 0;
     $baseQuery = request()->except(['page', 'v', 'sort', 'order', 'ref']);
+    // Menu CMS (Admin > Content > Menu > Menu Utama). Kosong = fallback kategori/statis di bawah.
+    try {
+        $cmsMenuItems = \App\Services\Cms\MenuRenderer::items('main');
+    } catch (\Throwable) {
+        $cmsMenuItems = [];
+    }
 @endphp
 
 <a href="#sf-main" class="sf-skip-link">Lompat ke konten utama</a>
@@ -119,7 +125,37 @@
         </div>
     </div>
 
-    {{-- Category navigation bar --}}
+    {{-- Menu CMS kustom (dropdown 1 level: hover di desktop, drawer di mobile) --}}
+    @if ($cmsMenuItems !== [])
+        <nav class="sf-menubar" aria-label="Menu">
+            <div class="sf-container">
+                <ul class="sf-menubar__list">
+                    @foreach ($cmsMenuItems as $item)
+                        <li class="sf-menubar__item{{ $item['children'] !== [] ? ' has-children' : '' }}">
+                            <a href="{{ $item['url'] }}"
+                               class="sf-menubar__link{{ $item['active'] ? ' is-active' : '' }}"
+                               @if ($item['active']) aria-current="page" @endif
+                               @if ($item['target'] === '_blank') target="_blank" rel="noopener noreferrer" @endif>{{ $item['label'] }}</a>
+                            @if ($item['children'] !== [])
+                                <ul class="sf-menubar__submenu">
+                                    @foreach ($item['children'] as $child)
+                                        <li>
+                                            <a href="{{ $child['url'] }}"
+                                               class="sf-menubar__sublink{{ $child['active'] ? ' is-active' : '' }}"
+                                               @if ($child['active']) aria-current="page" @endif
+                                               @if ($child['target'] === '_blank') target="_blank" rel="noopener noreferrer" @endif>{{ $child['label'] }}</a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        </nav>
+    @endif
+
+    {{-- Category navigation bar (fallback bila menu CMS kosong) --}}
     <nav class="sf-catbar" aria-label="Kategori">
         <div class="sf-container">
             <ul class="sf-catbar__list">
@@ -179,6 +215,29 @@
                 </a>
             @endforeach
 
+            @if ($cmsMenuItems !== [])
+                <hr class="sf-divider" style="margin-block:8px">
+
+                <span class="sf-tiny sf-bold sf-muted" style="text-transform:uppercase;letter-spacing:.08em">Menu</span>
+                @foreach ($cmsMenuItems as $item)
+                    @if ($item['children'] !== [])
+                        <details class="sf-drawer__group">
+                            <summary class="sf-drawer__link" style="cursor:pointer;list-style:none">
+                                {{ $item['label'] }}
+                            </summary>
+                            <div style="padding-inline-start:28px;display:grid;gap:2px">
+                                <a href="{{ $item['url'] }}" class="sf-drawer__link">{{ $item['label'] }} — Semua</a>
+                                @foreach ($item['children'] as $child)
+                                    <a href="{{ $child['url'] }}" class="sf-drawer__link">{{ $child['label'] }}</a>
+                                @endforeach
+                            </div>
+                        </details>
+                    @else
+                        <a href="{{ $item['url'] }}" class="sf-drawer__link" @if ($item['target'] === '_blank') target="_blank" rel="noopener noreferrer" @endif>{{ $item['label'] }}</a>
+                    @endif
+                @endforeach
+            @endif
+
             <hr class="sf-divider" style="margin-block:8px">
 
             <a href="{{ route('stores.index') }}" class="sf-drawer__link"><x-storefront.icon name="store" :size="18" /> Semua Toko</a>
@@ -211,7 +270,19 @@
                 @else
                     <a href="{{ route('login') }}" class="sf-btn sf-btn--primary sf-btn--sm">Masuk</a>
                     <a href="{{ route('register') }}" class="sf-btn sf-btn--outline sf-btn--sm">Daftar</a>
-                @endauth
+@endauth
+
+<style>
+.sf-menubar { border-top: 1px solid var(--sf-border, #eef0f4); background: var(--sf-surface, #fff); }
+.sf-menubar__list { display: flex; flex-wrap: wrap; gap: 2px; list-style: none; margin: 0; padding: 6px 0; }
+.sf-menubar__item { position: relative; }
+.sf-menubar__link { display: inline-block; padding: 8px 12px; border-radius: 8px; font-weight: 600; font-size: 14px; color: inherit; text-decoration: none; }
+.sf-menubar__link:hover, .sf-menubar__link.is-active { background: var(--sf-muted, #f3f4f6); }
+.sf-menubar__submenu { display: none; position: absolute; top: 100%; left: 0; z-index: 60; min-width: 200px; list-style: none; margin: 0; padding: 6px; border-radius: 12px; background: var(--sf-surface, #fff); box-shadow: 0 12px 32px rgba(0,0,0,.14); }
+.sf-menubar__item.has-children:hover > .sf-menubar__submenu, .sf-menubar__item.has-children:focus-within > .sf-menubar__submenu { display: block; }
+.sf-menubar__sublink { display: block; padding: 8px 12px; border-radius: 8px; font-size: 14px; color: inherit; text-decoration: none; }
+.sf-menubar__sublink:hover, .sf-menubar__sublink.is-active { background: var(--sf-muted, #f3f4f6); }
+</style>
             </div>
         </div>
     </div>
