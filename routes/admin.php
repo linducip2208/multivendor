@@ -346,6 +346,11 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
         Route::get('theme', [ThemeController::class, 'index'])->name('theme.index');
         Route::put('theme', [ThemeController::class, 'update'])->name('theme.update');
+        Route::post('theme/activate', [ThemeController::class, 'activate'])->name('theme.activate');
+        Route::post('theme/duplicate', [ThemeController::class, 'duplicate'])->name('theme.duplicate');
+        Route::post('theme/rollback', [ThemeController::class, 'rollback'])->name('theme.rollback');
+        Route::post('theme/schedule', [ThemeController::class, 'schedule'])->name('theme.schedule');
+        Route::post('theme/preview', [ThemeController::class, 'preview'])->name('theme.preview');
         Route::get('language', [CmsController::class, 'language'])->name('language.index');
         Route::put('language', [CmsController::class, 'updateLanguage'])->name('language.update');
         Route::get('currency', [CmsController::class, 'currency'])->name('currency.index');

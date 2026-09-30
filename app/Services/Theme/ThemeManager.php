@@ -121,6 +121,23 @@ final class ThemeManager
      */
     public function resolve(string $view): string
     {
+        // Pratinjau via ?theme_preview= (hanya untuk admin login).
+        try {
+            $preview = (string) (request()->query('theme_preview', ''));
+            if ($preview !== '' && auth('admin')->check()) {
+                $codes = array_map(static fn (array $t): string => $t['code'], $this->available());
+                if (in_array($preview, $codes, true)) {
+                    $path = resource_path('views/themes/'.$preview.'/'.$view.'.blade.php');
+                    $nested = resource_path('views/themes/'.$preview.'/'.str_replace('.', '/', $view).'.blade.php');
+                    if (is_file($path) || is_file($nested)) {
+                        View::addNamespace('theme_preview', dirname(is_file($path) ? $path : $nested));
+                        return 'theme_preview::'.basename(is_file($path) ? $path : $nested, '.blade.php');
+                    }
+                }
+            }
+        } catch (\Throwable) {
+        }
+
         if ($this->activePath() === null) {
             return $view;
         }
