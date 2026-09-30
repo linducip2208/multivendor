@@ -39,7 +39,29 @@ Route::post('/webhook/payment/{provider}', PaymentWebhookController::class)
     ->name('webhook.payment');
 
 /* ------------------------------------------------------------------ *
- * SEO / infrastructure
+ * Build/version probe — untuk memastikan deploy benar-benar aktif.
+ * Bandingkan commit + manifest lewat curl lokal vs publik.
+ * ------------------------------------------------------------------ */
+Route::get('/__version', function () {
+    $manifest = public_path('build/manifest.json');
+    $commit = 'unknown';
+    try {
+        $out = shell_exec('git -C '.escapeshellarg(base_path()).' rev-parse --short HEAD 2>/dev/null');
+        if (is_string($out) && trim($out) !== '') {
+            $commit = trim($out);
+        }
+    } catch (\Throwable) {
+    }
+
+    return response()->json([
+        'commit' => $commit,
+        'build_manifest' => is_file($manifest) ? sha1_file($manifest) : null,
+        'time' => now()->toDateTimeString(),
+    ]);
+})->name('version.probe');
+
+/* ------------------------------------------------------------------ *
+ * SEO / infrastructure (sitemap, robots, redirects)
  * ------------------------------------------------------------------ */
 require __DIR__.'/seo.php';
 
