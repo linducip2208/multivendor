@@ -63,7 +63,7 @@
                             'actions' => $collect->collected
                                 ? '<span class="text-secondary small">'.e($collect->collected_at?->format('d/m/Y H:i') ?? '—').'</span>'
                                 : '<form method="POST" action="'.route('vendor.cash-collect.mark', $collect->id).'" data-confirm="Catat serah terima COD untuk pesanan ini?">'
-                                    .csrf()
+                                    .csrf_field()
                                     .'<button type="submit" class="btn btn-sm btn-success"><x-admin.icon name="check" :size="14" class="me-1" />Tandai diterima</button></form>',
                         ])->all()
                     )

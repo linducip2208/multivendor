@@ -9,6 +9,14 @@
 @section('content')
     <x-admin.page-header title="Pengaturan SEO" subtitle="Metadata global, data terstruktur, dan status sitemap." />
 
+    {{-- Tab locale ID/EN (tampilan saja; fallback ID bila EN kosong) --}}
+    <ul class="nav nav-tabs mb-3" data-locale-tabs role="tablist">
+        <li class="nav-item" role="presentation"><button type="button" class="nav-link active" data-locale-tab="id" role="tab">ID</button></li>
+        <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-locale-tab="en" role="tab">EN</button></li>
+        <li class="nav-item ms-auto d-flex align-items-center"><span class="text-muted small">Fallback: ID</span></li>
+    </ul>
+    <div data-locale-panel="en" class="alert alert-info d-none">Meta EN mengikuti meta ID bila terjemahan kosong (fallback ID).</div>
+
     <div class="row g-3 mb-3">
         <div class="col-6 col-xl-3">
             <x-admin.stat label="Produk Terindeks" :value="number_format($counts['products'], 0, ',', '.')" icon="package" color="primary" />

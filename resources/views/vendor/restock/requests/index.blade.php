@@ -48,7 +48,7 @@
                             'actions' => $request->status === 'notified'
                                 ? '<span class="text-secondary small">Sudah diberi tahu</span>'
                                 : '<form method="POST" action="'.route('vendor.restock.notify').'">'
-                                    .csrf()
+                                    .csrf_field()
                                     .'<input type="hidden" name="id" value="'.(int) $request->id.'">'
                                     .'<button type="submit" class="btn btn-sm btn-outline-primary">Beri tahu</button></form>',
                         ])->all()

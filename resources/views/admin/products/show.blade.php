@@ -2,6 +2,13 @@
 @section('title', 'Detail Produk')
 @section('content')
 <div class="mb-4"><a href="{{ route('admin.products.index') }}" class="small"><x-admin.icon name="arrow-left" :size="16" class="me-1" />Kembali</a><h4 class="fw-bold mt-2">{{ $product->name }}</h4></div>
+{{-- Tab locale ID/EN (tampilan saja; fallback ID bila EN kosong) --}}
+<ul class="nav nav-tabs mb-3" data-locale-tabs role="tablist">
+    <li class="nav-item" role="presentation"><button type="button" class="nav-link active" data-locale-tab="id" role="tab">ID</button></li>
+    <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-locale-tab="en" role="tab">EN</button></li>
+    <li class="nav-item ms-auto d-flex align-items-center"><span class="text-muted small">Fallback: ID</span></li>
+</ul>
+<div data-locale-panel="en" class="alert alert-info d-none">Versi EN mengikuti data ID bila terjemahan kosong (fallback ID).</div>
 <div class="row g-4">
     <div class="col-lg-8"><x-admin.card :padding="false"><div class="card-body p-4">
         <h6 class="fw-bold mb-3">Info Produk</h6>

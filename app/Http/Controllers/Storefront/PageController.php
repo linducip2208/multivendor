@@ -39,6 +39,23 @@ class PageController extends Controller
         $content = (string) SystemSetting::get('page_'.$slug, '');
         $title = (string) (SystemSetting::get('page_'.$slug.'_title') ?: $page['title']);
 
+        // ── Multibahasa konten (aditif; sumber SystemSetting tetap canonical, fallback ID) ──
+        try {
+            $localized = \App\Services\Localization\Translatable::pageContent($slug, (string) app()->getLocale());
+            if ($localized !== null) {
+                if (($localized['status'] ?? 'published') === 'draft') {
+                    abort(404);
+                }
+                if ($localized['title'] !== null) {
+                    $title = $localized['title'];
+                }
+                if ($localized['body'] !== null) {
+                    $content = $localized['body'];
+                }
+            }
+        } catch (\Throwable) {
+        }
+
         $breadcrumb = [['label' => $title, 'href' => null]];
 
         $blocksHtml = '';
@@ -74,6 +91,15 @@ class PageController extends Controller
 
         $breadcrumb = [['label' => 'Blog', 'href' => null]];
 
+        // ── Multibahasa konten (aditif; query inti di atas tidak diubah) ──
+        try {
+            $locale = (string) app()->getLocale();
+            foreach ($posts as $item) {
+                \App\Services\Localization\Translatable::applyToModel($item, $locale, \App\Services\Localization\Translatable::fieldsFor('blog'));
+            }
+        } catch (\Throwable) {
+        }
+
         return view('storefront.blog.index', [
             'posts' => $posts,
             'breadcrumbItems' => $breadcrumb,
@@ -93,6 +119,29 @@ class PageController extends Controller
             ->firstOrFail();
         try {
             $post->load('categories');
+        } catch (\Throwable) {
+        }
+
+        // ── Multibahasa konten (aditif; query inti di atas tidak diubah, fallback ID) ──
+        try {
+            $locale = (string) app()->getLocale();
+            \App\Services\Localization\Translatable::applyToModel($post, $locale, \App\Services\Localization\Translatable::fieldsFor('blog'));
+            // Status per bahasa: EN draft => fallback ke ID bila post induk terbit.
+            $status = \App\Services\Localization\Translatable::contentStatus('blog', (int) $post->id, $locale);
+            if ($status === 'draft' && \App\Services\Localization\Translatable::normalize($locale) !== 'id') {
+                $idRow = \Illuminate\Support\Facades\DB::table('blog_post_translations')
+                    ->where('blog_post_id', $post->id)->where('locale', 'id')->first();
+                if ($idRow) {
+                    foreach (['title' => 'title', 'slug' => 'slug', 'excerpt' => 'excerpt', 'content' => 'content'] as $attr => $col) {
+                        if (($idRow->{$col} ?? null) !== null && $idRow->{$col} !== '') {
+                            $post->setAttribute($attr, (string) $idRow->{$col});
+                        }
+                    }
+                }
+            }
+            foreach ($related as $rel) {
+                \App\Services\Localization\Translatable::applyToModel($rel, $locale, \App\Services\Localization\Translatable::fieldsFor('blog'));
+            }
         } catch (\Throwable) {
         }
 

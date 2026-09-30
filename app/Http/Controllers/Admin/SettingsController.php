@@ -32,6 +32,10 @@ class SettingsController extends Controller
             'order_prefix' => 'nullable|string|max:10',
             'min_withdraw' => 'nullable|numeric|min:0',
             'commission_default' => 'nullable|numeric|min:0|max:100',
+            'logo_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'favicon_file' => 'nullable|file|image|mimes:jpg,jpeg,png,webp|max:2048',
+            'logo_url' => 'nullable|url|max:500',
+            'favicon_url' => 'nullable|url|max:500',
         ]);
 
         foreach ($validated as $key => $value) {

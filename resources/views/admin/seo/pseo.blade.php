@@ -25,6 +25,13 @@
         </ol>
     </x-admin.alert>
 
+    {{-- Tab locale ID/EN (tampilan saja; fallback ID bila EN kosong) --}}
+    <ul class="nav nav-tabs mb-3" data-locale-tabs role="tablist">
+        <li class="nav-item" role="presentation"><button type="button" class="nav-link active" data-locale-tab="id" role="tab">ID</button></li>
+        <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-locale-tab="en" role="tab">EN</button></li>
+        <li class="nav-item ms-auto d-flex align-items-center"><span class="text-muted small">Fallback: ID</span></li>
+    </ul>
+
     <div class="row g-3 mb-3">
         <div class="col-6 col-xl-3">
             <x-admin.stat label="Total Halaman" :value="$overview['pages']" icon="layers" color="primary" />

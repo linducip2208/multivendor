@@ -58,7 +58,7 @@
                             'date' => '<span class="text-secondary small">'.e($item->refund_requested_at ? \Carbon\Carbon::parse($item->refund_requested_at)->format('d/m/Y') : '—').'</span>',
                             'actions' => in_array($item->refund_status, $decisions, true)
                                 ? '<form method="POST" action="'.route('vendor.refund.update', $item->id).'" class="row g-1 justify-content-end" data-confirm="Kirim keputusan pengembalian dana untuk produk ini?">'
-                                    .csrf().'@method("PUT")'
+                                    .csrf_field().'@method("PUT")'
                                     .'<div class="col-auto"><input type="hidden" name="status" value="approved">'
                                     .'<button type="submit" class="btn btn-sm btn-success">Setujui</button></div>'
                                     .'<div class="col-auto"><input type="hidden" name="status" value="rejected">'

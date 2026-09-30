@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
+use App\Plugins\PluginManager;
 use App\Services\Backoffice\DeveloperService;
 use App\Services\Backoffice\SystemHealthService;
+use App\Services\Theme\ThemeManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -193,5 +195,36 @@ class DeveloperController extends Controller
     private function ensureSuperAdmin(): void
     {
         abort_unless(auth('admin')->user()?->isSuperAdmin(), 403, 'Hanya super admin yang dapat mengelola kredensial dan secret.');
+    }
+
+    /**
+     * Daftar plugin + tema aktif — data untuk view admin/developer/plugins.
+     * Aditif; method existing tidak diubah.
+     */
+    public function plugins(): View
+    {
+        $plugins = new PluginManager();
+        $themes = new ThemeManager();
+
+        return view('admin.developer.plugins', [
+            'plugins' => $plugins->all(),
+            'enabled' => $plugins->enabledCodes(),
+            'themes' => $themes->available(),
+            'activeTheme' => $themes->active(),
+        ]);
+    }
+
+    /**
+     * Health pembayaran per provider + log — data untuk view
+     * admin/developer/payment-health. Tanpa kredensial live.
+     */
+    public function paymentHealth(): View
+    {
+        $plugins = new PluginManager();
+
+        return view('admin.developer.payment-health', [
+            'providers' => $plugins->providersOverview(),
+            'log' => $plugins->paymentLog(20),
+        ]);
     }
 }

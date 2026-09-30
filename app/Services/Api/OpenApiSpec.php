@@ -198,7 +198,46 @@ final class OpenApiSpec
             ];
         }
 
+        // Aditif: header lokalisasi global — tidak mengubah parameter existing.
+        // ID: bahasa (Accept-Language: id-ID/en-US), mata uang (X-Currency),
+        // negara (X-Country). EN: locale/currency/country negotiation headers.
+        foreach ($this->localizationHeaders() as $header) {
+            $parameters[] = $header;
+        }
+
         return $parameters;
+    }
+
+    /**
+     * Header lokalisasi global (aditif, tidak mengubah spec existing).
+     *
+     * @return array<int, array<string,mixed>>
+     */
+    private function localizationHeaders(): array
+    {
+        return [
+            [
+                'name' => 'Accept-Language',
+                'in' => 'header',
+                'required' => false,
+                'description' => 'Locale: "id-ID" (Bahasa Indonesia) atau "en-US" (English). Contoh: Accept-Language: id-ID. / Locale negotiation, e.g. Accept-Language: en-US.',
+                'schema' => ['type' => 'string', 'examples' => ['id-ID', 'en-US'], 'default' => 'id-ID'],
+            ],
+            [
+                'name' => 'X-Currency',
+                'in' => 'header',
+                'required' => false,
+                'description' => 'Mata uang ISO 4217 (mis. IDR, USD). / Currency ISO 4217, e.g. IDR, USD.',
+                'schema' => ['type' => 'string', 'pattern' => '^[A-Z]{3}$', 'examples' => ['IDR', 'USD'], 'default' => 'IDR'],
+            ],
+            [
+                'name' => 'X-Country',
+                'in' => 'header',
+                'required' => false,
+                'description' => 'Negara ISO 3166-1 alpha-2 (mis. ID, US). / Country ISO 3166-1 alpha-2, e.g. ID, US.',
+                'schema' => ['type' => 'string', 'pattern' => '^[A-Z]{2}$', 'examples' => ['ID', 'US'], 'default' => 'ID'],
+            ],
+        ];
     }
 
     private function requestBody(array $meta): ?array
@@ -881,6 +920,12 @@ final class OpenApiSpec
             '**Versioning.** `v1` is the customer API, `v2` the vendor OS, `v3` the courier API and `v4` a',
             'thin public read API using cursor pagination. The original v1/v2/v3 endpoints are preserved',
             'unchanged for existing consumers.',
+            '',
+            '**Localization (aditif, kontrak existing tidak berubah).** Kirim `Accept-Language: id-ID`',
+            'atau `Accept-Language: en-US` untuk bahasa, `X-Currency: IDR|USD|...` (ISO 4217) untuk',
+            'mata uang, dan `X-Country: ID|US|...` (ISO 3166-1 alpha-2) untuk negara. / Send',
+            '`Accept-Language: id-ID` or `Accept-Language: en-US`, `X-Currency` and `X-Country` headers.',
+            'Responses echo `meta.locale`, `meta.currency` plus `X-Locale` / `X-Currency` headers.',
         ]);
     }
 

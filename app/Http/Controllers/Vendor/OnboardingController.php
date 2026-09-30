@@ -88,6 +88,11 @@ class OnboardingController extends Controller
     {
         $shop = auth('vendor')->user()->shop;
 
+        $request->validate([
+            'logo' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'banner' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ]);
+
         if ($request->hasFile('logo')) {
             $path = $request->file('logo')->store('shops/logos', 'public');
             $shop->update(['logo' => $path]);

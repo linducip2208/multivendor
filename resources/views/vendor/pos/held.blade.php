@@ -44,10 +44,10 @@
                             'date' => '<span class="text-secondary small">'.e($order->created_at->format('d/m/Y H:i')).'</span>',
                             'actions' => '<div class="d-flex gap-1 justify-content-end">'
                                 .'<form method="POST" action="'.route('vendor.pos.resume', $order).'" class="d-inline">'
-                                .csrf().'<button type="submit" class="btn btn-sm btn-success">Lanjutkan</button></form>'
+                                .csrf_field().'<button type="submit" class="btn btn-sm btn-success">Lanjutkan</button></form>'
                                 .'<a href="'.route('vendor.pos.print', $order).'" class="btn btn-sm btn-ghost-light" target="_blank" rel="noopener">Cetak</a>'
                                 .'<form method="POST" action="'.route('vendor.pos.cancel-hold', $order).'" class="d-inline" data-confirm="Batalkan pesanan ditahan '.e($order->order_number).'?">'
-                                .csrf().'<button type="submit" class="btn btn-sm btn-ghost-danger">Batal</button></form>'
+                                .csrf_field().'<button type="submit" class="btn btn-sm btn-ghost-danger">Batal</button></form>'
                                 .'</div>',
                         ])->all()
                     )

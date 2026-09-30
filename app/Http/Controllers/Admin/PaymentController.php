@@ -7,8 +7,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Refund;
 use App\Models\VendorWithdrawRequest;
+use App\Plugins\PluginManager;
 use App\Services\AuditLogger;
 use App\Services\Backoffice\FinanceAdminService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -109,5 +111,29 @@ class PaymentController extends Controller
                 ? $result['groups'].' kelompok pembayaran diperiksa. '.$result['detail']
                 : $result['detail'],
         );
+    }
+
+    /**
+     * Daftar semua provider (ID + intl) via manifest plugin — data untuk
+     * view admin/payments/providers. Tanpa kredensial live.
+     */
+    public function providers(): View
+    {
+        $manager = new PluginManager();
+        $providers = $manager->providersOverview();
+
+        return view('admin.payments.providers', [
+            'providers' => $providers,
+            'log' => $manager->paymentLog(10),
+        ]);
+    }
+
+    /**
+     * Health jujur per provider — aman, tanpa kredensial live, tanpa HTTP.
+     * Status "unknown" bila belum dikonfigurasi.
+     */
+    public function providerHealth(string $code): JsonResponse
+    {
+        return response()->json((new PluginManager())->providerHealth($code));
     }
 }

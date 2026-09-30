@@ -8,7 +8,7 @@
         <div class="row g-3 small"><div class="col-md-6"><span class="text-muted">SKU:</span> {{ $product->sku ?? '-' }}</div><div class="col-md-6"><span class="text-muted">Kategori:</span> {{ $product->category?->name ?? '-' }}</div><div class="col-md-6"><span class="text-muted">Brand:</span> {{ $product->brand?->name ?? '-' }}</div><div class="col-md-6"><span class="text-muted">Tipe:</span> {{ $product->product_type }}</div><div class="col-md-6"><span class="text-muted">Satuan:</span> {{ $product->unit ?? 'pcs' }}</div><div class="col-md-6"><span class="text-muted">Jml. Min./Maks.:</span> {{ $product->min_qty }}/{{ $product->max_qty }}</div></div>
         <hr>
         <div class="d-flex gap-4 mb-3"><div><small class="text-muted">Harga</small><br><span class="fw-bold fs-5 text-success">Rp {{ number_format($product->price,0,',','.') }}</span></div><div><small class="text-muted">Diskon</small><br>Rp {{ number_format($product->special_price??0,0,',','.') }}</div><div><small class="text-muted">Stok</small><br>{{ $product->current_stock }}</div><div><small class="text-muted">Pajak</small><br>{{ $product->tax }}%</div></div>
-        @if($product->description)<div class="mt-3"><small class="text-muted">Deskripsi</small><div class="lh-lg">{!! $product->description !!}</div></div>@endif
+        @if($product->description)<div class="mt-3"><small class="text-muted">Deskripsi</small><div class="lh-lg">{!! app(\App\Services\HtmlSanitizer::class)->sanitize($product->description) !!}</div></div>@endif
     </div></x-admin.card></div>
     <div class="col-md-4">
         <x-admin.card :padding="false" class="mb-3"><div class="card-body"><h6 class="fw-bold mb-3">Status</h6>

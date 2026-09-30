@@ -45,10 +45,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('vendor')->name('vendor.')->group(function (): void {
     Route::get('/login', [VendorAuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [VendorAuthController::class, 'login']);
+    Route::post('/login', [VendorAuthController::class, 'login'])->middleware('throttle:auth');
     Route::post('/logout', [VendorAuthController::class, 'logout'])->name('logout');
     Route::get('/register', [VendorAuthController::class, 'showRegisterForm'])->name('register');
-    Route::post('/register', [VendorAuthController::class, 'register'])->name('register.store');
+    Route::post('/register', [VendorAuthController::class, 'register'])->middleware('throttle:auth')->name('register.store');
     Route::get('/register/status', [VendorRegistrationController::class, 'status'])->name('register.status');
 
     Route::middleware('vendor')->group(function (): void {

@@ -1,0 +1,1 @@
+{"capabilities":{"countries":["ID","US"],"currencies":["IDR","USD"],"methods":["virtual_account","e_wallet","qris","credit_card"]},"code":"fake","gateway":"App\\Payments\\FakePaymentGateway","name":"Fake (Test)","priority":999,"provider":"Internal","routes":[],"settings":[],"test_mode_supported":true,"version":"1.0.0","webhooks":["payment.paid"]}

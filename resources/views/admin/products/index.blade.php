@@ -11,6 +11,15 @@
 </div>
 
 <x-admin.card :padding="false">
+    {{-- Tab locale ID/EN (tampilan saja; fallback ID bila EN kosong) --}}
+    <div class="px-3 pt-3">
+        <ul class="nav nav-tabs" data-locale-tabs role="tablist">
+            <li class="nav-item" role="presentation"><button type="button" class="nav-link active" data-locale-tab="id" role="tab">ID</button></li>
+            <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-locale-tab="en" role="tab">EN</button></li>
+            <li class="nav-item ms-auto d-flex align-items-center"><span class="text-muted small">Fallback: ID</span></li>
+        </ul>
+        <div data-locale-panel="en" class="alert alert-info mt-2 mb-0 d-none">Versi EN mengikuti data ID bila terjemahan kosong (fallback ID).</div>
+    </div>
     <div class="card-body p-0">
         <div class="p-3 border-bottom">
             <form method="GET" class="row g-2">

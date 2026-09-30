@@ -44,7 +44,9 @@ class BulkImportController extends Controller
                     'current_stock' => (int) ($data['stock'] ?? 0),
                     'sku' => $data['sku'] ?? null,
                     'category_id' => $data['category_id'] ?? null,
-                    'description' => $data['description'] ?? null,
+                    // Deskripsi CSV adalah input tak tepercaya: sanitasi saat tulis
+                    // (lapisan baca storefront juga sanitasi — defense in depth).
+                    'description' => app(\App\Services\HtmlSanitizer::class)->sanitize($data['description'] ?? null),
                     'status' => 'pending',
                     'created_by' => 'vendor',
                     'published' => true,

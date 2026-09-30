@@ -89,3 +89,8 @@ Service auto-submits new URLs to Bing, Yandex, Seznam, Naver.
 - Input validation on all forms
 - SQL injection prevention via Eloquent ORM
 - XSS protection via Blade auto-escaping
+
+## Plugin & Theme (ID/EN)
+
+- ID: plugin dibaca dari `app/Plugins/*/plugin.json`; aktif via setting `plugins.enabled`. Tema aktif via `theme.active`. Setelah deploy jalankan `php artisan view:cache` dan `php artisan test --filter=PluginThemeTest`.
+- EN: plugins load from manifests; active theme via setting. After deploy run `view:cache` and the plugin/theme test.

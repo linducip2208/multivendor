@@ -48,6 +48,30 @@ class CatalogController extends Controller
 
         Product::whereKey($product->id)->increment('view_count');
 
+        // ── Multibahasa konten (aditif, baca-saja; query inti di atas tidak diubah) ──
+        try {
+            $locale = (string) app()->getLocale();
+            \App\Services\Localization\Translatable::applyToModel($product, $locale, \App\Services\Localization\Translatable::fieldsFor('product'));
+            if ($product->relationLoaded('category') && $product->category) {
+                \App\Services\Localization\Translatable::applyToModel($product->category, $locale, \App\Services\Localization\Translatable::fieldsFor('category'));
+            }
+            if ($product->relationLoaded('brand') && $product->brand) {
+                \App\Services\Localization\Translatable::applyToModel($product->brand, $locale, \App\Services\Localization\Translatable::fieldsFor('brand'));
+            }
+            if ($product->relationLoaded('shop') && $product->shop) {
+                \App\Services\Localization\Translatable::applyToModel($product->shop, $locale, \App\Services\Localization\Translatable::fieldsFor('shop'));
+            }
+            // Slug lama -> kanonik via Redirect existing (301), tanpa ubah query inti.
+            if (\Illuminate\Support\Facades\Schema::hasTable('redirects') && $slug !== (string) $product->getAttribute('slug')) {
+                $hit = \App\Models\Redirect::query()->active()->where('from_path', '/products/'.ltrim($slug, '/'))->first();
+                if ($hit && $hit->to_path) {
+                    return redirect($hit->to_path, $hit->status_code ?: 301);
+                }
+            }
+        } catch (\Throwable) {
+            // Abaikan: fallback ke konten induk (ID).
+        }
+
         $ratingBreakdown = $this->ratingBreakdown($product);
         $similar = $this->similar($product);
         $related = $this->related($product);
@@ -132,6 +156,12 @@ class CatalogController extends Controller
     {
         $category = Category::where('slug', $slug)->where('status', true)->firstOrFail();
 
+        // ── Multibahasa konten (aditif; query inti di atas tidak diubah) ──
+        try {
+            \App\Services\Localization\Translatable::applyToModel($category, (string) app()->getLocale(), \App\Services\Localization\Translatable::fieldsFor('category'));
+        } catch (\Throwable) {
+        }
+
         $query = SearchQuery::fromRequest($request);
         $query = new SearchQuery(
             $query->term,
@@ -184,6 +214,12 @@ class CatalogController extends Controller
     public function brand(Request $request, string $slug)
     {
         $brand = Brand::where('slug', $slug)->where('status', true)->firstOrFail();
+
+        // ── Multibahasa konten (aditif; query inti di atas tidak diubah) ──
+        try {
+            \App\Services\Localization\Translatable::applyToModel($brand, (string) app()->getLocale(), \App\Services\Localization\Translatable::fieldsFor('brand'));
+        } catch (\Throwable) {
+        }
 
         $query = SearchQuery::fromRequest($request);
         $query = new SearchQuery(

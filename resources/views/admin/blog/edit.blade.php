@@ -2,6 +2,13 @@
 @section('title', 'Ubah Artikel')
 @section('content')
 <div class="mb-4"><a href="{{ route('admin.blog.index') }}" class="small"><x-admin.icon name="arrow-left" :size="16" class="me-1" />Kembali</a><h4 class="fw-bold mt-2">Ubah: {{ $blog->title }}</h4></div>
+{{-- Tab locale ID/EN (tampilan saja; status per bahasa draft/published tersimpan di blog_post_translations) --}}
+<ul class="nav nav-tabs mb-3" data-locale-tabs role="tablist">
+    <li class="nav-item" role="presentation"><button type="button" class="nav-link active" data-locale-tab="id" role="tab">ID</button></li>
+    <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-locale-tab="en" role="tab">EN</button></li>
+    <li class="nav-item ms-auto d-flex align-items-center"><span class="text-muted small">Fallback: ID · Status per bahasa: draft/published</span></li>
+</ul>
+<div data-locale-panel="en" class="alert alert-info d-none">Isi EN opsional — kosong berarti fallback ke ID. Status EN (draft/published) mengikuti kolom status terjemahan.</div>
 <x-admin.card :padding="false"><div class="card-body p-4">
 <form method="POST" action="{{ route('admin.blog.update', $blog) }}">@csrf @method('PUT')
 <div class="row g-3">

@@ -64,7 +64,7 @@ use Illuminate\Support\Str;
 
 Route::prefix('admin')->name('admin.')->group(function (): void {
     Route::get('/login', [AdminAuthController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [AdminAuthController::class, 'login']);
+    Route::post('/login', [AdminAuthController::class, 'login'])->middleware('throttle:auth');
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('logout');
 
     Route::middleware('admin')->group(function (): void {
@@ -187,6 +187,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::get('refunds/{refund}', [PaymentController::class, 'refundShow'])->name('refunds.show');
         Route::get('payment-reconciliation', [PaymentController::class, 'reconciliation'])->name('payments.reconciliation');
         Route::post('payment-reconciliation/run', [PaymentController::class, 'runReconciliation'])->name('payments.reconciliation.run');
+        Route::get('payment-providers', [PaymentController::class, 'providers'])->name('payments.providers');
+        Route::get('payment-providers/health', [PaymentController::class, 'providerHealth'])->name('payments.providers.health');
         Route::resource('withdraws', AdminWithdrawController::class)->only(['index', 'update']);
         Route::get('vat', fn () => view('admin.vat.index'))->name('vat.index');
         Route::post('vat', function (Request $request) {
@@ -288,6 +290,8 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::get('webhooks/{webhook}/deliveries', [DeveloperController::class, 'webhookDeliveries'])->name('webhooks.deliveries');
         Route::post('webhooks/{webhook}/deliveries/{delivery}/replay', [DeveloperController::class, 'replayDelivery'])->name('webhooks.deliveries.replay');
         Route::get('events', [DeveloperController::class, 'events'])->name('events.index');
+        Route::get('plugins', [DeveloperController::class, 'plugins'])->name('plugins.index');
+        Route::get('payment-health', [DeveloperController::class, 'paymentHealth'])->name('payment-health.index');
         Route::get('logs', [DeveloperController::class, 'logs'])->name('logs.index');
 
         /* ---------------- SAAS ---------------- */

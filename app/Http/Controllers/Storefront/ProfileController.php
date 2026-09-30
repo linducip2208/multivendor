@@ -17,7 +17,7 @@ class ProfileController extends Controller
     public function update(Request $request) {
         $v = $request->validate(['name'=>'required|string|max:255','phone'=>'nullable|string|max:20','password'=>'nullable|min:6|confirmed']);
         auth()->user()->update(['name'=>$v['name'],'phone'=>$v['phone']]);
-        if($v['password']) auth()->user()->update(['password'=>\Illuminate\Support\Facades\Hash::make($v['password'])]);
+        if(!empty($v['password'])) auth()->user()->update(['password'=>\Illuminate\Support\Facades\Hash::make($v['password'])]);
         return back()->with('success','Profil diperbarui.');
     }
     public function addressStore(Request $request) {

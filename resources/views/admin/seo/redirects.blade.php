@@ -9,6 +9,13 @@
 @section('content')
     <x-admin.page-header title="Redirect" subtitle="Aturan pengalihan URL lama ke URL baru." />
 
+    {{-- Tab locale ID/EN (tampilan saja; slug lama dialihkan via tabel redirects, fallback ID) --}}
+    <ul class="nav nav-tabs mb-3" data-locale-tabs role="tablist">
+        <li class="nav-item" role="presentation"><button type="button" class="nav-link active" data-locale-tab="id" role="tab">ID</button></li>
+        <li class="nav-item" role="presentation"><button type="button" class="nav-link" data-locale-tab="en" role="tab">EN</button></li>
+        <li class="nav-item ms-auto d-flex align-items-center"><span class="text-muted small">Fallback: ID</span></li>
+    </ul>
+
     <div class="row g-3 mb-3">
         <div class="col-6 col-xl-3">
             <x-admin.stat label="Total Aturan" :value="number_format($pagination['total'], 0, ',', '.')" icon="corner-up-right" color="primary" />

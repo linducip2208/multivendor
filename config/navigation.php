@@ -106,6 +106,7 @@ return [
             ['route' => 'admin.vat.index', 'label' => 'Pajak', 'icon' => 'percent', 'permission' => 'finance.view', 'match' => 'admin.vat*'],
             ['route' => 'admin.tax-report.index', 'label' => 'Laporan Pajak', 'icon' => 'file-text', 'match' => 'admin.tax-report.*', 'permission' => 'finance.view'],
             ['route' => 'admin.offline-payment.index', 'label' => 'Pembayaran Offline', 'icon' => 'credit-card', 'permission' => 'finance.view', 'match' => 'admin.offline-payment.*'],
+            ['route' => 'admin.payments.providers', 'label' => 'Provider', 'icon' => 'plug', 'permission' => 'finance.view', 'match' => 'admin.payments.providers*'],
         ],
     ],
 
@@ -168,6 +169,8 @@ return [
             ['route' => 'admin.api-keys.index', 'label' => 'API Keys', 'icon' => 'key', 'permission' => 'developers.view', 'match' => 'admin.api-keys.*'],
             ['route' => 'admin.webhooks.index', 'label' => 'Webhooks', 'icon' => 'webhook', 'permission' => 'developers.view', 'match' => 'admin.webhooks.*'],
             ['route' => 'admin.events.index', 'label' => 'Events', 'icon' => 'zap', 'permission' => 'developers.view', 'match' => 'admin.events.*'],
+            ['route' => 'admin.plugins.index', 'label' => 'Plugin', 'icon' => 'puzzle', 'permission' => 'developers.view', 'match' => 'admin.plugins.*'],
+            ['route' => 'admin.payment-health.index', 'label' => 'Payment Health', 'icon' => 'heart-pulse', 'permission' => 'developers.view', 'match' => 'admin.payment-health.*'],
             ['route' => 'admin.logs.index', 'label' => 'Logs', 'icon' => 'file-code', 'permission' => 'developers.view', 'match' => 'admin.logs.*'],
         ],
     ],
