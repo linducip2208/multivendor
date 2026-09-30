@@ -171,7 +171,29 @@
                     </div>
 
                     <aside class="sf-panel" style="position:sticky;top:calc(var(--sf-header-h) + 12px)" aria-labelledby="sf-cart-summary-title">
-                        <h2 class="sf-footer__title" id="sf-cart-summary-title">Ringkasan Belanja</h2>
+                        <h2 class="sf-footer__title" id="sf-cart-summary-title">Ringkasan Belanja / Order summary</h2>
+
+                        {{-- ADITIF global-checkout: selector currency (display saja, charge tetap IDR). --}}
+                        <form method="GET" action="{{ route('cart.index') }}" class="sf-row sf-row--wrap" style="gap:8px;align-items:flex-end;margin-bottom:12px">
+                            <div class="sf-field" style="min-width:160px;flex:1">
+                                <label class="sf-label form-label" for="sf-cart-currency">Currency / Mata uang</label>
+                                <select class="sf-select form-select" id="sf-cart-currency" name="currency" onchange="this.form.submit()">
+                                    @foreach (($currencies ?? collect()) as $cur)
+                                        <option value="{{ $cur->code }}" @selected(($displayCurrency ?? 'IDR') === $cur->code)>
+                                            {{ $cur->code }} ({{ $cur->symbol ?? $cur->code }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        </form>
+                        @if (! empty($displayTotal))
+                            <p class="sf-small sf-muted sf-mb-0" role="status">
+                                ≈ <span class="sf-bold">{{ $displayTotal['formatted'] }}</span> {{ $displayCurrency }}
+                                <span class="sf-tiny">(tampilan / display-only — charge tetap IDR · rate 1 {{ $displayCurrency }} = {{ number_format((float) ($displayTotal['rate'] ?? 1), 2, ',', '.') }} IDR)</span>
+                            </p>
+                        @else
+                            <p class="sf-tiny sf-muted sf-mb-0">Charge currency: IDR.</p>
+                        @endif
 
                         <div class="sf-summary">
                             <div class="sf-summary__row">
@@ -191,9 +213,15 @@
                                 <span class="sf-muted">Dihitung saat checkout</span>
                             </div>
                             <div class="sf-summary__row sf-summary__row--total">
-                                <span>Total sementara</span>
+                                <span>Total sementara / Subtotal</span>
                                 <span>{{ \App\Support\Currency::format($total) }}</span>
                             </div>
+                            @if (! empty($displayTotal))
+                                <div class="sf-summary__row">
+                                    <span class="sf-summary__label">≈ {{ $displayCurrency }} (display)</span>
+                                    <span class="sf-bold">{{ $displayTotal['formatted'] }}</span>
+                                </div>
+                            @endif
                         </div>
 
                         <a href="{{ route('checkout.index') }}" class="sf-btn sf-btn--primary sf-btn--block sf-btn--lg" style="margin-top:18px">

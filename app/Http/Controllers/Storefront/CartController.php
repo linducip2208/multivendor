@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 
 class CartController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $customerId = auth()->id();
         $cartItems = Cart::where('customer_id', $customerId)
@@ -49,7 +49,14 @@ class CartController extends Controller
 
         $repeatSchedules = $this->repeatSchedules($customerId);
 
-        return view('storefront.cart.index', compact('shops', 'total', 'saved', 'repeatSchedules'));
+        // ── ADITIF global-checkout: currency display terverifikasi server-side
+        // (input → X-Currency → session → IDR; hanya kode aktif di DB yang sah;
+        // charge tetap IDR — konversi murni tampilan).
+        $displayCurrency = $this->resolveDisplayCurrency($request);
+        $currencies = $this->activeCurrencies();
+        $displayTotal = $this->convertForDisplay((float) $total, $displayCurrency);
+
+        return view('storefront.cart.index', compact('shops', 'total', 'saved', 'repeatSchedules', 'displayCurrency', 'currencies', 'displayTotal'));
     }
 
     public function add(Request $request)
@@ -206,6 +213,98 @@ class CartController extends Controller
         if ($quantity < $product->min_qty || ($product->max_qty && $quantity > $product->max_qty)) abort(422, 'Kuantitas tidak memenuhi batas pembelian.');
         $stock = $variant?->stock ?? $product->current_stock;
         if ($quantity > $stock) abort(422, 'Stok tidak mencukupi.');
+    }
+
+    /**
+     * ADITIF global-checkout: currency display terverifikasi server-side.
+     * Header user TIDAK dipercaya mentah — hanya kode aktif di DB.
+     */
+    private function resolveDisplayCurrency(Request $request): string
+    {
+        foreach ([$request->query('currency'), $request->header('X-Currency'), session('currency')] as $candidate) {
+            $code = strtoupper(trim((string) ($candidate ?? '')));
+            if ($code === '' || ! preg_match('/^[A-Z]{3}$/', $code)) {
+                continue;
+            }
+            if ($code === 'IDR' || $this->isActiveCurrency($code)) {
+                session(['currency' => $code]);
+
+                return $code;
+            }
+        }
+
+        session(['currency' => 'IDR']);
+
+        return 'IDR';
+    }
+
+    private function isActiveCurrency(string $code): bool
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('currencies')) {
+                return false;
+            }
+
+            return \App\Models\Currency::query()->where('code', $code)->where('is_active', true)->exists();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** @return \Illuminate\Support\Collection<int, mixed> */
+    private function activeCurrencies(): \Illuminate\Support\Collection
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('currencies')) {
+                $rows = \App\Models\Currency::query()->where('is_active', true)->orderBy('is_default', 'desc')->orderBy('code')->get();
+                if ($rows->isNotEmpty()) {
+                    return $rows;
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return collect([(object) ['code' => 'IDR', 'symbol' => 'Rp', 'exchange_rate' => '1.00000000', 'decimal_places' => 0]]);
+    }
+
+    /**
+     * @return array{amount:string,formatted:string,rate:string,symbol:string}|null
+     */
+    private function convertForDisplay(float $amountIdr, string $toCurrency): ?array
+    {
+        $toCurrency = strtoupper(trim($toCurrency));
+
+        if ($toCurrency === '' || $toCurrency === 'IDR') {
+            return null;
+        }
+
+        try {
+            if (! class_exists(\App\Services\Currency\CurrencyService::class)) {
+                return null;
+            }
+            $from = \App\Services\Currency\CurrencyService::find('IDR');
+            $to = \App\Services\Currency\CurrencyService::find($toCurrency);
+            if ($from === null || $to === null || ! (bool) $to->is_active) {
+                return null;
+            }
+            $minor = \App\Services\Currency\CurrencyConverter::convertMinor(
+                (int) round($amountIdr),
+                (int) $from->decimal_places,
+                (int) $to->decimal_places,
+                (string) $from->exchange_rate,
+                (string) $to->exchange_rate,
+            );
+            $money = \App\Services\Currency\Money::fromMinor($minor, $to->code, (int) $to->decimal_places);
+
+            return [
+                'amount' => $money->toMajorString(),
+                'formatted' => \App\Services\Currency\CurrencyService::format($money),
+                'rate' => (string) $to->exchange_rate,
+                'symbol' => (string) $to->symbol,
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /** Catat keranjang terbengkalai untuk pengingat (tabel abandoned_carts existing). */

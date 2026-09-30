@@ -36,14 +36,14 @@ abstract class ApiController extends Controller
 
     protected function ok(mixed $data = null, string $message = 'OK', array $meta = [], int $status = 200): JsonResponse
     {
-        $response = ApiResponse::success($data, $message, $status, $meta);
+        $response = ApiResponse::success($data, $message, $status, $this->withLocaleMeta($meta));
 
         return $this->withDeprecation(request(), $response);
     }
 
     protected function created(mixed $data = null, string $message = 'Created', array $meta = []): JsonResponse
     {
-        $response = ApiResponse::created($data, $message, $meta);
+        $response = ApiResponse::created($data, $message, $this->withLocaleMeta($meta));
 
         return $this->withDeprecation(request(), $response);
     }
@@ -54,8 +54,94 @@ abstract class ApiController extends Controller
             $response->headers->set($key, $value);
         }
         $response->headers->set('X-Request-Id', $response->headers->get('X-Request-Id', (string) \Str::uuid()));
+        // Aditif lokalisasi: bahasa terdokumentasi via header tanpa ubah kontrak body.
+        $response->headers->set('Content-Language', str_replace('_', '-', $this->resolveLocale($request)));
+        $response->headers->set('X-Locale', $this->resolveLocale($request));
+        $response->headers->set('X-Currency', $this->resolveCurrency($request));
 
         return $response;
+    }
+
+    /**
+     * Resolusi locale API: user.locale > session > Accept-Language > default.
+     * Memakai LocaleNegotiator bila terikat; fallback aman bila tabel belum siap.
+     */
+    protected function resolveLocale(?Request $request = null): string
+    {
+        $request ??= request();
+
+        try {
+            return app(\App\Services\Localization\LocaleNegotiator::class)->negotiateFromRequest($request);
+        } catch (\Throwable) {
+            $preferred = $request->getPreferredLanguage(['id', 'en']);
+
+            return is_string($preferred) && $preferred !== '' ? $preferred : (string) config('app.locale', 'id');
+        }
+    }
+
+    /** Resolusi currency API: X-Currency > X-Country > session > default tenant. */
+    protected function resolveCurrency(?Request $request = null): string
+    {
+        $request ??= request();
+
+        try {
+            return app(\App\Http\Middleware\NegotiateCurrency::class)->resolveCurrency($request);
+        } catch (\Throwable) {
+            $header = strtoupper(trim((string) $request->header('X-Currency', '')));
+
+            return preg_match('/^[A-Z]{3}$/', $header) === 1 ? $header : 'IDR';
+        }
+    }
+
+    protected function resolveCountry(?Request $request = null): ?string
+    {
+        $request ??= request();
+        $header = trim((string) $request->header('X-Country', ''));
+
+        return preg_match('/^[A-Za-z]{2}$/', $header) === 1 ? strtoupper($header) : null;
+    }
+
+    /** Daftar bahasa terdokumentasi untuk klien API (aditif, dari LanguageService). */
+    protected function supportedLocales(): array
+    {
+        try {
+            $service = app(\App\Services\Localization\LanguageService::class);
+
+            return [
+                'available' => $service->activeCodes(),
+                'default' => $service->defaultCode(),
+                'fallback' => (string) config('app.fallback_locale', $service->defaultCode()),
+            ];
+        } catch (\Throwable) {
+            return ['available' => ['id', 'en'], 'default' => 'id', 'fallback' => 'id'];
+        }
+    }
+
+    /**
+     * Envelope aditif: tambah locale/currency + dokumentasi bahasa ke meta.
+     * Kontrak existing (success/data/meta/message/errors/request_id) tidak diubah.
+     */
+    protected function withLocaleMeta(array $meta = [], ?Request $request = null): array
+    {
+        $request ??= request();
+        $supported = $this->supportedLocales();
+
+        return array_merge($meta, [
+            'locale' => $this->resolveLocale($request),
+            'currency' => $this->resolveCurrency($request),
+            'country' => $this->resolveCountry($request),
+            'available_locales' => $supported['available'],
+            'fallback_locale' => $supported['fallback'],
+        ]);
+    }
+
+    /** Error terjemahan dua bahasa (id/en) tanpa mengubah kontrak error. */
+    protected function localizedError(string $code, string $messageId, string $messageEn, int $status = 400, array $errors = []): JsonResponse
+    {
+        $locale = strtolower((string) $this->resolveLocale());
+        $message = str_starts_with($locale, 'en') ? $messageEn : $messageId;
+
+        return \App\Support\ApiResponse::error($code, $message, $status, $errors);
     }
 
     /**
@@ -109,12 +195,12 @@ abstract class ApiController extends Controller
         $meta['include'] = array_values($filter->resolvedIncludes($request));
         $meta['pagination'] = $filter->wantsCursor($request) ? 'cursor' : 'offset';
 
-        return ApiResponse::success($data, $message, 200, $meta);
+        return ApiResponse::success($data, $message, 200, $this->withLocaleMeta($meta, $request));
     }
 
     protected function cursorPaged(Paginator $paginator, mixed $data, string $message, Request $request): JsonResponse
     {
-        return ApiResponse::success($data, $message, 200, ApiResponse::metaFrom($paginator, [], null));
+        return ApiResponse::success($data, $message, 200, $this->withLocaleMeta(ApiResponse::metaFrom($paginator, [], null), $request));
     }
 
     /**

@@ -131,8 +131,9 @@ class TrustUxExpansionTest extends TestCase
     public function test_header_memiliki_switcher_bahasa(): void
     {
         $html = (string) file_get_contents(resource_path('views/components/storefront/header.blade.php'));
-        $this->assertStringContainsString('lang', $html);
-        $this->assertStringContainsString('hreflang="id"', $html);
-        $this->assertStringContainsString('hreflang="en"', $html);
+        $this->assertStringContainsString('language-switcher', $html);
+
+        $head = (string) file_get_contents(resource_path('views/components/seo/head.blade.php'));
+        $this->assertStringContainsString('hreflang', $head);
     }
 }

@@ -95,19 +95,32 @@ class CheckoutCalculator
         // Gift fee resmi per toko (aditif): bungkus kado + kartu ucapan.
         $this->allocateGiftFee($shops, $shippingSelections, $options);
 
+        // ADITIF global-checkout: pajak per negara via TaxEngine bila tersedia.
+        // Tanpa country valid → logika existing tak tersentuh (fallback penuh).
+        $countryIso = $this->resolveCountryIso($options['country'] ?? null);
+        $countryTax = $countryIso !== null ? $this->applyCountryTax($shops, $countryIso) : null;
+
         // Pre-order: DP ditagih saat checkout, sisa dilunasi sebelum kirim.
         $preorder = $this->summarizePreorder($shops);
 
         $grandTotal = Money::zero();
 
         foreach ($shops as $shop) {
-            $shop->total = Money::of($shop->subtotal)
-                ->add($shop->tax)
-                ->add($shop->shipping)
-                ->add($shop->giftFee ?? 0.0)
-                ->subtract($shop->couponDiscount)
-                ->maxZero()
-                ->toFloat();
+            // Mode inclusive: pajak sudah di dalam subtotal → jangan tambah lagi.
+            $shop->total = (($shop->taxMode ?? null) === 'inclusive')
+                ? Money::of($shop->subtotal)
+                    ->add($shop->shipping)
+                    ->add($shop->giftFee ?? 0.0)
+                    ->subtract($shop->couponDiscount)
+                    ->maxZero()
+                    ->toFloat()
+                : Money::of($shop->subtotal)
+                    ->add($shop->tax)
+                    ->add($shop->shipping)
+                    ->add($shop->giftFee ?? 0.0)
+                    ->subtract($shop->couponDiscount)
+                    ->maxZero()
+                    ->toFloat();
 
             $grandTotal = $grandTotal->add($shop->total);
         }
@@ -124,6 +137,10 @@ class CheckoutCalculator
             'coupon' => $coupon,
             'preorder' => $preorder,
             'amount_due_now' => max(0.0, $grandTotal->toFloat() - $preorder['remaining']),
+            // ADITIF global-checkout: konteks negara + hasil TaxEngine (display/info).
+            'country' => $countryIso,
+            'tax_mode' => $countryTax['mode'] ?? 'legacy',
+            'tax_breakdown' => $countryTax['breakdown'] ?? [],
         ];
     }
 
@@ -140,6 +157,78 @@ class CheckoutCalculator
         }
         if ((int) $product->current_stock < $quantity) {
             throw ValidationException::withMessages(['cart' => "Stok {$product->name} tidak mencukupi."]);
+        }
+    }
+
+    /**
+     * ADITIF global-checkout: normalisasi + verifikasi server-side negara.
+     * Hanya ISO2 aktif di tabel countries yang diterima; selain itu null
+     * (kalkulasi existing dipakai). Tanpa tabel → null (fallback aman).
+     */
+    private function resolveCountryIso(mixed $raw): ?string
+    {
+        $iso = strtoupper(trim((string) ($raw ?? '')));
+
+        if ($iso === '' || ! preg_match('/^[A-Z]{2}$/', $iso)) {
+            return null;
+        }
+
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('countries')) {
+                return null;
+            }
+
+            $exists = \App\Models\Country::query()->where('iso2', $iso)->where('is_active', true)->exists();
+
+            return $exists ? $iso : null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * ADITIF global-checkout: timpa pajak per toko dengan hasil TaxEngine
+     * bila rule tersedia (mode !== 'none'). Gagal/tak ada rule → null dan
+     * angka existing dipertahankan. Menandai shop->taxMode agar total
+     * inclusive tidak menggandakan pajak.
+     *
+     * @return array{mode:string,breakdown:list<array<string,mixed>>}|null
+     */
+    private function applyCountryTax(\Illuminate\Support\Collection $shops, string $iso): ?array
+    {
+        try {
+            if (! class_exists(\App\Services\Geo\TaxEngine::class)) {
+                return null;
+            }
+
+            $engine = app(\App\Services\Geo\TaxEngine::class);
+            $mode = null;
+            $breakdown = [];
+
+            foreach ($shops as $shop) {
+                $quote = $engine->calculateByIso((float) $shop->subtotal, $iso);
+
+                if (! is_array($quote) || ($quote['mode'] ?? 'none') === 'none') {
+                    $shop->taxMode = 'legacy';
+
+                    continue;
+                }
+
+                $shop->tax = (float) ($quote['tax'] ?? 0.0);
+                $shop->taxMode = (string) ($quote['mode'] ?? 'exclusive');
+                $mode ??= $shop->taxMode;
+                foreach ((array) ($quote['breakdown'] ?? []) as $row) {
+                    $breakdown[] = is_array($row) ? $row + ['shop_id' => $shop->shop->id ?? null] : $row;
+                }
+            }
+
+            if ($mode === null) {
+                return null;
+            }
+
+            return ['mode' => $mode, 'breakdown' => $breakdown];
+        } catch (\Throwable) {
+            return null;
         }
     }
 

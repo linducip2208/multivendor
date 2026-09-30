@@ -76,6 +76,11 @@
         }
         unset($payload['variantOffers'], $payload['variants']);
     }
+
+    // Aditif SEO locale: tandai bahasa konten tanpa mengubah graph existing.
+    if (is_array($payload) && isset($payload['@type']) && ! isset($payload['inLanguage'])) {
+        $payload['inLanguage'] = str_replace('_', '-', (string) app()->getLocale());
+    }
 @endphp
 <script type="application/ld+json">{!! json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!}</script>
 @if (! empty($faq))

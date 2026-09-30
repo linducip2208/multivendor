@@ -58,6 +58,15 @@
 <title>{{ $fullTitle }}</title>
 <meta name="description" content="{{ $desc }}">
 <link rel="canonical" href="{{ $canonicalUrl }}">
+{{-- hreflang id/en + canonical per locale (aditif; sitemap per locale milik agen lain) --}}
+@php
+    $hreflangId = request()->fullUrlWithQuery(['lang' => 'id']);
+    $hreflangEn = request()->fullUrlWithQuery(['lang' => 'en']);
+    $ogLocale = str_replace('-', '_', (string) app()->getLocale());
+@endphp
+<link rel="alternate" hreflang="id" href="{{ $hreflangId }}">
+<link rel="alternate" hreflang="en" href="{{ $hreflangEn }}">
+<link rel="alternate" hreflang="x-default" href="{{ $canonicalUrl }}">
 <meta name="robots" content="{{ $robots }}">
 <meta name="author" content="{{ $siteName }}">
 <meta name="geo.region" content="{{ config('app.seo.geo_region', 'ID') }}">
@@ -79,6 +88,7 @@
 <meta property="og:description" content="{{ $desc }}">
 <meta property="og:url" content="{{ $canonicalUrl }}">
 <meta property="og:locale" content="{{ str_replace('-', '_', app()->getLocale()) }}">
+<meta property="og:locale:alternate" content="{{ $ogLocale === 'en' ? 'id' : 'en' }}">
 @if ($imageUrl)
     <meta property="og:image" content="{{ $imageUrl }}">
     <meta property="og:image:alt" content="{{ $title ?? $siteName }}">

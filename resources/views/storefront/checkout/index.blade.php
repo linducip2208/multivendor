@@ -66,8 +66,56 @@
                     </x-storefront.alert>
                 @endif
 
+                {{-- ADITIF global-checkout: currency + country (display terkonversi, charge tetap IDR). --}}
+                <div class="sf-card" style="margin-bottom:20px" aria-labelledby="sf-global-title">
+                    <div class="sf-card__body">
+                        <h2 class="sf-footer__title" id="sf-global-title" style="font-size:.95rem">
+                            Mata uang &amp; negara / Currency &amp; country
+                        </h2>
+                        <form method="GET" action="{{ route('checkout.index') }}" class="sf-row sf-row--wrap" style="gap:10px;align-items:flex-end">
+                            <div class="sf-field" style="min-width:180px">
+                                <label class="sf-label form-label" for="sf-global-currency">Currency / Mata uang</label>
+                                <select class="sf-select form-select" id="sf-global-currency" name="currency">
+                                    @foreach (($currencies ?? collect()) as $cur)
+                                        <option value="{{ $cur->code }}" @selected(($displayCurrency ?? 'IDR') === $cur->code)>
+                                            {{ $cur->code }} ({{ $cur->symbol ?? $cur->code }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="sf-field" style="min-width:200px">
+                                <label class="sf-label form-label" for="sf-global-country">Country / Negara</label>
+                                <select class="sf-select form-select" id="sf-global-country" name="checkout_country">
+                                    @foreach (($countries ?? collect()) as $ct)
+                                        <option value="{{ $ct->iso2 }}" @selected(($checkoutCountry ?? 'ID') === $ct->iso2)>
+                                            {{ $ct->iso2 }} — {{ $ct->name ?? $ct->iso2 }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <button type="submit" class="sf-btn sf-btn--outline sf-btn--sm">Terapkan / Apply</button>
+                        </form>
+                        <p class="sf-small sf-muted sf-mb-0" style="margin-top:10px">
+                            Total terkonversi hanya tampilan / Converted total is display-only.
+                            Penagihan tetap IDR kecuali gateway mendukung mata uang tersebut (capability check server-side).
+                            @if (! empty($displayTotal))
+                                <span class="sf-badge badge" style="margin-left:6px">≈ {{ $displayTotal['formatted'] }} {{ $displayCurrency }}</span>
+                                <span class="sf-tiny sf-muted">Kurs / Rate: 1 {{ $displayCurrency }} = {{ number_format((float) ($displayTotal['rate'] ?? 1), 2, ',', '.') }} IDR</span>
+                            @else
+                                <span class="sf-tiny sf-muted">Charge currency: IDR.</span>
+                            @endif
+                        </p>
+                        <p class="sf-tiny sf-muted sf-mb-0">
+                            Metode pembayaran &amp; ongkir difilter per negara ({{ $checkoutCountry ?? 'ID' }}) / Payment &amp; shipping methods filtered per country.
+                        </p>
+                    </div>
+                </div>
+
                 <form method="POST" action="{{ $checkoutUrl }}" class="sf-cartlayout" novalidate>
                     @csrf
+                    <input type="hidden" name="currency" value="{{ $displayCurrency ?? 'IDR' }}">
+                    <input type="hidden" name="checkout_country" value="{{ $checkoutCountry ?? 'ID' }}">
+                    <input type="hidden" name="idempotency_key" value="{{ $idempotencyKey ?? old('idempotency_key') }}"> 
 
                     <div class="sf-stack" style="gap:20px">
                         <section class="sf-card" aria-labelledby="sf-checkout-address">
@@ -340,7 +388,11 @@
 
                         <section class="sf-card" aria-labelledby="sf-checkout-payment">
                             <div class="sf-card__body">
-                                <h2 class="sf-footer__title" id="sf-checkout-payment">3. Metode pembayaran</h2>
+                                <h2 class="sf-footer__title" id="sf-checkout-payment">3. Metode pembayaran / Payment method</h2>
+                                <p class="sf-small sf-muted sf-mb-0">
+                                    Menampilkan {{ $paymentGateways->count() }} metode untuk {{ $checkoutCountry ?? 'ID' }} /
+                                    Showing {{ $paymentGateways->count() }} methods for {{ $checkoutCountry ?? 'ID' }}.
+                                </p>
 
                                 @error('payment_provider_id')
                                     <x-storefront.alert type="error">{{ $message }}</x-storefront.alert>
@@ -473,6 +525,13 @@
                                 <span>Subtotal</span>
                                 <span>{{ \App\Support\Currency::format($total) }}</span>
                             </div>
+                            @if (! empty($displayTotal))
+                                <div class="sf-summary__row">
+                                    <span class="sf-summary__label"> ≈ {{ $displayCurrency }} (display / tampilan)</span>
+                                    <span class="sf-bold">{{ $displayTotal['formatted'] }}</span>
+                                </div>
+                                <p class="sf-tiny sf-muted sf-mb-0">Charge tetap IDR / Charge stays in IDR.</p>
+                            @endif
                         </div>
 
                         <button type="submit" class="sf-btn sf-btn--primary sf-btn--block sf-btn--lg" style="margin-top:18px"

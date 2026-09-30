@@ -101,6 +101,344 @@ class PaymentGatewayService
         return $adapter->createTransaction($payload);
     }
 
+    // ── ADITIF global-checkout: routing + fallback via app/Payments ──
+    // Adapter existing di atas TIDAK diubah. Blok ini hanya menambah
+    // capability check + pemilihan provider + fallback aman + guard
+    // idempotency anti double-charge.
+
+    /** ID-centric formats: tanpa metadata config, hanya layani ID/IDR. */
+    private const ID_ONLY_FORMATS = [
+        'midtrans-snap',
+        'midtrans-core',
+        'xendit-invoice',
+        'tripay-closed',
+    ];
+
+    /** Kode hasil yang membuktikan TIDAK ada tagihan terbentuk (aman fallback). */
+    private const SAFE_FALLBACK_CODES = [
+        'unsupported_format',
+        'unsupported_currency',
+        'unsupported_country',
+        'unsupported_method',
+        'no_capable_provider',
+        'validation_error',
+        'declined',
+        'rejected',
+    ];
+
+    /** Kemampuan provider dari kolom config (tanpa menebak header user). */
+    public function providerCapabilities(Provider $provider): array
+    {
+        $config = $provider->config;
+        $config = is_array($config) ? $config : [];
+
+        $upper = static fn ($v): array => array_values(array_unique(array_map(
+            static fn ($x): string => strtoupper(trim((string) $x)),
+            (array) $v,
+        )));
+
+        $currencies = isset($config['currencies']) && is_array($config['currencies']) && $config['currencies'] !== []
+            ? $upper($config['currencies'])
+            : ['IDR'];
+        $countries = isset($config['countries']) && is_array($config['countries']) && $config['countries'] !== []
+            ? $upper($config['countries'])
+            : null; // null = tak dideklarasikan → cek format/default di bawah
+        $methods = isset($config['methods']) && is_array($config['methods']) && $config['methods'] !== []
+            ? array_values(array_unique(array_map(
+                static fn ($x): string => \App\Payments\PaymentMethod::normalize((string) $x),
+                $config['methods'],
+            )))
+            : [];
+
+        return ['currencies' => $currencies, 'countries' => $countries, 'methods' => $methods, 'gateway' => strtolower((string) ($config['gateway'] ?? ''))];
+    }
+
+    /** True bila gateway sanggup menagih currency tsb (selalu benar untuk IDR). */
+    public function gatewaySupportsCurrency(Provider $provider, string $currency): bool
+    {
+        $currency = strtoupper(trim($currency));
+
+        if ($currency === '' || $currency === 'IDR') {
+            return true;
+        }
+
+        $caps = $this->providerCapabilities($provider);
+
+        if (! in_array($currency, $caps['currencies'], true)) {
+            return false;
+        }
+
+        // Cross-check registry app/Payments bila config menunjuk gateway terdaftar.
+        if ($caps['gateway'] !== '') {
+            try {
+                $registry = new \App\Payments\GatewayRegistry();
+                if ($registry->has($caps['gateway']) && ! $registry->resolve($caps['gateway'])->supportsCurrency($currency)) {
+                    return false;
+                }
+            } catch (\Throwable) {
+                // Registry opsional; kegagalan resolve tidak menggugurkan capability config.
+            }
+        }
+
+        return true;
+    }
+
+    /** True bila provider boleh dipakai untuk negara tsb (server-side). */
+    public function gatewaySupportsCountry(Provider $provider, string $country): bool
+    {
+        $country = strtoupper(trim($country));
+
+        if ($country === '') {
+            return false;
+        }
+
+        $caps = $this->providerCapabilities($provider);
+
+        if (is_array($caps['countries']) && $caps['countries'] !== []) {
+            $ok = in_array($country, $caps['countries'], true);
+        } else {
+            // Tanpa deklarasi: format ID-centric hanya ID; lainnya terbuka.
+            $ok = in_array((string) $provider->api_format, self::ID_ONLY_FORMATS, true)
+                ? $country === 'ID'
+                : true;
+        }
+
+        if (! $ok) {
+            return false;
+        }
+
+        if ($caps['gateway'] !== '') {
+            try {
+                $registry = new \App\Payments\GatewayRegistry();
+                if ($registry->has($caps['gateway']) && ! $registry->resolve($caps['gateway'])->supportsCountry($country)) {
+                    return false;
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Pilih provider terbaik: preferensi dulu bila capable, lalu urutan
+     * sort_order. Mengembalikan null bila tak ada yang capable.
+     */
+    public function routeProvider(?string $currency = null, ?string $country = null, ?int $preferredId = null): ?Provider
+    {
+        $currency = $currency !== null ? strtoupper(trim($currency)) : null;
+        $country = $country !== null ? strtoupper(trim($country)) : null;
+
+        $pool = Provider::ofType('payment')->active()->orderBy('sort_order')->orderBy('id')->get();
+
+        $capable = $pool->filter(fn (Provider $p): bool => ($currency === null || $currency === '' || $this->gatewaySupportsCurrency($p, $currency))
+            && ($country === null || $country === '' || $this->gatewaySupportsCountry($p, $country)));
+
+        if ($capable->isEmpty()) {
+            return null;
+        }
+
+        if ($preferredId !== null) {
+            $preferred = $capable->firstWhere('id', (int) $preferredId);
+            if ($preferred) {
+                return $preferred;
+            }
+        }
+
+        return $capable->first();
+    }
+
+    /**
+     * Buat pembayaran dengan fallback aman antar provider capable.
+     *
+     * - Guard idempotency: kunci yang sudah sukses TIDAK PERNAH menagih ulang
+     *   (hasil pertama dikembalikan dari cache).
+     * - Fallback HANYA bila hasil pertama membuktikan tidak ada tagihan
+     *   terbentuk (kode aman) — timeout/ambiguous TIDAK di-fallback otomatis
+     *   agar tidak double charge.
+     */
+    public function createPaymentWithFallback(Provider $primary, array $payload, ?string $idempotencyKey = null, array $context = []): array
+    {
+        $currency = strtoupper(trim((string) ($context['currency'] ?? $payload['currency'] ?? 'IDR')) ?: 'IDR');
+        $country = strtoupper(trim((string) ($context['country'] ?? $payload['country'] ?? 'ID')) ?: 'ID');
+
+        $key = is_string($idempotencyKey) && trim($idempotencyKey) !== '' ? trim($idempotencyKey) : null;
+
+        if ($key !== null) {
+            $cached = $this->recallIdempotent($key);
+            if ($cached !== null) {
+                return $cached + ['idempotent_replay' => true];
+            }
+            if (! $this->claimIdempotent($key)) {
+                $cached = $this->recallIdempotent($key);
+                if ($cached !== null) {
+                    return $cached + ['idempotent_replay' => true];
+                }
+
+                return ['success' => false, 'code' => 'processing', 'message' => 'Pembayaran sedang diproses untuk kunci ini. / Payment is already processing for this key.'];
+            }
+        }
+
+        // Kandidat: primary dulu, lalu provider capable lain (sort_order).
+        $candidates = collect([$primary]);
+        $routed = $this->routeProvider($currency, $country, (int) $primary->getKey());
+        if ($routed && (int) $routed->getKey() !== (int) $primary->getKey()) {
+            $candidates->push($routed);
+        }
+        try {
+            $others = Provider::ofType('payment')->active()
+                ->where('id', '!=', (int) $primary->getKey())
+                ->orderBy('sort_order')->orderBy('id')->get()
+                ->filter(fn (Provider $p): bool => $this->gatewaySupportsCurrency($p, $currency) && $this->gatewaySupportsCountry($p, $country));
+            foreach ($others as $other) {
+                if (! $candidates->contains(fn (Provider $p): bool => (int) $p->getKey() === (int) $other->getKey())) {
+                    $candidates->push($other);
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        $last = null;
+        $attempted = 0;
+        foreach ($candidates as $candidate) {
+            // Jangan tagih dalam currency yang tak didukung kandidat ini.
+            if (! $this->gatewaySupportsCurrency($candidate, $currency) || ! $this->gatewaySupportsCountry($candidate, $country)) {
+                $last = ['success' => false, 'code' => 'unsupported_country', 'message' => 'Provider tidak mendukung negara/currency ini.'];
+                continue;
+            }
+
+            $attemptPayload = $payload;
+            $attemptPayload['currency'] = 'IDR';
+            $attemptPayload['country'] = $country;
+
+            // Charge non-IDR HANYA bila capability check lolos + konversi presisi ada.
+            if ($currency !== 'IDR' && $this->gatewaySupportsCurrency($candidate, $currency)) {
+                $converted = $this->convertChargeAmount((float) ($payload['amount'] ?? 0), $currency);
+                if ($converted !== null) {
+                    $attemptPayload['currency'] = $currency;
+                    $attemptPayload['amount'] = $converted;
+                }
+            }
+
+            try {
+                $result = $this->createPayment($candidate, $attemptPayload);
+            } catch (\Throwable $e) {
+                $last = ['success' => false, 'code' => 'exception', 'message' => 'Gateway error.'];
+                continue;
+            }
+
+            $attempted++;
+            $result['provider_id'] = (int) $candidate->getKey();
+            $result['charge_currency'] = (string) ($attemptPayload['currency'] ?? 'IDR');
+            $result['fallback_attempts'] = $attempted - 1;
+
+            if (($result['success'] ?? false) === true) {
+                if ($key !== null) {
+                    $this->storeIdempotent($key, $result);
+                }
+
+                return $result;
+            }
+
+            $last = $result;
+
+            // Fallback hanya bila aman (terbukti tak ada tagihan terbentuk).
+            if (! $this->isSafeToFallback($result)) {
+                break;
+            }
+        }
+
+        if ($key !== null) {
+            $this->releaseIdempotent($key);
+        }
+
+        return is_array($last) ? $last : ['success' => false, 'code' => 'all_failed', 'message' => 'Semua gateway gagal. / All gateways failed.'];
+    }
+
+    /**
+     * Konversi presisi IDR → currency tujuan memakai string kurs DB (tanpa float).
+     * Null bila tabel/kurs tak tersedia (pemanggil tetap menagih IDR).
+     */
+    public function convertChargeAmount(float $amountIdr, string $toCurrency): ?float
+    {
+        $toCurrency = strtoupper(trim($toCurrency));
+
+        if ($toCurrency === '' || $toCurrency === 'IDR' || $amountIdr < 0) {
+            return null;
+        }
+
+        try {
+            if (! class_exists(\App\Services\Currency\CurrencyService::class)) {
+                return null;
+            }
+            $from = \App\Services\Currency\CurrencyService::find('IDR');
+            $to = \App\Services\Currency\CurrencyService::find($toCurrency);
+            if ($from === null || $to === null || ! (bool) $to->is_active || ! (bool) $from->is_active) {
+                return null;
+            }
+            $minor = \App\Services\Currency\CurrencyConverter::convertMinor(
+                (int) round($amountIdr),
+                (int) $from->decimal_places,
+                (int) $to->decimal_places,
+                (string) $from->exchange_rate,
+                (string) $to->exchange_rate,
+            );
+            $factor = 10 ** max(0, (int) $to->decimal_places);
+
+            return $minor / $factor;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function isSafeToFallback(array $result): bool
+    {
+        $code = strtolower((string) ($result['code'] ?? ''));
+
+        return in_array($code, self::SAFE_FALLBACK_CODES, true);
+    }
+
+    private function idemKey(string $key): string
+    {
+        return 'checkout:pay:'.sha1($key);
+    }
+
+    private function recallIdempotent(string $key): ?array
+    {
+        try {
+            $value = \Illuminate\Support\Facades\Cache::get($this->idemKey($key));
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return is_array($value) && ($value['__done'] ?? false) === true ? ($value['result'] ?? null) : null;
+    }
+
+    private function claimIdempotent(string $key): bool
+    {
+        try {
+            return \Illuminate\Support\Facades\Cache::add($this->idemKey($key), ['__done' => false], 86400);
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    private function storeIdempotent(string $key, array $result): void
+    {
+        try {
+            \Illuminate\Support\Facades\Cache::put($this->idemKey($key), ['__done' => true, 'result' => $result], 86400);
+        } catch (\Throwable) {
+        }
+    }
+
+    private function releaseIdempotent(string $key): void
+    {
+        try {
+            \Illuminate\Support\Facades\Cache::forget($this->idemKey($key));
+        } catch (\Throwable) {
+        }
+    }
+
     public function getActiveGateways(): array
     {
         return Provider::ofType('payment')->active()->orderBy('sort_order')->get()->all();

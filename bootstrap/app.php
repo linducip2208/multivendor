@@ -17,6 +17,12 @@ return Application::configure(basePath: dirname(__DIR__))
             \App\Http\Middleware\RequirePair::class,
             \App\Http\Middleware\LanguageMiddleware::class,
             \App\Http\Middleware\CaptureUtm::class,
+            \App\Http\Middleware\SetLocale::class,
+        ]);
+
+        $middleware->api(append: [
+            \App\Http\Middleware\SetLocale::class,
+            \App\Http\Middleware\NegotiateCurrency::class,
         ]);
 
         $middleware->alias([

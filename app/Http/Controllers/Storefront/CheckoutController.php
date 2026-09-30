@@ -30,7 +30,7 @@ use Throwable;
 
 class CheckoutController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $cartItems = Cart::where('customer_id', auth()->id())->with(['product.shop', 'variant'])->get()->filter(fn ($item) => $item->product !== null);
         if ($cartItems->isEmpty()) {
@@ -46,7 +46,22 @@ class CheckoutController extends Controller
         $paymentGateways = Provider::ofType('payment')->active()->orderBy('sort_order')->get();
         $shippingProviders = Provider::ofType('shipping')->active()->orderBy('sort_order')->get();
 
-        return view('storefront.checkout.index', compact('shops', 'total', 'addresses', 'paymentGateways', 'shippingProviders'));
+        // ── ADITIF global-checkout: currency + country terverifikasi server-side.
+        // Header/query/session TIDAK dipercaya mentah: hanya nilai aktif di DB
+        // yang dipakai; selain itu fallback IDR / ID. Display saja terkonversi.
+        $displayCurrency = $this->resolveDisplayCurrency($request, $request->query('currency'));
+        $checkoutCountry = $this->resolveCheckoutCountry($request, $request->query('checkout_country', $request->query('country')));
+        $paymentsSvc = app(PaymentGatewayService::class);
+        $paymentGateways = $paymentGateways->filter(
+            fn ($p) => $paymentsSvc->gatewaySupportsCountry($p, $checkoutCountry),
+        )->values();
+        $shippingProviders = $this->filterShippingForCountry($shippingProviders, $checkoutCountry);
+        $currencies = $this->activeCurrencies();
+        $countries = $this->activeCountries();
+        $displayTotal = $this->convertForDisplay((float) $total, $displayCurrency);
+        $idempotencyKey = (string) old('idempotency_key', (string) \Illuminate\Support\Str::uuid());
+
+        return view('storefront.checkout.index', compact('shops', 'total', 'addresses', 'paymentGateways', 'shippingProviders', 'displayCurrency', 'checkoutCountry', 'currencies', 'countries', 'displayTotal', 'idempotencyKey'));
     }
 
     public function process(Request $request, CheckoutCalculator $calculator, PaymentGatewayService $payments)
@@ -76,6 +91,10 @@ class CheckoutController extends Controller
             'payment_provider_id' => 'required|integer|exists:providers,id',
             'payment_channel' => 'nullable|array',
             'idempotency_key' => 'nullable|string|max:80',
+            // ADITIF global-checkout: display currency + negara checkout (default ID).
+            'currency' => 'nullable|string|size:3',
+            'checkout_country' => 'nullable|string|size:2',
+            'country' => 'nullable|string|size:2',
             'note' => 'nullable|string|max:2000',
             'shop_notes' => 'nullable|array',
             'shop_notes.*' => 'nullable|string|max:1000',
@@ -107,9 +126,19 @@ class CheckoutController extends Controller
             $validated['coupon_code'] = strtoupper(trim($validated['coupon_code'])) ?: null;
         }
 
+        // ADITIF global-checkout: verifikasi server-side (jangan percaya header
+        // user untuk keputusan finansial). Hanya currency aktif + country valid.
+        $displayCurrency = $this->resolveDisplayCurrency($request, $validated['currency'] ?? null);
+        $checkoutCountry = $this->resolveCheckoutCountry($request, $validated['checkout_country'] ?? $validated['country'] ?? null);
+
         $provider = Provider::ofType('payment')->active()->find($validated['payment_provider_id']);
         if (! $provider) {
-            return back()->withInput()->with('error', 'Metode pembayaran tidak tersedia.');
+            return back()->withInput()->with('error', 'Metode pembayaran tidak tersedia. / Payment method unavailable.');
+        }
+
+        // Filter metode per country capability (server-side, bukan dari client).
+        if (! app(PaymentGatewayService::class)->gatewaySupportsCountry($provider, $checkoutCountry)) {
+            return back()->withInput()->with('error', 'Metode pembayaran tidak tersedia untuk negara ini. / Payment method unavailable for this country.');
         }
 
         if ($idempotencyKey !== null) {
@@ -132,7 +161,7 @@ class CheckoutController extends Controller
         }
 
         try {
-            $created = DB::transaction(function () use ($validated, $shippingMethods, $customer, $provider, $calculator, $idempotencyKey, $deliverySlot) {
+            $created = DB::transaction(function () use ($validated, $shippingMethods, $customer, $provider, $calculator, $idempotencyKey, $deliverySlot, $checkoutCountry) {
                 $address = $this->resolveAddress($validated, (int) $customer->id);
                 $cartItems = Cart::where('customer_id', $customer->id)->with(['product.shop', 'variant'])->lockForUpdate()->get();
 
@@ -152,6 +181,9 @@ class CheckoutController extends Controller
                         'wrap' => (bool) ($validated['gift_wrap'] ?? false),
                         'message' => isset($validated['gift_message']) ? (string) $validated['gift_message'] : null,
                     ],
+                    // ADITIF global-checkout: pajak per negara via TaxEngine
+                    // (fallback logika existing bila tak tersedia).
+                    'country' => $checkoutCountry,
                 ]);
 
                 // ── ADITIF pickup (click & collect): kalkulasi existing di atas
@@ -334,13 +366,27 @@ class CheckoutController extends Controller
             ->with('items.product')
             ->get();
 
-        $payment = $payments->createPayment($provider, [
-            'order_id' => $group->payment_number, 'amount' => $group->grand_total,
+        // ADITIF global-checkout: charge tetap IDR kecuali gateway lolos
+        // capability check; routing + fallback aman via PaymentGatewayService
+        // (guard idempotency, tanpa double charge). Display terkonversi hanya
+        // untuk tampilan — nominal DB (grand_total) tidak diubah.
+        $chargeCurrency = $payments->gatewaySupportsCurrency($provider, $displayCurrency) ? $displayCurrency : 'IDR';
+        $chargeAmount = (float) $group->grand_total;
+        if ($chargeCurrency !== 'IDR') {
+            $converted = $payments->convertChargeAmount($chargeAmount, $chargeCurrency);
+            $chargeAmount = $converted ?? (float) $group->grand_total;
+            if ($converted === null) {
+                $chargeCurrency = 'IDR';
+            }
+        }
+        $payment = $payments->createPaymentWithFallback($provider, [
+            'order_id' => $group->payment_number, 'amount' => $chargeAmount,
+            'currency' => $chargeCurrency, 'country' => $checkoutCountry,
             'channel' => is_array($validated['payment_channel'] ?? null) ? ($validated['payment_channel'][$provider->id] ?? 'default') : 'default',
             'customer' => ['name' => $customer->name, 'email' => $customer->email, 'phone' => $customer->phone],
             'items' => $this->paymentItems($orders), 'success_url' => route('orders.index'),
             'callback_url' => route('webhook.payment', $provider),
-        ]);
+        ], $idempotencyKey, ['currency' => $chargeCurrency, 'country' => $checkoutCountry]);
 
         if (! ($payment['success'] ?? false)) {
             $this->abortPayment($group);
@@ -643,6 +689,215 @@ class CheckoutController extends Controller
             return $out;
         } catch (\Throwable) {
             return [];
+        }
+    }
+
+    /**
+     * ADITIF global-checkout: currency display terverifikasi server-side.
+     * Prioritas: input eksplisit → header X-Currency → session → IDR.
+     * Header TIDAK dipercaya mentah: hanya kode aktif di tabel currencies
+     * yang diterima; tanpa tabel → hanya IDR yang sah.
+     */
+    private function resolveDisplayCurrency(Request $request, mixed $raw): string
+    {
+        $candidates = [
+            $raw,
+            $request->header('X-Currency'),
+            $request->query('currency'),
+            session('currency'),
+        ];
+
+        foreach ($candidates as $candidate) {
+            $code = strtoupper(trim((string) ($candidate ?? '')));
+            if ($code === '' || ! preg_match('/^[A-Z]{3}$/', $code)) {
+                continue;
+            }
+            if ($this->isActiveCurrency($code)) {
+                session(['currency' => $code]);
+
+                return $code;
+            }
+        }
+
+        session(['currency' => 'IDR']);
+
+        return 'IDR';
+    }
+
+    private function isActiveCurrency(string $code): bool
+    {
+        if ($code === 'IDR') {
+            return true;
+        }
+
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('currencies')) {
+                return false;
+            }
+
+            return \App\Models\Currency::query()->where('code', $code)->where('is_active', true)->exists();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** @return \Illuminate\Support\Collection<int, mixed> */
+    private function activeCurrencies(): \Illuminate\Support\Collection
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('currencies')) {
+                $rows = \App\Models\Currency::query()->where('is_active', true)->orderBy('is_default', 'desc')->orderBy('code')->get();
+                if ($rows->isNotEmpty()) {
+                    return $rows;
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return collect([(object) ['code' => 'IDR', 'symbol' => 'Rp', 'exchange_rate' => '1.00000000', 'decimal_places' => 0]]);
+    }
+
+    /**
+     * ADITIF global-checkout: negara checkout terverifikasi server-side.
+     * Default ID. Hanya ISO2 aktif di tabel countries yang diterima.
+     */
+    private function resolveCheckoutCountry(Request $request, mixed $raw): string
+    {
+        $candidates = [
+            $raw,
+            $request->header('X-Country'),
+            $request->query('checkout_country', $request->query('country')),
+            session('checkout_country', session('country')),
+        ];
+
+        foreach ($candidates as $candidate) {
+            $iso = strtoupper(trim((string) ($candidate ?? '')));
+            if ($iso === '' || ! preg_match('/^[A-Z]{2}$/', $iso)) {
+                continue;
+            }
+            if ($this->isActiveCountry($iso)) {
+                session(['checkout_country' => $iso, 'country' => $iso]);
+
+                return $iso;
+            }
+        }
+
+        session(['checkout_country' => 'ID', 'country' => 'ID']);
+
+        return 'ID';
+    }
+
+    private function isActiveCountry(string $iso): bool
+    {
+        if ($iso === 'ID') {
+            try {
+                if (! \Illuminate\Support\Facades\Schema::hasTable('countries')) {
+                    return true;
+                }
+
+                return \App\Models\Country::query()->where('iso2', 'ID')->where('is_active', true)->exists() || true;
+            } catch (\Throwable) {
+                return true;
+            }
+        }
+
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('countries')) {
+                return false;
+            }
+
+            return \App\Models\Country::query()->where('iso2', $iso)->where('is_active', true)->exists();
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** @return \Illuminate\Support\Collection<int, mixed> */
+    private function activeCountries(): \Illuminate\Support\Collection
+    {
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasTable('countries')) {
+                $rows = \App\Models\Country::query()->where('is_active', true)->orderBy('id')->get();
+                if ($rows->isNotEmpty()) {
+                    return $rows;
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return collect([(object) ['iso2' => 'ID', 'name' => 'Indonesia', 'currency_code' => 'IDR']]);
+    }
+
+    /**
+     * ADITIF global-checkout: konversi display presisi (string kurs, tanpa float).
+     * Mengembalikan null bila tak tersedia — view memakai nominal IDR asli.
+     *
+     * @return array{amount:string,formatted:string,rate:string,symbol:string}|null
+     */
+    private function convertForDisplay(float $amountIdr, string $toCurrency): ?array
+    {
+        $toCurrency = strtoupper(trim($toCurrency));
+
+        if ($toCurrency === '' || $toCurrency === 'IDR') {
+            return null;
+        }
+
+        try {
+            if (! class_exists(\App\Services\Currency\CurrencyService::class)) {
+                return null;
+            }
+            $from = \App\Services\Currency\CurrencyService::find('IDR');
+            $to = \App\Services\Currency\CurrencyService::find($toCurrency);
+            if ($from === null || $to === null || ! (bool) $to->is_active) {
+                return null;
+            }
+            $minor = \App\Services\Currency\CurrencyConverter::convertMinor(
+                (int) round($amountIdr),
+                (int) $from->decimal_places,
+                (int) $to->decimal_places,
+                (string) $from->exchange_rate,
+                (string) $to->exchange_rate,
+            );
+            $money = \App\Services\Currency\Money::fromMinor($minor, $to->code, (int) $to->decimal_places);
+
+            return [
+                'amount' => $money->toMajorString(),
+                'formatted' => \App\Services\Currency\CurrencyService::format($money),
+                'rate' => (string) $to->exchange_rate,
+                'symbol' => (string) $to->symbol,
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** Filter ongkir per country: hormati shipping_hints bila tersedia. */
+    private function filterShippingForCountry($providers, string $iso)
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('countries')) {
+                return $providers;
+            }
+            $country = \App\Models\Country::query()->where('iso2', $iso)->where('is_active', true)->first();
+            $hints = is_array($country?->shipping_hints) ? array_map('strtolower', $country->shipping_hints) : [];
+
+            // ID: semua kurir domestik tetap tampil (hints = info, bukan blokir).
+            if ($iso === 'ID' || $hints === []) {
+                return $providers;
+            }
+
+            // Non-ID: provider tanpa kemampuan lintas negara disembunyikan hanya
+            // bila config-nya mendeklarasikan 'countries' yang tak mencakup iso.
+            return $providers->filter(function ($p) use ($iso) {
+                $config = is_array($p->config ?? null) ? $p->config : [];
+                if (! isset($config['countries']) || ! is_array($config['countries']) || $config['countries'] === []) {
+                    return true;
+                }
+
+                return in_array($iso, array_map(static fn ($x): string => strtoupper(trim((string) $x)), $config['countries']), true);
+            })->values();
+        } catch (\Throwable) {
+            return $providers;
         }
     }
 
