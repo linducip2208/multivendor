@@ -42,6 +42,24 @@
         <div class="col-md-3"><label class="fw-medium">Ongkir (Rp)</label><input type="number" name="shipping_cost" class="form-control" value="0"></div>
         <div class="col-md-3"><label class="fw-medium">Tipe Diskon</label><select name="discount_type" class="form-select"><option value="">Tidak ada</option><option value="flat">Nominal (Rp)</option><option value="percentage">Persentase (%)</option></select></div>
         <div class="col-md-3"><label class="fw-medium">Berlaku s/d</label><input type="datetime-local" name="discount_end" class="form-control"></div>
+        <div class="col-md-3"><label class="fw-medium">Berat (gram) <span class="text-danger">*</span></label><input type="number" name="weight" class="form-control" value="{{ old('weight', 1000) }}" min="1" max="100000" required><small class="text-muted">Untuk hitung ongkir.</small></div>
+        <div class="col-md-3"><label class="fw-medium">Ambang Stok Rendah</label><input type="number" name="low_stock_threshold" class="form-control" value="{{ old('low_stock_threshold', 5) }}" min="0"><small class="text-muted">Peringatan saat sisa segini.</small></div>
+        <div class="col-12">
+            <label class="fw-medium">Harga Grosir (opsional)</label>
+            <small class="text-muted d-block mb-2">Diskon volume otomatis di keranjang & checkout. Kosongkan bila tidak pakai.</small>
+            <div id="tierContainer">
+                <div class="row g-2 mb-2 tier-row">
+                    <div class="col-md-5"><input type="number" name="tiers[0][min_qty]" class="form-control form-control-sm" placeholder="Min. jumlah" min="2"></div>
+                    <div class="col-md-5"><input type="number" name="tiers[0][price]" class="form-control form-control-sm" placeholder="Harga per unit (Rp)" min="0" step="1"></div>
+                    <div class="col-md-2"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.tier-row').remove()" aria-label="Hapus tier">×</button></div>
+                </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addTier()">+ Tambah Tingkat</button>
+        </div>
+        <div class="col-12" id="digitalWrap" style="display:none">
+            <label class="fw-medium">Berkas Digital (zip/pdf/epub/mp3/mp4, maks. 50MB)</label>
+            <input type="file" name="digital_file" class="form-control" accept=".zip,.pdf,.epub,.mp3,.mp4,.png,.jpg,.jpeg,.webp">
+        </div>
     </div>
 </div>
 
@@ -104,13 +122,32 @@ function showTab(n){
     document.getElementById('submitBtn').style.display=n===totalTabs-1?'inline-block' : 'none';
     currentTab=n;
 }
-function nextTab(){if(currentTab<totalTabs-1)showTab(currentTab+1)}
+function nextTab(){if(currentTab<totalTabs-1&&validTab(currentTab))showTab(currentTab+1)}
 function prevTab(){if(currentTab>0)showTab(currentTab-1)}
+function validTab(n){
+    const pane=document.querySelectorAll('.tab-pane')[n];
+    let ok=true;
+    pane.querySelectorAll('[required]').forEach(function(el){
+        const kosong=el.type==='number' ? (el.value===''||isNaN(Number(el.value))) : el.value.trim()==='';
+        el.classList.toggle('is-invalid',kosong);
+        if(kosong)ok=false;
+    });
+    if(!ok)alert('Lengkapi kolom bertanda * pada langkah ini sebelum lanjut.');
+    return ok;
+}
 let vCount=1;
 function addVariant(){
     const html=`<div class="variant-row row g-2"><div class="col-md-3"><input type="text" name="variants[${vCount}][name]" class="form-control form-control-sm" placeholder="Warna: Biru"></div><div class="col-md-2"><input type="text" name="variants[${vCount}][sku]" class="form-control form-control-sm"></div><div class="col-md-2"><input type="number" name="variants[${vCount}][price]" class="form-control form-control-sm"></div><div class="col-md-2"><input type="number" name="variants[${vCount}][stock]" class="form-control form-control-sm" value="0"></div><div class="col-md-1 d-flex align-items-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.variant-row').remove()">×</button></div></div>`;
     document.getElementById('variantContainer').insertAdjacentHTML('beforeend',html);vCount++;
 }
+let tCount=1;
+function addTier(){
+    const html=`<div class="row g-2 mb-2 tier-row"><div class="col-md-5"><input type="number" name="tiers[${tCount}][min_qty]" class="form-control form-control-sm" placeholder="Min. jumlah" min="2"></div><div class="col-md-5"><input type="number" name="tiers[${tCount}][price]" class="form-control form-control-sm" placeholder="Harga per unit (Rp)" min="0" step="1"></div><div class="col-md-2"><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.tier-row').remove()" aria-label="Hapus tier">×</button></div></div>`;
+    document.getElementById('tierContainer').insertAdjacentHTML('beforeend',html);tCount++;
+}
+document.getElementById('productType').addEventListener('change',function(){
+    document.getElementById('digitalWrap').style.display=this.value==='digital'?'block':'none';
+});
 var quillShort=new Quill('#quillShort',{theme:'snow',modules:{toolbar:[['bold','italic','underline'],['link'],['clean']]}});
 var quill=new Quill('#quillEditor',{theme:'snow',modules:{toolbar:[['bold','italic','underline','strike'],[{list:'ordered'},{list:'bullet'}],['link','image'],['clean']]}});
 document.getElementById('productForm').addEventListener('submit',function(){document.getElementById('shortInput').value=quillShort.root.innerHTML;document.getElementById('descInput').value=quill.root.innerHTML});

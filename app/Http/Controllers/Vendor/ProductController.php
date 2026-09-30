@@ -103,7 +103,7 @@ class ProductController extends Controller
             }
         }
         if ($request->filled('tags')) {
-            foreach (explode(',', $request->tags) as $tag) {
+            foreach (explode(',', (string) $request->input('tags')) as $tag) {
                 $tag = trim($tag);
                 if ($tag) {
                     $pt = ProductTag::firstOrCreate(['name' => $tag, 'slug' => Str::slug($tag)]);
@@ -117,6 +117,14 @@ class ProductController extends Controller
 
         if ($request->hasFile('video_file')) {
             $product->update(['video_url' => $request->file('video_file')->store('videos', 'public')]);
+        }
+
+        // Harga grosir opsional: saring baris kosong, simpan bila ada isi.
+        $tiers = collect((array) $request->input('tiers', []))
+            ->filter(fn ($row): bool => (int) ($row['min_qty'] ?? 0) > 0 && (float) ($row['price'] ?? 0) > 0)
+            ->values()->all();
+        if ($tiers !== []) {
+            app(\App\Services\B2b\B2bPricingService::class)->simpanTiers($product->refresh(), $tiers);
         }
 
         return redirect()->route('vendor.products.index')->with('success', 'Produk berhasil ditambahkan. Menunggu persetujuan admin.');
