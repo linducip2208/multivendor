@@ -98,6 +98,50 @@
     <x-storefront.footer />
     <x-storefront.bottom-nav />
 
+    {{-- Popup konversi: sekali per sesi (localStorage cap), gagal diam-diam bila tabel belum ada. --}}
+    @php
+        try {
+            $sfPopupPage = request()->is('/') ? 'home' : (request()->is('checkout*') ? 'checkout' : (request()->is('cart*', 'keranjang*') ? 'cart' : (request()->is('produk*', 'product*', 'p/*') ? 'product' : 'all')));
+            $sfPopup = \App\Services\Cms\PopupService::activeForPage($sfPopupPage);
+        } catch (\Throwable $sfPopupError) {
+            $sfPopup = null;
+        }
+    @endphp
+    @if (! empty($sfPopup))
+        <div id="sf-popup" data-popup-id="{{ $sfPopup['id'] }}" data-popup-delay="{{ (int) ($sfPopup['delay_seconds'] ?? 3) }}" data-popup-cap-days="{{ (int) ($sfPopup['cap_days'] ?? 7) }}" hidden>
+            <div class="sf-popup__overlay" data-popup-close></div>
+            <div class="sf-popup__box" role="dialog" aria-modal="true" aria-label="{{ $sfPopup['title'] }}">
+                @if (! empty($sfPopup['image']))
+                    <img src="{{ $sfPopup['image'] }}" alt="{{ $sfPopup['title'] }}" class="sf-popup__image" loading="lazy">
+                @endif
+                <h3 class="sf-popup__title">{{ $sfPopup['title'] }}</h3>
+                @if (! empty($sfPopup['body_html']))
+                    <div class="sf-popup__body">{!! $sfPopup['body_html'] !!}</div>
+                @endif
+                @if (! empty($sfPopup['button_text']))
+                    <a href="{{ $sfPopup['button_link'] ?: '#' }}" class="sf-popup__cta" data-popup-click>{{ $sfPopup['button_text'] }}</a>
+                @endif
+                <button type="button" class="sf-popup__close" data-popup-close aria-label="Tutup">✕</button>
+            </div>
+        </div>
+        <script>
+        (function () {
+            var el = document.getElementById('sf-popup');
+            if (!el) return;
+            var key = 'sf_popup_' + el.dataset.popupId;
+            try {
+                var last = parseInt(localStorage.getItem(key) || '0', 10);
+                var capMs = (parseInt(el.dataset.popupCapDays || '7', 10) || 7) * 86400000;
+                if (last && (Date.now() - last) < capMs) return;
+            } catch (e) { return; }
+            var delay = Math.max(0, parseInt(el.dataset.popupDelay || '3', 10) || 0) * 1000;
+            function close() { el.hidden = true; try { localStorage.setItem(key, String(Date.now())); } catch (e) {} }
+            el.querySelectorAll('[data-popup-close]').forEach(function (b) { b.addEventListener('click', close); });
+            setTimeout(function () { el.hidden = false; }, delay);
+        })();
+        </script>
+    @endif
+
     @stack('scripts')
 </body>
 </html>

@@ -20,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'parent_order_id', 'source', 'fulfillment_status', 'warehouse_id',
     'packed_at', 'completed_at', 'returned_at', 'refunded_at', 'return_reason',
     'refunded_amount', 'currency', 'idempotency_key', 'pos_shift_id', 'pos_register_id',
-    'reconciled_at', 'referral_code',
+    'reconciled_at', 'referral_code', 'utm_source', 'utm_medium', 'utm_campaign',
     'is_dropship', 'dropship_sender_name', 'dropship_sender_store', 'hide_price_in_package',
     'is_preorder', 'preorder_eta', 'preorder_dp_amount', 'preorder_remaining', 'preorder_settled_at',
     'is_gift', 'gift_wrap', 'gift_message', 'gift_fee',

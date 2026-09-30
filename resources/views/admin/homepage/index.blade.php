@@ -132,6 +132,45 @@
             </x-admin.card>
         @endif
     @endisset
+
+    @isset($popups)
+        <x-admin.card title="Popup Konversi" icon="message" class="mt-3">
+            <p class="small text-secondary mb-3">Popup tayang sekali per sesi pengunjung (batas tampil ulang mengikuti <em>cap hari</em>). Isi HTML otomatis disanitasi — script &amp; tautan berbahaya dibuang.</p>
+            <div class="table-responsive">
+                <table class="table admin-table mb-0 table-hover">
+                    <thead>
+                        <tr>
+                            <th scope="col">Judul</th>
+                            <th scope="col">Target</th>
+                            <th scope="col">Jadwal</th>
+                            <th scope="col" class="text-center">Tayang</th>
+                            <th scope="col" class="text-center">Klik</th>
+                            <th scope="col" class="text-center">Aktif</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($popups as $popup)
+                            <tr>
+                                <td>
+                                    <span class="fw-medium">{{ $popup['title'] ?? '—' }}</span>
+                                    @if (! empty($popup['button_text'] ?? null))
+                                        <small class="text-secondary d-block">Tombol: {{ $popup['button_text'] }}</small>
+                                    @endif
+                                </td>
+                                <td><x-admin.badge color="info" :text="$popup['targeting'] ?? 'all'" /></td>
+                                <td><small class="text-secondary">{{ ($popup['starts_at'] ?? '—').' → '.($popup['ends_at'] ?? '—') }}</small></td>
+                                <td class="text-center">{{ number_format((int) ($popup['views_count'] ?? 0), 0, ',', '.') }}</td>
+                                <td class="text-center">{{ number_format((int) ($popup['clicks_count'] ?? 0), 0, ',', '.') }}</td>
+                                <td class="text-center"><x-admin.badge :color="! empty($popup['is_active']) ? 'success' : 'secondary'" :text="! empty($popup['is_active']) ? 'Aktif' : 'Nonaktif'" /></td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="text-center py-4 text-secondary">Belum ada popup — buat lewat HomepageController::storePopup (integrator wiring route).</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </x-admin.card>
+    @endisset
 @endsection
 
 @push('scripts')

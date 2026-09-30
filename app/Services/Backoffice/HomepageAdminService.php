@@ -260,6 +260,98 @@ final class HomepageAdminService
         Cache::forget(HomePageService::CACHE_KEY);
     }
 
+    /* ── ADITIF popup builder (kelola popup konversi, tanpa ubah homepage) ── */
+
+    /**
+     * Daftar popup untuk panel admin (terbaru dulu).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function popups(): array
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('popups')) {
+                return [];
+            }
+
+            return \Illuminate\Support\Facades\DB::table('popups')
+                ->orderByDesc('id')
+                ->limit(100)
+                ->get()
+                ->map(fn ($row): array => (array) $row)
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Simpan (buat/perbarui) satu popup. Isi HTML disanitasi via PopupService.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function savePopup(array $data, ?int $id, ?int $actorId): int
+    {
+        $payload = [
+            'title' => mb_substr(trim((string) ($data['title'] ?? '')), 0, 160),
+            'body_html' => \App\Services\Cms\PopupService::sanitize((string) ($data['body_html'] ?? '')),
+            'image' => ($v = trim((string) ($data['image'] ?? ''))) !== '' ? mb_substr($v, 0, 500) : null,
+            'button_text' => ($v = trim((string) ($data['button_text'] ?? ''))) !== '' ? mb_substr($v, 0, 80) : null,
+            'button_link' => ($v = trim((string) ($data['button_link'] ?? ''))) !== '' ? mb_substr($v, 0, 500) : null,
+            'targeting' => in_array((string) ($data['targeting'] ?? 'all'), \App\Services\Cms\PopupService::TARGETINGS, true)
+                ? (string) $data['targeting']
+                : 'all',
+            'delay_seconds' => max(0, min(60, (int) ($data['delay_seconds'] ?? 3))),
+            'cap_days' => max(1, min(90, (int) ($data['cap_days'] ?? 7))),
+            'starts_at' => ! empty($data['starts_at']) ? $data['starts_at'] : null,
+            'ends_at' => ! empty($data['ends_at']) ? $data['ends_at'] : null,
+            'is_active' => (bool) ($data['is_active'] ?? false),
+            'updated_at' => now(),
+        ];
+
+        if ($id !== null && $id > 0) {
+            \Illuminate\Support\Facades\DB::table('popups')->where('id', $id)->update($payload);
+            $savedId = $id;
+        } else {
+            $payload['created_at'] = now();
+            $savedId = (int) \Illuminate\Support\Facades\DB::table('popups')->insertGetId($payload);
+        }
+
+        \App\Services\Cms\PopupService::flush();
+        app(AuditLogger::class)->log('popup.saved', null, ['id' => $id], ['id' => $savedId], $actorId);
+
+        return $savedId;
+    }
+
+    public function togglePopup(int $id, ?int $actorId): bool
+    {
+        $row = \Illuminate\Support\Facades\DB::table('popups')->where('id', $id)->first();
+
+        if ($row === null) {
+            abort(404, 'Popup tidak ditemukan.');
+        }
+
+        $next = ! (bool) $row->is_active;
+        \Illuminate\Support\Facades\DB::table('popups')
+            ->where('id', $id)
+            ->update(['is_active' => $next, 'updated_at' => now()]);
+
+        \App\Services\Cms\PopupService::flush();
+        app(AuditLogger::class)->log('popup.toggled', null, ['is_active' => (bool) $row->is_active], ['is_active' => $next], $actorId);
+
+        return $next;
+    }
+
+    public function deletePopup(int $id, ?int $actorId): void
+    {
+        $row = \Illuminate\Support\Facades\DB::table('popups')->where('id', $id)->first();
+
+        \Illuminate\Support\Facades\DB::table('popups')->where('id', $id)->delete();
+
+        \App\Services\Cms\PopupService::flush();
+        app(AuditLogger::class)->log('popup.deleted', null, $row !== null ? (array) $row : ['id' => $id], [], $actorId);
+    }
+
     /**
      * Versioning homepage: simpan 10 snapshot terakhir di system_settings.
      */

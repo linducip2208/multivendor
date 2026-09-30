@@ -131,6 +131,7 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
 
         /* ---------------- MARKETING ---------------- */
         Route::resource('campaigns', MarketingController::class)->except(['show']);
+        Route::get('campaigns/landing', [MarketingController::class, 'landing'])->name('campaigns.landing');
         Route::get('campaigns/{campaign}/show', [MarketingController::class, 'show'])->name('campaigns.show');
         Route::post('campaigns/{campaign}/toggle', [MarketingController::class, 'toggle'])->name('campaigns.toggle');
         Route::get('abandoned-carts', [MarketingController::class, 'abandonedCarts'])->name('abandoned-carts');
@@ -143,10 +144,17 @@ Route::prefix('admin')->name('admin.')->group(function (): void {
         Route::get('homepage', [HomepageController::class, 'index'])->name('homepage.index');
         Route::put('homepage', [HomepageController::class, 'update'])->name('homepage.update');
         Route::post('homepage/preview', [HomepageController::class, 'preview'])->name('homepage.preview');
+        Route::post('homepage/popups', [HomepageController::class, 'storePopup'])->name('homepage.popups.store');
+        Route::put('homepage/popups/{id}', [HomepageController::class, 'updatePopup'])->name('homepage.popups.update');
+        Route::post('homepage/popups/{id}/toggle', [HomepageController::class, 'togglePopup'])->name('homepage.popups.toggle');
+        Route::delete('homepage/popups/{id}', [HomepageController::class, 'destroyPopup'])->name('homepage.popups.destroy');
 
         Route::resource('coupons', CouponController::class)->except(['show']);
         Route::resource('flashdeals', FlashDealController::class)->except(['show']);
         Route::resource('banners', BannerController::class)->except(['show']);
+        Route::post('banners/{banner}/impress', [BannerController::class, 'impress'])->name('banners.impress');
+        Route::post('banners/{banner}/click', [BannerController::class, 'click'])->name('banners.click');
+        Route::get('banners/experiments/{key}', [BannerController::class, 'experiment'])->name('banners.experiment');
         Route::resource('deals', DealOfTheDayController::class)->only(['index', 'store', 'destroy']);
         Route::resource('featured-deals', FeaturedDealController::class)->only(['index', 'store']);
         Route::delete('featured-deals/{product}', [FeaturedDealController::class, 'remove'])->name('featured-deals.remove');

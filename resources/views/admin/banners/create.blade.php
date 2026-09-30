@@ -11,6 +11,8 @@
     <div class="col-md-6"><label class="fw-medium">Tautan Tujuan</label><input type="text" name="link" class="form-control" value="{{ old('link') }}" placeholder="https://..."></div>
     <div class="col-md-3"><label class="fw-medium">Posisi</label><select name="position" class="form-select"><option value="hero">Hero (Atas)</option><option value="sidebar">Sidebar</option><option value="footer">Footer</option><option value="popup">Popup</option></select></div>
     <div class="col-md-2"><label class="fw-medium">Urutan</label><input type="number" name="sort_order" class="form-control" value="{{ old('sort_order', 0) }}" min="0"></div>
+    <div class="col-md-3"><label class="fw-medium">Kunci Eksperimen</label><input type="text" name="experiment_key" class="form-control" value="{{ old('experiment_key') }}" maxlength="80" placeholder="mis. hero-utama"><small class="text-muted">Banner se-grup diuji A/B.</small></div>
+    <div class="col-md-2"><label class="fw-medium">Bobot</label><input type="number" name="weight" class="form-control" value="{{ old('weight', 50) }}" min="1" max="100"></div>
     <div class="col-md-2"><div class="form-check mt-4"><input type="checkbox" name="status" class="form-check-input" id="st" value="1" checked><label for="st" class="fw-medium">Aktif</label></div></div>
     <div class="col-md-3"><label class="fw-medium">Tayang mulai</label><input type="datetime-local" name="starts_at" class="form-control" value="{{ old('starts_at') }}"></div>
     <div class="col-md-3"><label class="fw-medium">Tayang berakhir</label><input type="datetime-local" name="ends_at" class="form-control" value="{{ old('ends_at') }}"></div>

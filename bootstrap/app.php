@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\RequirePair::class,
             \App\Http\Middleware\LanguageMiddleware::class,
+            \App\Http\Middleware\CaptureUtm::class,
         ]);
 
         $middleware->alias([

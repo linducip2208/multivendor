@@ -242,6 +242,9 @@ class CheckoutController extends Controller
                         'gift_wrap' => $giftWrap,
                         'gift_message' => $giftMessage,
                         'gift_fee' => $giftFee,
+                        // ADITIF UTM: tulis penanda kampanye dari session ke
+                        // order tanpa mengubah kalkulasi apa pun.
+                        ...$this->utmOrderAttributes(),
                     ]);
 
                     $first = false;
@@ -617,6 +620,30 @@ class CheckoutController extends Controller
             'delivery_slot_label' => $slot['label'],
             'slot_scheduled_at' => now(),
         ])->save();
+    }
+
+    /**
+     * Atribut UTM order dari session (ditulis saat checkout).
+     * Kosong bila kolom belum ada (backward-compatible, kalkulasi tetap).
+     *
+     * @return array{utm_source?: string|null, utm_medium?: string|null, utm_campaign?: string|null}
+     */
+    private function utmOrderAttributes(): array
+    {
+        try {
+            $out = [];
+            foreach (['source' => 'utm_source', 'medium' => 'utm_medium', 'campaign' => 'utm_campaign'] as $sessionKey => $column) {
+                if (! \Illuminate\Support\Facades\Schema::hasColumn('orders', $column)) {
+                    continue;
+                }
+                $value = session('utm.'.$sessionKey);
+                $out[$column] = is_string($value) && trim($value) !== '' ? mb_substr(trim($value), 0, 120) : null;
+            }
+
+            return $out;
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function abortPayment(PaymentGroup $group): void

@@ -19,6 +19,7 @@ class HomepageController extends Controller
     {
         return view('admin.homepage.index', $this->homepage->overview() + [
             'versions' => $this->homepage->versions(),
+            'popups' => $this->homepage->popups(),
         ]);
     }
 
@@ -66,6 +67,72 @@ class HomepageController extends Controller
         return response()->json([
             'success' => true,
             'data' => $this->homepage->preview($only !== '' ? $only : null),
+        ]);
+    }
+
+    /* ── ADITIF popup builder (integrator yang wiring route) ── */
+
+    /**
+     * Simpan popup baru (POST admin/homepage/popups).
+     * Untuk integrator: daftarkan route POST sendiri bila dibutuhkan.
+     */
+    public function storePopup(Request $request): RedirectResponse
+    {
+        $this->homepage->savePopup($this->validatePopup($request), null, auth('admin')->id());
+
+        return back()->with('success', 'Popup disimpan dan siap tayang di storefront.');
+    }
+
+    /**
+     * Perbarui popup (PUT admin/homepage/popups/{id}).
+     * Untuk integrator: daftarkan route PUT sendiri bila dibutuhkan.
+     */
+    public function updatePopup(Request $request, int $id): RedirectResponse
+    {
+        $this->homepage->savePopup($this->validatePopup($request), $id, auth('admin')->id());
+
+        return back()->with('success', 'Popup diperbarui.');
+    }
+
+    /**
+     * Alihkan aktif/nonaktif popup (POST admin/homepage/popups/{id}/toggle).
+     * Untuk integrator: daftarkan route POST sendiri bila dibutuhkan.
+     */
+    public function togglePopup(int $id): RedirectResponse
+    {
+        $next = $this->homepage->togglePopup($id, auth('admin')->id());
+
+        return back()->with('success', $next ? 'Popup diaktifkan.' : 'Popup dinonaktifkan.');
+    }
+
+    /**
+     * Hapus popup (DELETE admin/homepage/popups/{id}).
+     * Untuk integrator: daftarkan route DELETE sendiri bila dibutuhkan.
+     */
+    public function destroyPopup(int $id): RedirectResponse
+    {
+        $this->homepage->deletePopup($id, auth('admin')->id());
+
+        return back()->with('success', 'Popup dihapus.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validatePopup(Request $request): array
+    {
+        return $request->validate([
+            'title' => ['required', 'string', 'max:160'],
+            'body_html' => ['nullable', 'string', 'max:10000'],
+            'image' => ['nullable', 'string', 'max:500'],
+            'button_text' => ['nullable', 'string', 'max:80'],
+            'button_link' => ['nullable', 'string', 'max:500'],
+            'targeting' => ['nullable', 'string', 'in:all,home,product,cart,checkout'],
+            'delay_seconds' => ['nullable', 'integer', 'min:0', 'max:60'],
+            'cap_days' => ['nullable', 'integer', 'min:1', 'max:90'],
+            'starts_at' => ['nullable', 'date'],
+            'ends_at' => ['nullable', 'date', 'after_or_equal:starts_at'],
+            'is_active' => ['nullable', 'boolean'],
         ]);
     }
 }

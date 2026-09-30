@@ -249,6 +249,21 @@ class MarketingController extends Controller
     }
 
     /**
+     * Laporan landing kampanye + UTM (tayang→order→omzet).
+     * Untuk integrator: daftarkan route GET sendiri bila dibutuhkan.
+     * Memakai ulang view campaigns.index agar tanpa file blade baru.
+     */
+    public function landing(Request $request): View
+    {
+        return view('admin.campaigns.index', $this->campaigns->index(
+            (int) $request->query('page', 1),
+            trim((string) $request->query('search', '')),
+            (string) $request->query('status', ''),
+            (string) $request->query('type', ''),
+        ) + ['landing' => $this->campaigns->landingReport()]);
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function validateCampaign(Request $request, ?Campaign $campaign = null): array

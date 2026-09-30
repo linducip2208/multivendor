@@ -327,6 +327,39 @@ final class CampaignService
     }
 
     /* ------------------------------------------------------------------ */
+    /* ADITIF landing kampanye + UTM (tayang → order → omzet)               */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * Laporan agregat landing per campaign/utm.
+     *
+     * @return list<array{campaign: string, source: string, views: int, orders: int, revenue: float, conversion_rate: float}>
+     */
+    public function landingReport(int $limit = 50): array
+    {
+        return \App\Services\Cms\LandingTrackingService::aggregate($limit);
+    }
+
+    /**
+     * Catat tayang landing sebuah kampanye (dipakai storefront/pixel).
+     *
+     * @param  array<string, mixed>  $utm
+     */
+    public function recordLandingView(Campaign $campaign, array $utm, ?string $sessionId = null, ?string $url = null): void
+    {
+        \App\Services\Cms\LandingTrackingService::recordView(
+            (int) $campaign->getKey(),
+            [
+                'utm_source' => isset($utm['utm_source']) && is_string($utm['utm_source']) ? $utm['utm_source'] : null,
+                'utm_medium' => isset($utm['utm_medium']) && is_string($utm['utm_medium']) ? $utm['utm_medium'] : null,
+                'utm_campaign' => isset($utm['utm_campaign']) && is_string($utm['utm_campaign']) ? $utm['utm_campaign'] : ($campaign->slug ?? $campaign->name),
+            ],
+            $sessionId,
+            $url,
+        );
+    }
+
+    /* ------------------------------------------------------------------ */
     /* Cashback + stack tebus (perdalaman aditif, tanpa ubah method lama)   */
     /* ------------------------------------------------------------------ */
 
