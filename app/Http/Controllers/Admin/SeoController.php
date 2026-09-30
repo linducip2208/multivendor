@@ -244,6 +244,22 @@ class SeoController extends Controller
         return back()->with('success', 'Halaman dinonaktifkan (indexability=noindex).');
     }
 
+    /* ── ADITIF deepening: hreflang audit ──
+     * Untuk integrator: daftarkan route sendiri, mis.:
+     *   GET admin/seo/hreflang -> hreflangAudit (name: admin.seo.hreflang)
+     * Memakai ulang view seo.sitemaps (payload @isset) agar tanpa blade baru.
+     */
+    public function hreflangAudit(): View
+    {
+        return view('admin.seo.sitemaps', [
+            'status' => $this->sitemaps->status(),
+            'sitemaps' => $this->sitemaps->list(),
+            'robots' => $this->sitemaps->robotsPreview(),
+            'hreflang' => $this->sitemaps->hreflangAudit(),
+            'localizedIndexes' => $this->sitemaps->localizedIndexes(),
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */

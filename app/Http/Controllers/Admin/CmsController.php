@@ -1053,6 +1053,246 @@ class CmsController extends Controller
         ];
     }
 
+    /* ── ADITIF deepening: language management + workflow + form builder ──
+     * Untuk integrator: daftarkan route sendiri, mis.:
+     *   GET  admin/languages/manage      -> languagesManage (name: admin.languages.manage)
+     *   POST admin/languages             -> storeLanguage   (name: admin.languages.store)
+     *   POST admin/languages/active      -> toggleLanguage  (name: admin.languages.toggle)
+     *   POST admin/languages/default     -> defaultLanguage (name: admin.languages.default)
+     *   GET  admin/translations/export   -> exportTranslations (name: admin.translations.export)
+     *   POST admin/translations/import   -> importTranslations (name: admin.translations.import)
+     *   GET  admin/forms                 -> formsIndex (name: admin.forms.index)
+     *   POST admin/forms                 -> storeForm  (name: admin.forms.store)
+     *   GET  admin/forms/{key}           -> formSubmissions (name: admin.forms.show)
+     *   POST admin/forms/{key}/rules     -> saveFormRules (name: admin.forms.rules)
+     *   POST admin/workflow              -> updateWorkflow (name: admin.workflow.update)
+     */
+
+    public function languagesManage(): View
+    {
+        $languages = app(\App\Services\Localization\LanguageService::class);
+        $repo = app(\App\Services\Localization\TranslationRepository::class);
+        $detector = app(\App\Services\Localization\MissingDetector::class);
+        $reference = 'en';
+        $codes = array_merge(['id', 'en'], $languages->activeCodes());
+        $codes = array_values(array_unique($codes));
+
+        $coverage = [];
+        $missing = [];
+        foreach ($codes as $code) {
+            try {
+                $coverage[$code] = $repo->coverage($code, $reference);
+            } catch (\Throwable) {
+                $coverage[$code] = ['percent' => 0, 'translated' => 0, 'total_keys' => 0, 'per_namespace' => []];
+            }
+            try {
+                $missing[$code] = array_slice($detector->missingKeys($code, $reference), 0, 50);
+            } catch (\Throwable) {
+                $missing[$code] = [];
+            }
+        }
+
+        return view('admin.language.index', [
+            // Payload lama dipertahankan agar blade existing tetap jalan.
+            'rows' => [],
+            'locales' => ['id' => 'Bahasa Indonesia', 'en' => 'English'],
+            'default_locale' => $languages->defaultCode(),
+            // Payload baru (blade memakai @isset agar backward-compatible).
+            'managed' => $languages->allManaged(),
+            'coverage' => $coverage,
+            'missing' => $missing,
+            'rtlHint' => array_combine($codes, array_map(fn (string $c): bool => $languages->isRtl($c), $codes)),
+        ]);
+    }
+
+    public function storeLanguage(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:12', 'regex:/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/'],
+            'name' => ['required', 'string', 'max:120'],
+            'native_name' => ['nullable', 'string', 'max:120'],
+            'is_rtl' => ['nullable', 'boolean'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999'],
+        ]);
+
+        $languages = app(\App\Services\Localization\LanguageService::class);
+        $base = \App\Models\Language::baseCode((string) $validated['code']);
+        $rtl = $request->boolean('is_rtl', in_array($base, \App\Services\Localization\LanguageService::RTL_CODES, true));
+
+        $languages->addLanguage(
+            (string) $validated['code'],
+            (string) $validated['name'],
+            ['native_name' => $validated['native_name'] ?? null, 'is_rtl' => $rtl,
+                'sort_order' => (int) ($validated['sort_order'] ?? 0), 'is_active' => true]
+        );
+
+        app(AuditLogger::class)->log('language.added', null, [], ['code' => $validated['code']], auth('admin')->id());
+
+        return back()->with('success', 'Bahasa '.$validated['code'].' ditambahkan dan diaktifkan.');
+    }
+
+    public function toggleLanguage(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'code' => ['required', 'string', 'max:12'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        app(\App\Services\Localization\LanguageService::class)
+            ->setActive((string) $validated['code'], $request->boolean('is_active', true));
+
+        return back()->with('success', 'Status bahasa '.$validated['code'].' diperbarui.');
+    }
+
+    public function defaultLanguage(Request $request): RedirectResponse
+    {
+        $validated = $request->validate(['code' => ['required', 'string', 'max:12']]);
+
+        app(\App\Services\Localization\LanguageService::class)->setDefault((string) $validated['code']);
+
+        return back()->with('success', 'Bahasa default kini '.$validated['code'].'.');
+    }
+
+    public function exportTranslations(Request $request)
+    {
+        $validated = $request->validate([
+            'locale' => ['required', 'string', 'max:12'],
+            'format' => ['nullable', 'string', \Illuminate\Validation\Rule::in(['json', 'csv'])],
+        ]);
+
+        $repo = app(\App\Services\Localization\TranslationRepository::class);
+        $locale = (string) $validated['locale'];
+        $format = (string) ($validated['format'] ?? 'json');
+
+        if ($format === 'csv') {
+            return response($repo->exportCsv($locale), 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="translations-'.$locale.'.csv"',
+            ]);
+        }
+
+        return response()->json($repo->exportJson($locale));
+    }
+
+    public function importTranslations(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'locale' => ['required', 'string', 'max:12'],
+            'payload' => ['required', 'string', 'max:500000'],
+            'format' => ['nullable', 'string', \Illuminate\Validation\Rule::in(['json', 'csv'])],
+        ]);
+
+        $repo = app(\App\Services\Localization\TranslationRepository::class);
+        $locale = (string) $validated['locale'];
+        $format = (string) ($validated['format'] ?? 'json');
+
+        if ($format === 'csv') {
+            $count = $repo->importCsv($locale, (string) $validated['payload']);
+        } else {
+            $data = json_decode((string) $validated['payload'], true);
+            if (! is_array($data)) {
+                return back()->withErrors(['payload' => 'JSON tidak valid.'])->withInput();
+            }
+            $count = $repo->importJson($locale, $data);
+        }
+
+        app(AuditLogger::class)->log('translations.imported', null, [], ['locale' => $locale, 'count' => $count], auth('admin')->id());
+
+        return back()->with('success', $count.' kunci diimpor ke locale '.$locale.'.');
+    }
+
+    public function formsIndex(): View
+    {
+        $forms = app(\App\Services\Cms\CmsFormService::class);
+
+        return view('admin.pages.index', [
+            'pages' => [],
+            'versions' => [],
+            // Payload form builder (blade pages memakai @isset; fallback aman).
+            'cmsForms' => $forms->forms(),
+        ]);
+    }
+
+    public function storeForm(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'key' => ['required', 'string', 'max:80', 'regex:/^[A-Za-z0-9_\-]+$/'],
+            'title' => ['required', 'string', 'max:160'],
+            'fields' => ['required', 'array', 'min:1', 'max:20'],
+            'fields.*.name' => ['required', 'string', 'max:60'],
+            'fields.*.label' => ['nullable', 'string', 'max:120'],
+            'fields.*.type' => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Services\Cms\CmsFormService::FIELD_TYPES)],
+            'fields.*.required' => ['nullable', 'boolean'],
+            'fields.*.options' => ['nullable', 'array', 'max:20'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        app(\App\Services\Cms\CmsFormService::class)->saveForm(
+            (string) $validated['key'],
+            (string) $validated['title'],
+            (array) $validated['fields'],
+            $request->boolean('is_active', true)
+        );
+
+        return back()->with('success', 'Form '.$validated['key'].' disimpan.');
+    }
+
+    public function formSubmissions(string $key): View
+    {
+        $forms = app(\App\Services\Cms\CmsFormService::class);
+        $automation = app(\App\Services\Cms\CmsFormAutomationService::class);
+
+        return view('admin.pages.index', [
+            'pages' => [],
+            'versions' => [],
+            'cmsForms' => $forms->forms(),
+            'activeForm' => $forms->findForm($key),
+            'formSubmissions' => $forms->submissions($key),
+            'formRules' => $automation->rulesFor($key),
+        ]);
+    }
+
+    public function saveFormRules(Request $request, string $key): RedirectResponse
+    {
+        $validated = $request->validate([
+            'rules' => ['nullable', 'array', 'max:10'],
+            'rules.*.action' => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Services\Cms\CmsFormAutomationService::ACTIONS)],
+            'rules.*.template' => ['nullable', 'string', 'max:80'],
+            'rules.*.coupon_prefix' => ['nullable', 'string', 'max:12'],
+            'rules.*.message' => ['nullable', 'string', 'max:500'],
+            'rules.*.is_active' => ['nullable', 'boolean'],
+        ]);
+
+        app(\App\Services\Cms\CmsFormAutomationService::class)
+            ->saveRules($key, (array) ($validated['rules'] ?? []));
+
+        return back()->with('success', 'Automation form '.$key.' disimpan.');
+    }
+
+    public function updateWorkflow(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'scope' => ['required', 'string', \Illuminate\Validation\Rule::in(['page', 'blog', 'banner', 'menu'])],
+            'subject' => ['required', 'string', 'max:190'],
+            'locale' => ['required', 'string', \Illuminate\Validation\Rule::in(['id', 'en'])],
+            'state' => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Services\Cms\ContentWorkflowService::STATES)],
+            'scheduled_at' => ['nullable', 'date'],
+        ]);
+
+        $result = app(\App\Services\Cms\ContentWorkflowService::class)->transition(
+            (string) $validated['scope'],
+            (string) $validated['subject'],
+            (string) $validated['locale'],
+            (string) $validated['state'],
+            isset($validated['scheduled_at']) ? (string) $validated['scheduled_at'] : null,
+            auth('admin')->id()
+        );
+
+        app(AuditLogger::class)->log('cms.workflow_updated', null, [], $validated, auth('admin')->id());
+
+        return back()->with('success', 'Workflow '.$validated['scope'].'/'.$validated['subject'].' ('.$validated['locale'].') kini '.$result['state'].'.');
+    }
+
     /**
      * @return array<string, mixed>
      */

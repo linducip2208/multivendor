@@ -555,6 +555,64 @@ class FileManagerController extends Controller
         return $items;
     }
 
+    /* ── ADITIF deepening: tag/koleksi/alt massal + tak terpakai ──
+     * Untuk integrator: daftarkan route sendiri, mis.:
+     *   GET  admin/file-manager/meta   -> metaOverview (name: admin.file-manager.meta)
+     *   POST admin/file-manager/meta   -> saveMeta     (name: admin.file-manager.meta.save)
+     *   POST admin/file-manager/alt    -> bulkAlt      (name: admin.file-manager.meta.alt)
+     * Memakai ulang view file-manager.index (payload @isset).
+     */
+    public function metaOverview(): \Illuminate\View\View
+    {
+        $this->ensureSuperAdmin();
+        $meta = app(\App\Services\Cms\MediaMetaService::class);
+
+        return view('admin.file-manager.index', [
+            'files' => $this->listing(),
+            'limits' => [
+                'max_kb' => intdiv(self::MAX_BYTES, 1024),
+                'types' => array_keys(self::ALLOWED),
+            ],
+            'mediaInventory' => $meta->inventory(),
+        ]);
+    }
+
+    public function saveMeta(Request $request): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'path' => ['required', 'string', 'max:255', 'not_regex:/\.\./'],
+            'tags' => ['nullable', 'string', 'max:600'],
+            'collection' => ['nullable', 'string', 'max:80'],
+            'alt' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $tags = $validated['tags'] ?? '';
+        app(\App\Services\Cms\MediaMetaService::class)->tag(
+            (string) $validated['path'],
+            is_string($tags) ? preg_split('/[,;\n]+/', $tags) ?: [] : [],
+            (string) ($validated['collection'] ?? ''),
+            (string) ($validated['alt'] ?? '')
+        );
+
+        return back()->with('success', 'Meta media disimpan.');
+    }
+
+    public function bulkAlt(Request $request): RedirectResponse
+    {
+        $this->ensureSuperAdmin();
+
+        $validated = $request->validate([
+            'alts' => ['required', 'array', 'max:200'],
+            'alts.*' => ['nullable', 'string', 'max:200'],
+        ]);
+
+        $count = app(\App\Services\Cms\MediaMetaService::class)->bulkAlt((array) $validated['alts']);
+
+        return back()->with('success', $count.' alt teks disimpan massal.');
+    }
+
     /**
      * @return list<array<string, mixed>>
      */

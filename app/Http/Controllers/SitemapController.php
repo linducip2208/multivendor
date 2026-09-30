@@ -86,6 +86,35 @@ class SitemapController extends Controller
         });
     }
 
+    /* ── ADITIF deepening: hreflang alternates per locale ──
+     * Daftar locale dari LanguageService; default tanpa prefix.
+     * Integrator: bungkus loc dengan alternates ini bila membangun
+     * sitemap ber-xhtml:link, atau pakai <link rel="alternate"> di layout.
+     *
+     * @return array<string, string> locale => URL (termasuk x-default)
+     */
+    public static function hreflangFor(string $path): array
+    {
+        try {
+            $languages = app(\App\Services\Localization\LanguageService::class);
+            $locales = $languages->activeCodes();
+            $default = $languages->defaultCode();
+        } catch (\Throwable) {
+            $locales = ['id', 'en'];
+            $default = 'id';
+        }
+        if ($locales === []) {
+            $locales = ['id', 'en'];
+        }
+        $out = [];
+        foreach (array_slice($locales, 0, 10) as $locale) {
+            $out[$locale] = url(($locale === $default ? '' : $locale.'/').ltrim($path, '/'));
+        }
+        $out['x-default'] = $out[$default] ?? url(ltrim($path, '/'));
+
+        return $out;
+    }
+
     protected function renderUrlsXml(array $urls): Response
     {
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';

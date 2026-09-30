@@ -33,7 +33,7 @@
             @endif
         </div>
     </form>
-    <p class="small text-secondary mb-0 mt-2">Artikel <strong>Terjadwal</strong> terbit otomatis saat waktunya tiba — storefront hanya menampilkan yang <code>published_at &lt;= sekarang</code>, tanpa command tambahan.</p>
+    <p class="small text-secondary mb-0 mt-2">Artikel <strong>Terjadwal</strong> terbit otomatis saat waktunya tiba — storefront hanya menampilkan yang <code>published_at &lt;= sekarang</code>, tanpa command tambahan. Workflow per bahasa (draft/review/published/scheduled) via <code>BlogController::updateLocale / updateWorkflow</code> + <code>ContentWorkflowService</code> — perlu wiring route oleh integrator; terjemahan overlay di <code>blog_post_translations</code> existing.</p>
 </x-admin.card>
 <x-admin.card :padding="false"><div class="table-responsive">
 <table class="table table-hover mb-0">

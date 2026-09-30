@@ -255,6 +255,105 @@ final class VendorTicketService
         return $merged;
     }
 
+    // ── Pendalaman support 3-arah + catatan internal (aditif) ──
+    // Peran: customer (customer_id) ↔ vendor (vendor_id) ↔ support
+    // (assigned_to/lainnya). Internal memakai prefiks [INTERNAL] pada
+    // message existing; SLA memakai sla() existing.
+
+    /**
+     * Balas sebagai salah satu dari 3 pihak. Catatan internal (support-only)
+     * otomatis diprefiks dan disembunyikan dari customer.
+     *
+     * @return array{role:string, internal:bool, reply_id:int}
+     */
+    public function replyAs(int $ticketId, int $senderId, string $message, bool $internal = false): array
+    {
+        $ticket = $this->find($ticketId);
+        $message = VendorScope::clean($message, 4000);
+
+        if ($message === '') {
+            throw \Illuminate\Validation\ValidationException::withMessages(['message' => 'Pesan tidak boleh kosong.']);
+        }
+
+        return DB::transaction(function () use ($ticket, $senderId, $message, $internal): array {
+            $state = \App\Domain\Support\SupportSla::threadState(
+                isset($ticket->customer_id) ? (int) $ticket->customer_id : null,
+                isset($ticket->vendor_id) ? (int) $ticket->vendor_id : null,
+                isset($ticket->assigned_to) ? (int) $ticket->assigned_to : null,
+                $senderId,
+            );
+            $role = (string) ($state['role'] ?? 'support');
+
+            $isInternal = $internal && $role === 'support';
+            $stored = $isInternal ? \App\Domain\Support\SupportSla::markInternal($message) : $message;
+
+            $replyId = DB::table('support_ticket_replies')->insertGetId([
+                'support_ticket_id' => $ticket->id,
+                'user_id' => $senderId,
+                'message' => $stored,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $patch = ['updated_at' => now()];
+
+            if ($ticket->first_response_at === null && $role !== 'customer') {
+                $patch['first_response_at'] = now();
+            }
+
+            if (! $isInternal) {
+                // Kolom status enum DB: open/in_progress/resolved/closed.
+                $patch['status'] = $role === 'customer' ? 'open' : 'in_progress';
+            }
+
+            DB::table('support_tickets')->where('id', $ticket->id)->update($patch);
+
+            return ['role' => $role, 'internal' => $isInternal, 'reply_id' => (int) $replyId];
+        }, 3);
+    }
+
+    /** Thread untuk customer: catatan internal disaring. */
+    public function threadForCustomer(int $ticketId): array
+    {
+        $ticket = $this->find($ticketId);
+
+        $replies = DB::table('support_ticket_replies')
+            ->where('support_ticket_id', $ticket->id)
+            ->orderBy('id')
+            ->get(['id', 'user_id', 'message', 'created_at'])
+            ->filter(fn ($row): bool => \App\Domain\Support\SupportSla::visibleForCustomer((string) $row->message) !== null)
+            ->map(fn ($row): array => [
+                'id' => (int) $row->id,
+                'user_id' => (int) $row->user_id,
+                'message' => (string) \App\Domain\Support\SupportSla::visibleForCustomer((string) $row->message),
+                'at' => (string) $row->created_at,
+            ])
+            ->all();
+
+        return ['ticket' => $ticket, 'replies' => $replies, 'sla' => $this->sla($ticket)];
+    }
+
+    /** Thread penuh untuk support/vendor-internal (termasuk catatan internal). */
+    public function threadFull(int $ticketId): array
+    {
+        $ticket = $this->find($ticketId);
+
+        $replies = DB::table('support_ticket_replies')
+            ->where('support_ticket_id', $ticket->id)
+            ->orderBy('id')
+            ->get(['id', 'user_id', 'message', 'created_at'])
+            ->map(fn ($row): array => [
+                'id' => (int) $row->id,
+                'user_id' => (int) $row->user_id,
+                'message' => (string) $row->message,
+                'internal' => \App\Domain\Support\SupportSla::isInternal((string) $row->message),
+                'at' => (string) $row->created_at,
+            ])
+            ->all();
+
+        return ['ticket' => $ticket, 'replies' => $replies, 'sla' => $this->sla($ticket)];
+    }
+
     private function reference(): string
     {
         do {

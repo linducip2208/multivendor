@@ -83,6 +83,71 @@ class OrderReturn extends Model
         return ((string) ($this->getAttribute('qc_grade') ?? '')) !== '';
     }
 
+    // ── Pendalaman RMA: resolusi + restocking fee + refund proporsional ──
+
+    /** Resolusi RMA: refund / replace / exchange (kolom admin_note existing). */
+    public const RESOLUTIONS = [
+        'refund' => 'Refund dana',
+        'replace' => 'Ganti barang sama',
+        'exchange' => 'Tukar barang lain',
+    ];
+
+    /** @return array<string,string> */
+    public static function resolutionLabels(): array
+    {
+        return self::RESOLUTIONS;
+    }
+
+    public static function normalizeResolution(?string $resolution): string
+    {
+        $resolution = is_string($resolution) ? trim(mb_strtolower($resolution)) : '';
+
+        return array_key_exists($resolution, self::RESOLUTIONS) ? $resolution : 'refund';
+    }
+
+    public function resolution(): string
+    {
+        $note = (string) ($this->getAttribute('admin_note') ?? '');
+
+        if (preg_match('/\[resolusi:(refund|replace|exchange)\]/', $note, $m)) {
+            return $m[1];
+        }
+
+        return 'refund';
+    }
+
+    /** Biaya restock: % dari amount, dibatasi amount (tak pernah minus). */
+    public function restockingFee(float $percent): float
+    {
+        $percent = max(0.0, min(100.0, $percent));
+        $amount = max(0.0, (float) ($this->getAttribute('amount') ?? 0));
+
+        return round($amount * $percent / 100, 2);
+    }
+
+    /**
+     * Refund proporsional ongkir+pajak per item terhadap subtotal order.
+     *
+     * @return array{shipping:float, tax:float, items:float, restocking_fee:float, total:float}
+     */
+    public function proportionalRefund(float $orderSubtotal, float $orderShipping, float $orderTax, float $restockingPercent = 0.0): array
+    {
+        $orderSubtotal = max(0.0, $orderSubtotal);
+        $items = max(0.0, (float) ($this->getAttribute('amount') ?? 0));
+        $ratio = $orderSubtotal > 0 ? min(1.0, $items / $orderSubtotal) : 0.0;
+        $shipping = round(max(0.0, $orderShipping) * $ratio, 2);
+        $tax = round(max(0.0, $orderTax) * $ratio, 2);
+        $fee = $this->restockingFee($restockingPercent);
+
+        return [
+            'shipping' => $shipping,
+            'tax' => $tax,
+            'items' => $items,
+            'restocking_fee' => $fee,
+            'total' => round(max(0.0, $items + $shipping + $tax - $fee), 2),
+        ];
+    }
+
     public function qcGradeLabel(): ?string
     {
         $grade = (string) ($this->getAttribute('qc_grade') ?? '');

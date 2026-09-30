@@ -698,6 +698,230 @@ final class StockService
         return ['warehouse' => $warehouse, 'available' => $available, 'full' => $full];
     }
 
+    // ── Pendalaman ledger: reservasi/alokasi multi-gudang (aditif) ──
+    // Semua mutasi: transaksi + lockForUpdate + movement audit + saldo tak
+    // pernah negatif. Idempoten via (reference_type, reference_id) existing.
+
+    /**
+     * Reservasi stok (checkout/POS): on_hand tetap, reserved bertambah.
+     *
+     * @return array{warehouse_id:int, reserved:int, available:int}
+     */
+    public function reserve(int $productId, int $warehouseId, int $quantity, ?int $variantId = null, string $reference = '', ?int $actorId = null): array
+    {
+        return DB::transaction(function () use ($productId, $warehouseId, $quantity, $variantId, $reference, $actorId): array {
+            $quantity = max(1, $quantity);
+            $stock = $this->lockStock($productId, $warehouseId, $variantId);
+            $available = (int) $stock->on_hand - (int) $stock->reserved;
+
+            if ($quantity > $available) {
+                throw ValidationException::withMessages([
+                    'stock' => 'Stok tersedia tidak cukup (tersedia '.$available.', diminta '.$quantity.').',
+                ]);
+            }
+
+            if ($reference !== '' && StockMovement::query()
+                ->where('reference_type', 'reservation')
+                ->where('reference_id', crc32($reference) & 0x7fffffff)
+                ->where('product_id', $productId)
+                ->exists()) {
+                return ['warehouse_id' => $warehouseId, 'reserved' => (int) $stock->reserved, 'available' => $available];
+            }
+
+            $stock->forceFill(['reserved' => (int) $stock->reserved + $quantity])->save();
+
+            StockMovement::create([
+                'warehouse_id' => $warehouseId,
+                'product_id' => $productId,
+                'product_variant_id' => $variantId,
+                'type' => 'reservation',
+                'quantity' => $quantity,
+                'balance_after' => (int) $stock->on_hand - (int) $stock->reserved,
+                'reference_type' => 'reservation',
+                'reference_id' => $reference !== '' ? crc32($reference) & 0x7fffffff : null,
+                'note' => 'Reservasi '.($reference !== '' ? $reference : 'stok').'.',
+                'created_by' => $actorId,
+            ]);
+
+            app(AuditLogger::class)->log('stock.reserved', $stock, [], ['qty' => $quantity, 'ref' => $reference], $actorId);
+
+            return ['warehouse_id' => $warehouseId, 'reserved' => (int) $stock->reserved, 'available' => (int) $stock->on_hand - (int) $stock->reserved];
+        }, 3);
+    }
+
+    /** Lepas reservasi (cancel/expire): reserved berkurang, on_hand tetap. */
+    public function release(int $productId, int $warehouseId, int $quantity, ?int $variantId = null, string $reference = '', ?int $actorId = null): array
+    {
+        return DB::transaction(function () use ($productId, $warehouseId, $quantity, $variantId, $reference, $actorId): array {
+            $quantity = max(1, $quantity);
+            $stock = $this->lockStock($productId, $warehouseId, $variantId);
+            $release = min($quantity, (int) $stock->reserved);
+
+            $stock->forceFill(['reserved' => (int) $stock->reserved - $release])->save();
+
+            StockMovement::create([
+                'warehouse_id' => $warehouseId,
+                'product_id' => $productId,
+                'product_variant_id' => $variantId,
+                'type' => 'release',
+                'quantity' => $release,
+                'balance_after' => (int) $stock->on_hand - (int) $stock->reserved,
+                'reference_type' => 'reservation_release',
+                'reference_id' => null,
+                'note' => 'Pelepasan reservasi '.($reference !== '' ? $reference : 'stok').'.',
+                'created_by' => $actorId,
+            ]);
+
+            $this->syncProductTotal($productId);
+
+            return ['warehouse_id' => $warehouseId, 'reserved' => (int) $stock->reserved, 'available' => (int) $stock->on_hand - (int) $stock->reserved];
+        }, 3);
+    }
+
+    /**
+     * Alokasi multi-gudang deterministik: gudang default dulu, lalu nama.
+     * Baris dikunci terurut id (anti-deadlock), gagal bila total kurang.
+     *
+     * @param  array<int,int>  $needs  product_id => qty
+     * @return array<int, array<int,int>>  product_id => [warehouse_id => qty]
+     */
+    public function allocateMultiWarehouse(array $needs, ?int $variantId = null, string $reference = '', ?int $actorId = null): array
+    {
+        return DB::transaction(function () use ($needs, $variantId, $reference, $actorId): array {
+            $needs = array_filter(array_map('intval', $needs), fn (int $qty): bool => $qty > 0);
+
+            if ($needs === []) {
+                throw ValidationException::withMessages(['items' => 'Kebutuhan alokasi kosong.']);
+            }
+
+            $warehouses = Warehouse::query()->active()->orderedForAllocation()->lockForUpdate()->get();
+
+            if ($warehouses->isEmpty()) {
+                throw ValidationException::withMessages(['warehouse' => 'Tidak ada gudang aktif.']);
+            }
+
+            $plan = [];
+
+            foreach ($needs as $productId => $qty) {
+                $remaining = $qty;
+
+                foreach ($warehouses as $warehouse) {
+                    if ($remaining <= 0) {
+                        break;
+                    }
+
+                    $stock = $this->lockStock((int) $productId, (int) $warehouse->id, $variantId);
+                    $available = (int) $stock->on_hand - (int) $stock->reserved;
+                    $take = min($remaining, max(0, $available));
+
+                    if ($take <= 0) {
+                        continue;
+                    }
+
+                    $stock->forceFill(['reserved' => (int) $stock->reserved + $take])->save();
+
+                    StockMovement::create([
+                        'warehouse_id' => (int) $warehouse->id,
+                        'product_id' => (int) $productId,
+                        'product_variant_id' => $variantId,
+                        'type' => 'reservation',
+                        'quantity' => $take,
+                        'balance_after' => (int) $stock->on_hand - (int) $stock->reserved,
+                        'reference_type' => 'allocation',
+                        'reference_id' => null,
+                        'note' => 'Alokasi multi-gudang '.($reference !== '' ? $reference : 'order').'.',
+                        'created_by' => $actorId,
+                    ]);
+
+                    $plan[(int) $productId][(int) $warehouse->id] = $take;
+                    $remaining -= $take;
+                }
+
+                if ($remaining > 0) {
+                    throw ValidationException::withMessages([
+                        'stock' => 'Stok produk #'.$productId.' kurang '.($remaining).' unit di semua gudang.',
+                    ]);
+                }
+
+                $this->syncProductTotal((int) $productId);
+            }
+
+            app(AuditLogger::class)->log('stock.allocated', null, [], ['needs' => $needs, 'ref' => $reference], $actorId);
+
+            return $plan;
+        }, 3);
+    }
+
+    /** Barang datang (purchase/incoming): incoming berkurang, on_hand bertambah. */
+    public function receiveIncoming(int $productId, int $warehouseId, int $quantity, ?int $variantId = null, string $reference = '', ?int $actorId = null): array
+    {
+        return DB::transaction(function () use ($productId, $warehouseId, $quantity, $variantId, $reference, $actorId): array {
+            $quantity = max(1, $quantity);
+            $stock = $this->lockStock($productId, $warehouseId, $variantId);
+            $balance = (int) $stock->on_hand + $quantity;
+
+            $stock->forceFill([
+                'on_hand' => $balance,
+                'incoming' => max(0, (int) $stock->incoming - $quantity),
+            ])->save();
+
+            StockMovement::create([
+                'warehouse_id' => $warehouseId,
+                'product_id' => $productId,
+                'product_variant_id' => $variantId,
+                'type' => 'in',
+                'quantity' => $quantity,
+                'balance_after' => $balance,
+                'reference_type' => 'incoming_receipt',
+                'reference_id' => null,
+                'note' => 'Barang datang '.($reference !== '' ? $reference : '').'.',
+                'created_by' => $actorId,
+            ]);
+
+            $this->syncProductTotal($productId);
+
+            return ['warehouse_id' => $warehouseId, 'on_hand' => $balance];
+        }, 3);
+    }
+
+    /**
+     * Catat barang rusak/retur-tidak-layak: on_hand berkurang (state damaged
+     * virtual = agregat movement adjustment), audit penuh, tak pernah negatif.
+     */
+    public function recordDamaged(int $productId, int $warehouseId, int $quantity, ?int $variantId = null, string $note = '', ?int $actorId = null): array
+    {
+        return DB::transaction(function () use ($productId, $warehouseId, $quantity, $variantId, $note, $actorId): array {
+            $quantity = max(1, $quantity);
+            $stock = $this->lockStock($productId, $warehouseId, $variantId);
+            $available = (int) $stock->on_hand - (int) $stock->reserved;
+
+            if ($quantity > $available) {
+                throw ValidationException::withMessages(['stock' => 'Stok tersedia '.$available.' kurang dari '.$quantity.' unit rusak.']);
+            }
+
+            $balance = (int) $stock->on_hand - $quantity;
+            $stock->forceFill(['on_hand' => $balance])->save();
+
+            StockMovement::create([
+                'warehouse_id' => $warehouseId,
+                'product_id' => $productId,
+                'product_variant_id' => $variantId,
+                'type' => 'adjustment',
+                'quantity' => -$quantity,
+                'balance_after' => $balance,
+                'reference_type' => 'damaged',
+                'reference_id' => null,
+                'note' => 'Barang rusak/ditahan: '.($note !== '' ? mb_substr($note, 0, 180) : 'QC gagal').'.',
+                'created_by' => $actorId,
+            ]);
+
+            $this->syncProductTotal($productId);
+            app(AuditLogger::class)->log('stock.damaged', $stock, [], ['qty' => $quantity], $actorId);
+
+            return ['warehouse_id' => $warehouseId, 'on_hand' => $balance];
+        }, 3);
+    }
+
     /**
      * Row lock the stock line, creating it when the pair has never been seen.
      */

@@ -42,6 +42,31 @@ class PaymentWebhookController extends Controller
             'raw' => $request->getContent(),
         ];
 
+        // ADITIF: validasi kesegaran timestamp (toleransi 300 dtk). Stale ->
+        // catat dead-letter (processing_result=failed + X-Dead-Letter) lalu 400.
+        // Provider tanpa X-Timestamp tetap diproses via signature (jujur per format).
+        $timestamp = $headers['X-Timestamp'] ?? $headers['x-timestamp'] ?? null;
+        if ($timestamp !== null && $timestamp !== '' && ! \App\Http\Middleware\WebhookTimestamp::isFresh($timestamp)) {
+            $dead = \App\Models\PaymentWebhookCallback::create([
+                'provider_id' => $provider->id,
+                'payment_group_id' => null,
+                'gateway_transaction_id' => 'stale:'.substr(sha1((string) $request->getContent().microtime()), 0, 16),
+                'external_id' => (string) ($request->input('order_id') ?? $request->input('external_id') ?? ''),
+                'status' => 'stale',
+                'payload' => $callback['body'],
+                'headers' => array_merge($headers, ['X-Dead-Letter' => 'true', 'X-Dead-Reason' => 'stale_timestamp']),
+                'received_at' => now(),
+                'processed_at' => now(),
+                'processing_result' => 'failed',
+            ]);
+            PaymentLog::channel('warning', 'Rejected stale payment webhook timestamp', [
+                'provider_id' => $provider->id,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json(['success' => false, 'message' => 'Webhook kedaluwarsa. / Stale webhook.'], 400);
+        }
+
         if (! $payments->verifyCallback($provider, $callback)) {
             PaymentLog::channel('warning', 'Rejected payment webhook signature', [
                 'provider_id' => $provider->id,

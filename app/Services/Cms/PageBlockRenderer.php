@@ -14,7 +14,8 @@ use Illuminate\Support\Str;
  * Page builder: normalisasi JSON blok + render storefront yang aman.
  *
  * Penyimpanan: SystemSetting key `page_blocks_{key}` berisi JSON array blok.
- * Tipe: text, hero, products, gallery, faq, cta.
+ * Tipe: text, hero, products, product-carousel, gallery, faq,
+ * faq-accordion, cta, testimonials, countdown, newsletter, map, pricing.
  *
  * Keamanan: semua string di-escape kecuali HTML teks yang lewat
  * HtmlSanitizer (allowlist tag admin). Produk hanya yang tayang
@@ -22,7 +23,13 @@ use Illuminate\Support\Str;
  */
 class PageBlockRenderer
 {
-    public const TYPES = ['text', 'hero', 'products', 'gallery', 'faq', 'cta'];
+    public const TYPES = [
+        'text', 'hero', 'products', 'product-carousel', 'gallery', 'faq',
+        'faq-accordion', 'cta', 'testimonials', 'countdown', 'newsletter', 'map', 'pricing',
+    ];
+
+    /** Alias tipe lama -> kanonis (faq == faq-accordion). */
+    public const TYPE_ALIASES = ['faq-accordion' => 'faq'];
 
     public const MAX_BLOCKS = 30;
 
@@ -70,6 +77,11 @@ class PageBlockRenderer
                 continue;
             }
             $type = (string) ($block['type'] ?? '');
+            // Kanonik: faq-accordion disimpan sebagai faq agar renderer lama tetap jalan.
+            if (($aliased = self::TYPE_ALIASES[$type] ?? null) !== null) {
+                $block['type'] = $aliased;
+                $type = $aliased;
+            }
             if (! in_array($type, self::TYPES, true)) {
                 continue;
             }
@@ -139,6 +151,78 @@ class PageBlockRenderer
                 'button_label' => mb_substr(trim((string) ($block['button_label'] ?? '')), 0, 60),
                 'button_url' => mb_substr(trim((string) ($block['button_url'] ?? '')), 0, 1000),
             ],
+            'product-carousel' => [
+                'type' => 'product-carousel',
+                'title' => mb_substr(trim((string) ($block['title'] ?? '')), 0, 160),
+                'category_id' => ($block['category_id'] ?? null) !== null && ($block['category_id'] ?? '') !== ''
+                    ? max(0, (int) $block['category_id']) : null,
+                'product_ids' => array_values(array_unique(array_map(
+                    'intval',
+                    array_filter((array) ($block['product_ids'] ?? []), fn ($v): bool => (int) $v > 0)
+                ))),
+                'limit' => min(12, max(1, (int) ($block['limit'] ?? 8))),
+                'autoplay' => ! empty($block['autoplay']),
+            ],
+            'testimonials' => [
+                'type' => 'testimonials',
+                'title' => mb_substr(trim((string) ($block['title'] ?? '')), 0, 160),
+                'items' => array_values(array_filter(array_map(
+                    fn ($item): ?array => is_array($item) && trim((string) ($item['text'] ?? $item['quote'] ?? '')) !== '' ? [
+                        'name' => mb_substr(trim((string) ($item['name'] ?? 'Pelanggan')), 0, 120),
+                        'text' => mb_substr(trim((string) ($item['text'] ?? $item['quote'] ?? '')), 0, 1000),
+                        'rating' => min(5, max(1, (int) ($item['rating'] ?? 5))),
+                        'avatar' => mb_substr(trim((string) ($item['avatar'] ?? '')), 0, 1000),
+                    ] : null,
+                    array_slice((array) ($block['items'] ?? []), 0, 12)
+                ))),
+            ],
+            'countdown' => [
+                'type' => 'countdown',
+                'title' => mb_substr(trim((string) ($block['title'] ?? '')), 0, 160),
+                'subtitle' => mb_substr(trim((string) ($block['subtitle'] ?? '')), 0, 500),
+                'ends_at' => mb_substr(trim((string) ($block['ends_at'] ?? '')), 0, 40),
+                'button_label' => mb_substr(trim((string) ($block['button_label'] ?? '')), 0, 60),
+                'button_url' => mb_substr(trim((string) ($block['button_url'] ?? '')), 0, 1000),
+            ],
+            'newsletter' => [
+                'type' => 'newsletter',
+                'title' => mb_substr(trim((string) ($block['title'] ?? 'Dapatkan promo terbaru')), 0, 160),
+                'subtitle' => mb_substr(trim((string) ($block['subtitle'] ?? '')), 0, 500),
+                'placeholder' => mb_substr(trim((string) ($block['placeholder'] ?? 'Alamat email')), 0, 80),
+                'button_label' => mb_substr(trim((string) ($block['button_label'] ?? 'Berlangganan')), 0, 60),
+            ],
+            'map' => [
+                'type' => 'map',
+                'title' => mb_substr(trim((string) ($block['title'] ?? '')), 0, 160),
+                'address' => mb_substr(trim((string) ($block['address'] ?? '')), 0, 500),
+                'embed_url' => mb_substr(trim((string) ($block['embed_url'] ?? $block['image'] ?? '')), 0, 2000),
+                'stores' => array_values(array_filter(array_map(
+                    fn ($s): ?array => is_array($s) && trim((string) ($s['name'] ?? '')) !== '' ? [
+                        'name' => mb_substr(trim((string) $s['name']), 0, 160),
+                        'address' => mb_substr(trim((string) ($s['address'] ?? '')), 0, 500),
+                        'phone' => mb_substr(trim((string) ($s['phone'] ?? '')), 0, 40),
+                    ] : null,
+                    array_slice((array) ($block['stores'] ?? []), 0, 20)
+                ))),
+            ],
+            'pricing' => [
+                'type' => 'pricing',
+                'title' => mb_substr(trim((string) ($block['title'] ?? '')), 0, 160),
+                'plans' => array_values(array_filter(array_map(
+                    fn ($p): ?array => is_array($p) && trim((string) ($p['name'] ?? '')) !== '' ? [
+                        'name' => mb_substr(trim((string) $p['name']), 0, 120),
+                        'price' => mb_substr(trim((string) ($p['price'] ?? '')), 0, 60),
+                        'cta_label' => mb_substr(trim((string) ($p['cta_label'] ?? $p['button_label'] ?? '')), 0, 60),
+                        'cta_url' => mb_substr(trim((string) ($p['cta_url'] ?? $p['button_url'] ?? '')), 0, 1000),
+                        'featured' => ! empty($p['featured']),
+                        'features' => array_values(array_filter(array_map(
+                            fn ($f): string => mb_substr(trim((string) $f), 0, 200),
+                            array_slice((array) ($p['features'] ?? []), 0, 15)
+                        ), fn (string $f): bool => $f !== '')),
+                    ] : null,
+                    array_slice((array) ($block['plans'] ?? []), 0, 6)
+                ))),
+            ],
             default => null,
         };
     }
@@ -161,14 +245,99 @@ class PageBlockRenderer
                 'text' => $this->renderText($block),
                 'hero' => $this->renderHero($block),
                 'products' => $this->renderProducts($block),
+                'product-carousel' => $this->renderProductCarousel($block),
                 'gallery' => $this->renderGallery($block),
                 'faq' => $this->renderFaq($block),
                 'cta' => $this->renderCta($block),
+                'testimonials' => $this->renderTestimonials($block),
+                'countdown' => $this->renderCountdown($block),
+                'newsletter' => $this->renderNewsletter($block),
+                'map' => $this->renderMap($block),
+                'pricing' => $this->renderPricing($block),
                 default => '',
             };
         }
 
         return $html;
+    }
+
+    /**
+     * AEO: JSON-LD FAQPage untuk blok faq. Dipakai storefront di blok relevan.
+     *
+     * @param  array<string, mixed>  $block
+     */
+    public static function faqSchema(array $block): string
+    {
+        $items = array_values(array_filter(
+            (array) ($block['items'] ?? []),
+            fn ($item): bool => is_array($item) && trim((string) ($item['q'] ?? '')) !== ''
+        ));
+        if ($items === []) {
+            return '';
+        }
+        $entities = [];
+        foreach (array_slice($items, 0, 20) as $item) {
+            $entities[] = [
+                '@type' => 'Question',
+                'name' => mb_substr(trim((string) $item['q']), 0, 300),
+                'acceptedAnswer' => [
+                    '@type' => 'Answer',
+                    'text' => mb_substr(trim((string) ($item['a'] ?? '')), 0, 2000),
+                ],
+            ];
+        }
+
+        return '<script type="application/ld+json">'
+            .json_encode(['@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => $entities], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            .'</script>';
+    }
+
+    /**
+     * AEO: JSON-LD HowTo untuk blok pricing (langkah memilih paket).
+     * Dibatasi: hanya bila ada >= 2 paket agar tidak menyesatkan crawler.
+     */
+    public static function howToSchema(array $block): string
+    {
+        $plans = array_values(array_filter(
+            (array) ($block['plans'] ?? []),
+            fn ($p): bool => is_array($p) && trim((string) ($p['name'] ?? '')) !== ''
+        ));
+        if (count($plans) < 2) {
+            return '';
+        }
+        $steps = [];
+        foreach (array_slice($plans, 0, 6) as $i => $plan) {
+            $steps[] = [
+                '@type' => 'HowToStep',
+                'position' => $i + 1,
+                'name' => mb_substr(trim((string) $plan['name']), 0, 120),
+                'text' => mb_substr(trim((string) ($plan['price'] ?? '')) !== ''
+                    ? (string) $plan['name'].' — '.(string) $plan['price']
+                    : (string) $plan['name'], 0, 300),
+            ];
+        }
+
+        return '<script type="application/ld+json">'
+            .json_encode(['@context' => 'https://schema.org', '@type' => 'HowTo',
+                'name' => mb_substr(trim((string) ($block['title'] ?? 'Panduan memilih paket')), 0, 160),
+                'step' => $steps], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            .'</script>';
+    }
+
+    /** Kumpulkan semua JSON-LD AEO untuk satu set blok (faq + pricing). */
+    public static function aeoSchemas(string|array $keyOrBlocks): string
+    {
+        $blocks = is_string($keyOrBlocks) ? self::blocksFor($keyOrBlocks) : self::normalize($keyOrBlocks);
+        $out = '';
+        foreach ($blocks as $block) {
+            if (($block['type'] ?? '') === 'faq') {
+                $out .= self::faqSchema($block);
+            } elseif (($block['type'] ?? '') === 'pricing') {
+                $out .= self::howToSchema($block);
+            }
+        }
+
+        return $out;
     }
 
     /** @param  array<string, mixed>  $block */
@@ -350,6 +519,175 @@ class PageBlockRenderer
         $html .= '</div></section>';
 
         return $html;
+    }
+
+    /** @param  array<string, mixed>  $block */
+    private function renderProductCarousel(array $block): string
+    {
+        $products = $this->resolveProducts($block);
+        if ($products === []) {
+            return '';
+        }
+        $autoplay = ! empty($block['autoplay']) ? ' data-autoplay="1"' : '';
+        $html = '<section class="sf-pageblock sf-pageblock--carousel"'.$autoplay.'>';
+        if (trim((string) ($block['title'] ?? '')) !== '') {
+            $html .= '<h2 class="sf-pageblock__title">'.e((string) $block['title']).'</h2>';
+        }
+        $html .= '<div class="sf-carousel" style="display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:8px">';
+        foreach ($products as $product) {
+            $url = (string) ($product['url'] ?? '#');
+            $html .= '<article class="sf-card" style="flex:0 0 220px;scroll-snap-align:start;padding:12px">'
+                .'<a href="'.e($url).'" style="font-weight:600">'.e((string) $product['name']).'</a>'
+                .'<div class="text-secondary small">'.e((string) ($product['price_formatted'] ?? '')).'</div>'
+                .'</article>';
+        }
+
+        return $html.'</div></section>';
+    }
+
+    /** @param  array<string, mixed>  $block */
+    private function renderTestimonials(array $block): string
+    {
+        $items = array_values(array_filter(
+            (array) ($block['items'] ?? []),
+            fn ($i): bool => is_array($i) && trim((string) ($i['text'] ?? '')) !== ''
+        ));
+        if ($items === []) {
+            return '';
+        }
+        $html = '<section class="sf-pageblock sf-pageblock--testimonials">';
+        if (trim((string) ($block['title'] ?? '')) !== '') {
+            $html .= '<h2 class="sf-pageblock__title">'.e((string) $block['title']).'</h2>';
+        }
+        $html .= '<div class="sf-row sf-row--wrap" style="gap:12px">';
+        foreach (array_slice($items, 0, 12) as $item) {
+            $avatar = $this->safeUrl((string) ($item['avatar'] ?? ''));
+            $html .= '<figure class="sf-card" style="flex:1 1 220px;padding:14px;margin:0">';
+            if ($avatar !== null) {
+                $html .= '<img src="'.e($avatar).'" alt="'.e((string) ($item['name'] ?? '')).'" loading="lazy" style="width:40px;height:40px;border-radius:50%;object-fit:cover">';
+            }
+            $html .= '<blockquote style="margin:8px 0">'.e((string) $item['text']).'</blockquote>'
+                .'<figcaption class="small text-secondary">'.e((string) ($item['name'] ?? 'Pelanggan'))
+                .' · '.str_repeat('★', min(5, max(1, (int) ($item['rating'] ?? 5)))).'</figcaption>'
+                .'</figure>';
+        }
+
+        return $html.'</div></section>';
+    }
+
+    /** @param  array<string, mixed>  $block */
+    private function renderCountdown(array $block): string
+    {
+        $endsAt = trim((string) ($block['ends_at'] ?? ''));
+        $ts = $endsAt !== '' ? strtotime($endsAt) : false;
+        if ($ts === false) {
+            return '';
+        }
+        $iso = date('c', (int) $ts);
+        $label = (string) ($block['button_label'] ?? '');
+        $url = $this->safeUrl((string) ($block['button_url'] ?? ''));
+        $html = '<section class="sf-pageblock sf-pageblock--countdown"><div class="sf-cta" style="padding:24px;border-radius:12px;background:#0f172a;color:#fff;text-align:center" data-countdown="'.e($iso).'">';
+        if (trim((string) ($block['title'] ?? '')) !== '') {
+            $html .= '<h2 class="sf-cta__title" style="color:#fff">'.e((string) $block['title']).'</h2>';
+        }
+        if (trim((string) ($block['subtitle'] ?? '')) !== '') {
+            $html .= '<p style="opacity:.8">'.e((string) $block['subtitle']).'</p>';
+        }
+        $html .= '<div class="sf-countdown" style="font-variant-numeric:tabular-nums;font-size:1.25rem" data-countdown-label>Berakhir '.e($iso).'</div>';
+        if ($label !== '' && $url !== null) {
+            $html .= '<p style="margin-top:12px"><a class="sf-btn sf-btn--primary" href="'.e($url).'">'.e($label).'</a></p>';
+        }
+
+        return $html.'</div></section>';
+    }
+
+    /** @param  array<string, mixed>  $block */
+    private function renderNewsletter(array $block): string
+    {
+        $html = '<section class="sf-pageblock sf-pageblock--newsletter"><div style="padding:24px;border-radius:12px;background:#f8fafc;text-align:center">';
+        $html .= '<h2 class="sf-pageblock__title">'.e((string) ($block['title'] ?? 'Dapatkan promo terbaru')).'</h2>';
+        if (trim((string) ($block['subtitle'] ?? '')) !== '') {
+            $html .= '<p class="text-secondary">'.e((string) $block['subtitle']).'</p>';
+        }
+        // Aksi diserahkan ke form builder NewsLetter bila integrator wiring;
+        // fallback POST bawaan ke endpoint cms-forms bila ada.
+        $html .= '<form method="POST" action="/cms-forms/newsletter" data-newsletter-form style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px">'
+            .'<label class="visually-hidden" for="nl-'.e(mb_substr(md5((string) ($block['title'] ?? 'nl')), 0, 8)).'">Email</label>'
+            .'<input type="email" required name="email" maxlength="160" placeholder="'.e((string) ($block['placeholder'] ?? 'Alamat email')).'" style="padding:8px 12px;border:1px solid #cbd5e1;border-radius:8px;min-width:min(320px,80vw)">'
+            .'<button type="submit" class="sf-btn sf-btn--primary">'.e((string) ($block['button_label'] ?? 'Berlangganan')).'</button>'
+            .'</form>';
+
+        return $html.'</div></section>';
+    }
+
+    /** @param  array<string, mixed>  $block */
+    private function renderMap(array $block): string
+    {
+        $stores = array_values(array_filter(
+            (array) ($block['stores'] ?? []),
+            fn ($s): bool => is_array($s) && trim((string) ($s['name'] ?? '')) !== ''
+        ));
+        $embed = $this->safeUrl((string) ($block['embed_url'] ?? ''));
+        // Hanya izinkan embed https (google/maps) agar iframe aman.
+        if ($embed !== null && ! str_starts_with($embed, 'https://')) {
+            $embed = null;
+        }
+        if ($embed === null && $stores === [] && trim((string) ($block['address'] ?? '')) === '' && trim((string) ($block['title'] ?? '')) === '') {
+            return '';
+        }
+        $html = '<section class="sf-pageblock sf-pageblock--map">';
+        if (trim((string) ($block['title'] ?? '')) !== '') {
+            $html .= '<h2 class="sf-pageblock__title">'.e((string) $block['title']).'</h2>';
+        }
+        if (trim((string) ($block['address'] ?? '')) !== '') {
+            $html .= '<p class="text-secondary">'.e((string) $block['address']).'</p>';
+        }
+        if ($embed !== null) {
+            $html .= '<iframe src="'.e($embed).'" loading="lazy" style="width:100%;height:320px;border:0;border-radius:12px" referrerpolicy="no-referrer-when-downgrade" title="'.e(trim((string) ($block['title'] ?? 'Peta')) !== '' ? (string) $block['title'] : 'Peta').'"></iframe>';
+        }
+        foreach (array_slice($stores, 0, 20) as $store) {
+            $html .= '<div class="sf-card" style="padding:12px;margin-top:8px"><strong>'.e((string) $store['name']).'</strong>'
+                .(trim((string) ($store['address'] ?? '')) !== '' ? '<div class="small text-secondary">'.e((string) $store['address']).'</div>' : '')
+                .(trim((string) ($store['phone'] ?? '')) !== '' ? '<div class="small">'.e((string) $store['phone']).'</div>' : '')
+                .'</div>';
+        }
+
+        return $html.'</section>';
+    }
+
+    /** @param  array<string, mixed>  $block */
+    private function renderPricing(array $block): string
+    {
+        $plans = array_values(array_filter(
+            (array) ($block['plans'] ?? []),
+            fn ($p): bool => is_array($p) && trim((string) ($p['name'] ?? '')) !== ''
+        ));
+        if ($plans === []) {
+            return '';
+        }
+        $html = '<section class="sf-pageblock sf-pageblock--pricing">';
+        if (trim((string) ($block['title'] ?? '')) !== '') {
+            $html .= '<h2 class="sf-pageblock__title" style="text-align:center">'.e((string) $block['title']).'</h2>';
+        }
+        $html .= '<div class="sf-row sf-row--wrap" style="gap:12px;justify-content:center">';
+        foreach (array_slice($plans, 0, 6) as $plan) {
+            $ctaLabel = (string) ($plan['cta_label'] ?? '');
+            $ctaUrl = $this->safeUrl((string) ($plan['cta_url'] ?? ''));
+            $featured = ! empty($plan['featured']);
+            $html .= '<div class="sf-card" style="flex:1 1 220px;max-width:300px;padding:18px'.($featured ? ';border:2px solid #4f46e5' : '').'">'
+                .($featured ? '<span class="badge bg-primary mb-2">Populer</span>' : '')
+                .'<h3 style="margin:0 0 4px">'.e((string) $plan['name']).'</h3>'
+                .'<div style="font-size:1.4rem;font-weight:700">'.e((string) ($plan['price'] ?? '')).'</div>';
+            foreach (array_slice((array) ($plan['features'] ?? []), 0, 15) as $feature) {
+                $html .= '<div class="small" style="padding:4px 0;border-top:1px solid #f1f5f9">✓ '.e((string) $feature).'</div>';
+            }
+            if ($ctaLabel !== '' && $ctaUrl !== null) {
+                $html .= '<p style="margin:12px 0 0"><a class="sf-btn '.($featured ? 'sf-btn--primary' : '').'" href="'.e($ctaUrl).'">'.e($ctaLabel).'</a></p>';
+            }
+            $html .= '</div>';
+        }
+
+        return $html.'</div></section>';
     }
 
     private function safeUrl(string $url): ?string

@@ -49,7 +49,7 @@
                             <strong class="me-1">Blok Pembangun Halaman</strong>
                             <span class="badge bg-secondary" data-blocks-count>0 blok</span>
                             <span class="ms-auto d-flex flex-wrap gap-1" role="group" aria-label="Tambah blok">
-                                @foreach (['text' => 'Teks', 'hero' => 'Hero', 'products' => 'Produk', 'gallery' => 'Galeri', 'faq' => 'FAQ', 'cta' => 'CTA'] as $type => $label)
+                                @foreach (['text' => 'Teks', 'hero' => 'Hero', 'products' => 'Produk', 'product-carousel' => 'Carousel', 'gallery' => 'Galeri', 'faq' => 'FAQ', 'testimonials' => 'Testimoni', 'countdown' => 'Countdown', 'newsletter' => 'Newsletter', 'map' => 'Peta/Toko', 'pricing' => 'Pricing', 'cta' => 'CTA'] as $type => $label)
                                     <button type="button" class="btn btn-sm btn-outline-primary" data-add-block="{{ $type }}">+ {{ $label }}</button>
                                 @endforeach
                             </span>
@@ -127,6 +127,38 @@
         @endif
     </x-admin.card>
 
+    @isset($cmsForms)
+        <x-admin.card title="Form Builder" icon="form" class="mt-3" subtitle="Definisi form + submission + automation (email log / kupon / notif).">
+            @if (count($cmsForms) > 0)
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead><tr><th>Kunci</th><th>Judul</th><th>Field</th><th>Aktif</th></tr></thead>
+                        <tbody>
+                            @foreach ($cmsForms as $form)
+                                <tr>
+                                    <td><code>{{ $form['key'] }}</code></td>
+                                    <td>{{ $form['title'] }}</td>
+                                    <td class="small text-secondary">{{ is_array($form['fields'] ?? null) ? count($form['fields']) : 0 }} field</td>
+                                    <td><span class="badge bg-{{ ! empty($form['is_active']) ? 'success' : 'secondary' }}">{{ ! empty($form['is_active']) ? 'Aktif' : 'Nonaktif' }}</span></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @else
+                <p class="text-secondary small mb-2">Belum ada form. Buat via <code>CmsController::storeForm</code> (integrator wiring <code>admin.forms.store</code>). Blok newsletter memakai form kunci <code>newsletter</code> dengan field <code>email</code>.</p>
+            @endif
+            @isset($activeForm)
+                <hr>
+                <p class="fw-semibold mb-1">Submission: <code>{{ $activeForm['key'] }}</code> ({{ count($formSubmissions ?? []) }})</p>
+                @isset($formRules)
+                    <p class="small text-secondary mb-0">Automation aktif: {{ count(array_filter($formRules, fn ($r) => ! empty($r['is_active']))) }} aturan. Kelola via <code>CmsController::saveFormRules</code>.</p>
+                @endisset
+            @endisset
+            <p class="text-secondary small mb-0 mt-2">AEO: blok FAQ otomatis menyertakan <code>FAQPage JSON-LD</code> via <code>PageBlockRenderer::faqSchema()</code>; blok pricing (≥ 2 paket) menyertakan <code>HowTo JSON-LD</code>. Panggil <code>PageBlockRenderer::aeoSchemas($key)</code> di storefront.</p>
+        </x-admin.card>
+    @endisset
+
     <script>
     (function () {
         'use strict';
@@ -139,8 +171,14 @@
             switch (type) {
                 case 'hero': return { type: 'hero', title: '', subtitle: '', image: '', button_label: '', button_url: '' };
                 case 'products': return { type: 'products', title: '', category_id: null, product_ids: [], limit: 4 };
+                case 'product-carousel': return { type: 'product-carousel', title: '', category_id: null, product_ids: [], limit: 8, autoplay: true };
                 case 'gallery': return { type: 'gallery', title: '', images: [] };
                 case 'faq': return { type: 'faq', title: 'Pertanyaan Umum', items: [{ q: '', a: '' }] };
+                case 'testimonials': return { type: 'testimonials', title: 'Kata Pelanggan', items: [{ name: '', text: '', rating: 5 }] };
+                case 'countdown': return { type: 'countdown', title: 'Promo Berakhir Dalam', subtitle: '', ends_at: '', button_label: '', button_url: '' };
+                case 'newsletter': return { type: 'newsletter', title: 'Dapatkan promo terbaru', subtitle: '', placeholder: 'Alamat email', button_label: 'Berlangganan' };
+                case 'map': return { type: 'map', title: 'Kunjungi Toko Kami', address: '', embed_url: '', stores: [] };
+                case 'pricing': return { type: 'pricing', title: 'Pilih Paket', plans: [{ name: '', price: '', features: [], cta_label: '', cta_url: '', featured: false }] };
                 case 'cta': return { type: 'cta', title: '', subtitle: '', button_label: '', button_url: '' };
                 default: return { type: 'text', html: '<p>Tulis teks di sini…</p>' };
             }
@@ -181,6 +219,34 @@
                 h += field('Judul banner', inputVal('title', block.title, 'Promo Spesial!'));
                 h += field('Subjudul', inputVal('subtitle', block.subtitle, 'Diskon s.d. 50% minggu ini'));
                 h += '<div class="row g-2"><div class="col">' + field('Teks tombol', inputVal('button_label', block.button_label, 'Belanja Sekarang')) + '</div><div class="col">' + field('URL tombol', inputVal('button_url', block.button_url, '/products')) + '</div></div>';
+            } else if (block.type === 'product-carousel') {
+                h += field('Judul carousel', inputVal('title', block.title, 'Produk Pilihan'));
+                h += '<div class="row g-2"><div class="col">' + field('ID kategori (opsional)', '<input type="number" min="0" class="form-control form-control-sm" data-f="category_id" value="' + esc(block.category_id ?? '') + '">') + '</div><div class="col">' + field('Jumlah (1–12)', '<input type="number" min="1" max="12" class="form-control form-control-sm" data-f="limit" value="' + esc(block.limit ?? 8) + '">') + '</div></div>';
+                h += field('ID produk koma-pisah (opsional)', inputVal('product_ids', Array.isArray(block.product_ids) ? block.product_ids.join(', ') : (block.product_ids || ''), '12, 34'));
+                h += '<label class="small"><input type="checkbox" data-f="autoplay" ' + (block.autoplay ? 'checked' : '') + '> Autoplay</label>';
+            } else if (block.type === 'testimonials') {
+                h += field('Judul', inputVal('title', block.title, 'Kata Pelanggan'));
+                h += '<p class="small text-secondary mb-1">Testimoni: satu per baris format Nama | Rating 1-5 | Isi (edit JSON lanjutan via textarea di bawah).</p>';
+                h += field('JSON items (opsional, cth: [{"name":"Budi","text":"Bagus","rating":5}])', '<textarea class="form-control form-control-sm" rows="3" data-f="testimonials_json">' + esc(JSON.stringify(block.items || [])) + '</textarea>');
+            } else if (block.type === 'countdown') {
+                h += field('Judul', inputVal('title', block.title, 'Promo Berakhir Dalam'));
+                h += field('Subjudul', inputVal('subtitle', block.subtitle, ''));
+                h += field('Berakhir (cth: 2026-12-31 23:59:59)', inputVal('ends_at', block.ends_at, '2026-12-31 23:59:59'));
+                h += '<div class="row g-2"><div class="col">' + field('Teks tombol', inputVal('button_label', block.button_label, 'Belanja')) + '</div><div class="col">' + field('URL tombol', inputVal('button_url', block.button_url, '/products')) + '</div></div>';
+            } else if (block.type === 'newsletter') {
+                h += field('Judul', inputVal('title', block.title, 'Dapatkan promo terbaru'));
+                h += field('Subjudul', inputVal('subtitle', block.subtitle, ''));
+                h += '<div class="row g-2"><div class="col">' + field('Placeholder', inputVal('placeholder', block.placeholder, 'Alamat email')) + '</div><div class="col">' + field('Teks tombol', inputVal('button_label', block.button_label, 'Berlangganan')) + '</div></div>';
+                h += '<p class="small text-secondary mb-0">Submit fallback ke form builder <code>newsletter</code> — buat form itu agar submission tersimpan + automation jalan.</p>';
+            } else if (block.type === 'map') {
+                h += field('Judul', inputVal('title', block.title, 'Kunjungi Toko Kami'));
+                h += field('Alamat ringkas', inputVal('address', block.address, 'Jl. Merdeka No. 1'));
+                h += field('Embed URL https (Google Maps embed)', inputVal('embed_url', block.embed_url, 'https://…'));
+                h += field('JSON daftar toko (opsional)', '<textarea class="form-control form-control-sm" rows="2" data-f="stores_json">' + esc(JSON.stringify(block.stores || [])) + '</textarea>');
+            } else if (block.type === 'pricing') {
+                h += field('Judul', inputVal('title', block.title, 'Pilih Paket'));
+                h += '<p class="small text-secondary mb-1">Paket sebagai JSON (maks 6). HowTo schema AEO otomatis bila ≥ 2 paket.</p>';
+                h += field('JSON plans', '<textarea class="form-control form-control-sm" rows="4" data-f="plans_json">' + esc(JSON.stringify(block.plans || [])) + '</textarea>');
             }
             return h;
         }
@@ -191,7 +257,15 @@
                 var b = { type: type };
                 card.querySelectorAll('[data-f]').forEach(function (el) {
                     var k = el.getAttribute('data-f');
-                    if (k === 'images') {
+                    if (k === 'autoplay') {
+                        b.autoplay = !!el.checked;
+                    } else if (k === 'testimonials_json') {
+                        try { var tj = JSON.parse(el.value || '[]'); if (Array.isArray(tj)) b.items = tj.slice(0, 12); } catch (e) {}
+                    } else if (k === 'stores_json') {
+                        try { var sj = JSON.parse(el.value || '[]'); if (Array.isArray(sj)) b.stores = sj.slice(0, 20); } catch (e) {}
+                    } else if (k === 'plans_json') {
+                        try { var pj = JSON.parse(el.value || '[]'); if (Array.isArray(pj)) b.plans = pj.slice(0, 6); } catch (e) {}
+                    } else if (k === 'images') {
                         b.images = el.value.split('\n').map(function (s) { return s.trim(); }).filter(Boolean).slice(0, 12);
                     } else if (k === 'category_id') {
                         b.category_id = el.value === '' ? null : parseInt(el.value, 10);

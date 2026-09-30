@@ -140,6 +140,78 @@ class BlogController extends Controller
         return back()->with('success', 'Artikel dihapus.');
     }
 
+    /* ── ADITIF deepening: workflow + terjemahan per bahasa ──
+     * Untuk integrator: daftarkan route sendiri, mis.:
+     *   PUT  admin/blog/{blog}/locale   -> updateLocale (name: admin.blog.locale)
+     *   POST admin/blog/{blog}/workflow -> updateWorkflow (name: admin.blog.workflow)
+     */
+
+    /**
+     * Simpan terjemahan per bahasa untuk satu artikel (overlay
+     * blog_post_translations existing, tanpa ubah kolom induk).
+     */
+    public function updateLocale(Request $request, BlogPost $blog)
+    {
+        $validated = $request->validate([
+            'locale' => ['required', 'string', \Illuminate\Validation\Rule::in(['id', 'en'])],
+            'title' => ['nullable', 'string', 'max:255'],
+            'slug' => ['nullable', 'string', 'max:255'],
+            'excerpt' => ['nullable', 'string', 'max:500'],
+            'content' => ['nullable', 'string', 'max:100000'],
+            'meta_title' => ['nullable', 'string', 'max:255'],
+            'meta_description' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $locale = (string) $validated['locale'];
+        $payload = [];
+        foreach (['title', 'slug', 'excerpt', 'content', 'meta_title', 'meta_description'] as $field) {
+            if (array_key_exists($field, $validated) && $validated[$field] !== null) {
+                $payload[$field] = $field === 'content'
+                    ? app(\App\Services\HtmlSanitizer::class)->sanitize((string) $validated[$field])
+                    : (string) $validated[$field];
+            }
+        }
+        if ($payload === []) {
+            return back()->with('success', 'Tidak ada perubahan terjemahan ('.$locale.').');
+        }
+
+        try {
+            \Illuminate\Support\Facades\DB::table('blog_post_translations')->updateOrInsert(
+                ['blog_post_id' => $blog->id, 'locale' => $locale],
+                $payload + ['updated_at' => now(), 'created_at' => now()]
+            );
+        } catch (\Throwable $e) {
+            return back()->with('error', 'Gagal menyimpan terjemahan: '.mb_substr($e->getMessage(), 0, 160))->withInput();
+        }
+
+        return back()->with('success', 'Terjemahan '.$locale.' untuk "'.$blog->title.'" disimpan.');
+    }
+
+    /**
+     * Terapkan workflow draft/review/published/scheduled per bahasa.
+     */
+    public function updateWorkflow(Request $request, BlogPost $blog)
+    {
+        $validated = $request->validate([
+            'locale' => ['required', 'string', \Illuminate\Validation\Rule::in(['id', 'en'])],
+            'state' => ['required', 'string', \Illuminate\Validation\Rule::in(\App\Services\Cms\ContentWorkflowService::STATES)],
+            'scheduled_at' => ['nullable', 'date'],
+        ]);
+
+        try {
+            $result = app(\App\Services\Cms\ContentWorkflowService::class)->transition(
+                'blog', $blog->id, (string) $validated['locale'],
+                (string) $validated['state'],
+                isset($validated['scheduled_at']) ? (string) $validated['scheduled_at'] : null,
+                auth('admin')->id()
+            );
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['scheduled_at' => $e->getMessage()])->withInput();
+        }
+
+        return back()->with('success', 'Workflow ('.$validated['locale'].') kini '.$result['state'].'.');
+    }
+
     /**
      * Status publisitas untuk badge admin: Draf | Terjadwal | Terbit.
      * Terbit otomatis terjadi saat published_at<=now karena storefront

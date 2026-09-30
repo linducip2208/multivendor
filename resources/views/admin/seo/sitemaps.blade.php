@@ -100,6 +100,35 @@
                 </div>
             </x-admin.card>
 
+    @isset($hreflang)
+        <x-admin.card title="Hreflang Audit (per locale)" icon="globe" class="mt-3">
+            <p class="small mb-2">Default: <code>{{ $hreflang['default'] }}</code> · Locale: @foreach ($hreflang['locales'] as $locale)<span class="badge bg-secondary me-1">{{ $locale }}</span>@endforeach</p>
+            <div class="table-responsive">
+                <table class="table admin-table mb-0 table-hover">
+                    <thead><tr><th>Kanonik</th><th>Alternates</th></tr></thead>
+                    <tbody>
+                        @foreach ($hreflang['samples'] as $sample)
+                            <tr>
+                                <td class="small"><code>{{ $sample['canonical'] }}</code></td>
+                                <td class="small">@foreach ($sample['alternates'] as $locale => $url)<span class="badge bg-info me-1">{{ $locale }}</span><code>{{ $url }}</code><br>@endforeach</td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+            @if (count($hreflang['issues']) > 0)
+                <x-admin.alert type="warning" :dismissible="false" title="Temuan hreflang" class="mt-2">
+                    <ul class="mb-0">@foreach ($hreflang['issues'] as $issue)<li>{{ $issue }}</li>@endforeach</ul>
+                </x-admin.alert>
+            @else
+                <x-admin.alert type="success" :dismissible="false" title="Hreflang bersih" class="mt-2">Semua sampel punya pasangan alternates lengkap termasuk x-default.</x-admin.alert>
+            @endif
+            @isset($localizedIndexes)
+                <p class="small text-secondary mb-0">Sitemap per locale: @foreach ($localizedIndexes as $locale => $files)<code>{{ $locale }}</code> ({{ count($files) }} file) @endforeach — struktur file tetap; loc berawalan <code>/{locale}/</code> untuk non-default.</p>
+            @endisset
+        </x-admin.card>
+    @endisset
+
             <x-admin.card title="robots.txt" icon="file-code">
                 <x-admin.alert
                     :type="$robots['exists'] ? 'success' : 'warning'"

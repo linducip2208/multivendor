@@ -579,6 +579,88 @@ final class PosService
         return $number;
     }
 
+    // ── Pendalaman POS: refund sinkron inventaris + ringkasan laci ──
+
+    /**
+     * Refund penjualan POS sinkron inventaris: atomik (kunci order+item+
+     * produk), idempoten per (item, qty) via refund_reference existing,
+     * stok kembali + movement type=return + status refund item.
+     */
+    public function refundSale(OrderItem $item, int $quantity, ?string $note = null): OrderItem
+    {
+        return DB::transaction(function () use ($item, $quantity, $note): OrderItem {
+            $locked = OrderItem::query()->lockForUpdate()->findOrFail($item->getKey());
+            $order = Order::query()->lockForUpdate()->findOrFail($locked->order_id);
+
+            abort_if((int) $order->shop_id !== $this->scope->shopId(), 403);
+            abort_if(! in_array((string) $order->payment_status, ['paid', 'partial'], true), 422, 'Hanya penjualan lunas yang dapat direfund.');
+
+            $quantity = max(1, min($quantity, (int) $locked->quantity));
+            $marker = 'pos-refund:'.$locked->getKey().':'.$quantity;
+
+            if ((string) ($locked->refund_reference ?? '') === $marker) {
+                return $locked->fresh();
+            }
+
+            $product = Product::query()->where('shop_id', $this->scope->shopId())->lockForUpdate()->find($locked->product_id);
+
+            if ($product) {
+                $product->increment('current_stock', $quantity);
+
+                DB::table('stock_movements')->insert([
+                    'warehouse_id' => null,
+                    'product_id' => $product->getKey(),
+                    'product_variant_id' => $locked->product_variant_id,
+                    'type' => 'return',
+                    'quantity' => $quantity,
+                    'balance_after' => (int) $product->fresh()->current_stock,
+                    'reference_type' => 'pos_refund',
+                    'reference_id' => $locked->getKey(),
+                    'note' => 'Refund POS sinkron inventaris. '.VendorScope::clean($note ?? '', 150),
+                    'created_by' => $this->scope->userId(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $unit = (float) $locked->price > 0 ? (float) $locked->price : ((int) $locked->quantity > 0 ? (float) $locked->sub_total / (int) $locked->quantity : 0.0);
+
+            $locked->forceFill([
+                'refund_status' => 'refunded',
+                'refund_amount' => (float) ($locked->refund_amount ?? 0) + round($unit * $quantity, 2),
+                'refund_reference' => $marker,
+                'refund_reason' => $note !== null ? VendorScope::clean($note, 500) : $locked->refund_reason,
+                'refund_processed_at' => now(),
+            ])->save();
+
+            OrderStatusHistory::query()->create([
+                'order_id' => $order->getKey(),
+                'status' => (string) $order->order_status,
+                'changed_by' => $this->scope->userId(),
+                'note' => 'Refund POS '.$quantity.' unit sinkron ke stok.',
+            ]);
+
+            return $locked->fresh();
+        }, 3);
+    }
+
+    /**
+     * Ringkasan laci shift: ekspektasi vs aktual + varians (read-only).
+     *
+     * @return array{expected:float, sales:float, transactions:int, status:string}
+     */
+    public function drawerSummary(\App\Models\PosShift $shift): array
+    {
+        $sales = (float) Order::query()->where('pos_shift_id', $shift->getKey())->where('payment_status', 'paid')->sum('total');
+
+        return [
+            'expected' => (float) $shift->expected_cash,
+            'sales' => $sales,
+            'transactions' => (int) Order::query()->where('pos_shift_id', $shift->getKey())->count(),
+            'status' => (string) $shift->status,
+        ];
+    }
+
     /** Buka shift kasir (pos_shifts existing) dengan lock anti-duplikat. */
     public function openShift(int $registerId, float $openingCash, ?string $note = null): \App\Models\PosShift
     {

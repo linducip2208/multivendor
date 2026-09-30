@@ -118,6 +118,88 @@ class LanguageService
         $this->forgetCache();
     }
 
+    /* ── ADITIF deepening: kelola bahasa + default + coverage ringkas ── */
+
+    /** Tambah/aktifkan bahasa (validasi kode BCP-47 sederhana). */
+    public function addLanguage(string $code, string $name, array $options = []): Language
+    {
+        $code = Language::canonicalize(trim($code));
+        if (! preg_match('/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?$/', $code)) {
+            throw new \InvalidArgumentException("Kode bahasa \"{$code}\" tidak valid (cth. id, en, ar, ms).");
+        }
+        if (trim($name) === '') {
+            throw new \InvalidArgumentException('Nama bahasa wajib diisi.');
+        }
+
+        return $this->register($code, trim($name), $options['native_name'] ?? null, $options);
+    }
+
+    /** Jadikan default (satu-satunya is_default). */
+    public function setDefault(string $code): Language
+    {
+        $code = Language::canonicalize($code);
+        $language = Language::query()->where('code', $code)->first();
+        if (! $language) {
+            throw new \InvalidArgumentException("Bahasa \"{$code}\" belum terdaftar.");
+        }
+        Language::query()->update(['is_default' => false]);
+        $language->forceFill(['is_default' => true, 'is_active' => true])->save();
+        $this->forgetCache();
+
+        return $language->refresh();
+    }
+
+    /** Semua bahasa terdaftar (aktif + nonaktif) untuk panel admin. @return list<array<string, mixed>> */
+    public function allManaged(): array
+    {
+        try {
+            $rows = Language::query()->ordered()->get();
+            if ($rows->isEmpty()) {
+                return [];
+            }
+
+            return $rows->map(fn (Language $l): array => [
+                'code' => (string) $l->code,
+                'name' => (string) $l->name,
+                'native_name' => (string) ($l->native_name ?? $l->name),
+                'direction' => $this->direction((string) $l->code),
+                'is_rtl' => $this->isRtl((string) $l->code),
+                'is_active' => (bool) $l->is_active,
+                'is_default' => (bool) $l->is_default,
+                'sort_order' => (int) $l->sort_order,
+            ])->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Ringkasan coverage string UI per locale aktif (pakai
+     * TranslationRepository::coverage + MissingDetector::missingKeys).
+     *
+     * @return array<string, array{percent: float, translated: int, total: int, missing: int}>
+     */
+    public function coverageSummary(string $reference = 'en'): array
+    {
+        $out = [];
+        try {
+            $repo = app(TranslationRepository::class);
+            $detector = app(MissingDetector::class);
+            foreach ($this->activeCodes() as $code) {
+                $coverage = $repo->coverage($code, $reference);
+                $out[$code] = [
+                    'percent' => (float) $coverage['percent'],
+                    'translated' => (int) $coverage['translated'],
+                    'total' => (int) $coverage['total_keys'],
+                    'missing' => count($detector->missingKeys($code, $reference)),
+                ];
+            }
+        } catch (\Throwable) {
+        }
+
+        return $out;
+    }
+
     public function forgetCache(): void
     {
         Cache::forget(self::CACHE_KEY);

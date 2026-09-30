@@ -173,6 +173,17 @@ class PseoSitemapController extends Controller
         };
     }
 
+    /* ── ADITIF deepening: catatan locale untuk chunk PSEO ──
+     * Chunk PSEO tetap tanpa prefix locale (kanonik ID); alternates
+     * EN tersedia via SitemapController::hreflangFor($path).
+     * Integrator: tambahkan <xhtml:link> per chunk bila situs memakai
+     * prefix /en/ untuk halaman PSEO terjemahan.
+     */
+    public static function localeNote(): string
+    {
+        return 'PSEO kanonik ID; alternates via SitemapController::hreflangFor().';
+    }
+
     protected function renderXml(array $urls): Response
     {
         $xml = '<?xml version="1.0" encoding="UTF-8"?>';

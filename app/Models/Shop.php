@@ -82,4 +82,50 @@ class Shop extends Model
     {
         return $this->hasMany(VendorWithdrawRequest::class);
     }
+
+    // ── Pendalaman marketplace: KYC bertahap (aditif, tanpa kolom baru) ──
+
+    /** Tahapan KYC: identitas → rekening → verifikasi. */
+    public const KYC_STAGES = ['identity', 'bank', 'verified'];
+
+    /**
+     * Checklist KYC dari kolom existing (tin = identitas pajak, bank_* =
+     * rekening, status active = terverifikasi). Tanpa log PII di mana pun.
+     *
+     * @return array{stage:string, stage_index:int, percent:int, steps:list<array{key:string, label:string, done:bool}>}
+     */
+    public function kycChecklist(): array
+    {
+        $identity = trim((string) ($this->tin ?? '')) !== '' || trim((string) ($this->phone ?? '')) !== '';
+        $bank = trim((string) ($this->bank_account_number ?? '')) !== ''
+            && trim((string) ($this->bank_name ?? '')) !== '';
+        $verified = (string) $this->status === 'active' && $identity && $bank;
+
+        $steps = [
+            ['key' => 'identity', 'label' => 'Identitas & kontak', 'done' => $identity],
+            ['key' => 'bank', 'label' => 'Rekening pencairan', 'done' => $bank],
+            ['key' => 'verified', 'label' => 'Terverifikasi', 'done' => $verified],
+        ];
+        $done = count(array_filter($steps, fn (array $s): bool => $s['done']));
+
+        return [
+            'stage' => $verified ? 'verified' : ($bank ? 'bank' : 'identity'),
+            'stage_index' => $verified ? 2 : ($bank ? 1 : 0),
+            'percent' => (int) round($done / count($steps) * 100),
+            'done' => $done,
+            'steps' => $steps,
+        ];
+    }
+
+    /** Nomor rekening tersensor untuk tampilan (4 digit terakhir saja). */
+    public function maskedBankAccount(): string
+    {
+        $account = (string) ($this->bank_account_number ?? '');
+
+        if ($account === '') {
+            return '-';
+        }
+
+        return str_repeat('*', max(0, strlen($account) - 4)).substr($account, -4);
+    }
 }

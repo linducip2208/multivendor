@@ -74,6 +74,7 @@ Route::get('/blog/{slug}', [PageController::class, 'blogShow'])->name('blog.show
 Route::get('/blog/feed.xml', [PageController::class, 'blogFeed'])->name('blog.feed');
 Route::get('/docs', [PageController::class, 'docs'])->name('docs');
 Route::get('/page/{slug}', [PageController::class, 'show'])->name('page.show');
+Route::post('/cms-forms/{key}', [PageController::class, 'submitForm'])->middleware('throttle:10,1')->name('cms-forms.submit');
 
 /* Named aliases for the static pages the footer and storefront link to. */
 Route::get('/about', [PageController::class, 'show'])->defaults('slug', 'about')->name('page.about');

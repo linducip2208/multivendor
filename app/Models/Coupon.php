@@ -245,4 +245,26 @@ class Coupon extends Model
 
         return min($discount, $orderTotal);
     }
+
+    // ── Pendalaman fraud: pemakaian kupon per pelanggan (aditif) ──
+
+    /** Jumlah pemakaian kupon oleh satu pelanggan (via coupon_usages existing). */
+    public function usesByCustomer(int $customerId): int
+    {
+        try {
+            return (int) $this->usages()->where('customer_id', $customerId)->count();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
+
+    /** Indikasi abuse: melebihi usage_per_customer (bila dibatasi). */
+    public function looksAbusedBy(int $customerId): bool
+    {
+        if (! $this->usage_per_customer) {
+            return false;
+        }
+
+        return $this->usesByCustomer($customerId) >= (int) $this->usage_per_customer;
+    }
 }

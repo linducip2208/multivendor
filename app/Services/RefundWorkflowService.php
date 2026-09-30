@@ -295,6 +295,87 @@ class RefundWorkflowService
         return \App\Models\OrderReturn::analyticsForShop($shopId);
     }
 
+    // ── Pendalaman RMA: resolusi refund/replace/exchange + fee (aditif) ──
+    // Idempoten: resolusi sama pada RMA yang sudah diputus → kembalikan
+    // apa adanya. Tanda resolusi memakai admin_note existing
+    // "[resolusi:X]". Nominal memakai proportionalRefund() model.
+
+    /**
+     * Putuskan resolusi RMA yang sudah QC: refund (dengan fee + proporsional
+     * ongkir/pajak) / replace / exchange. Atomik + idempoten.
+     *
+     * @return array{resolution:string, breakdown:array<string,float>, rma:\App\Models\OrderReturn}
+     */
+    public function resolveReturn(
+        \App\Models\OrderReturn $retur,
+        string $resolution,
+        ?int $actorId = null,
+        ?string $note = null,
+        float $restockingPercent = 0.0,
+    ): array {
+        return DB::transaction(function () use ($retur, $resolution, $actorId, $note, $restockingPercent): array {
+            $resolution = \App\Models\OrderReturn::normalizeResolution($resolution);
+            $locked = \App\Models\OrderReturn::lockForUpdate()->findOrFail($retur->getKey());
+
+            if (! $locked->isQcDone()) {
+                throw ValidationException::withMessages(['qc' => 'RMA belum melalui QC.']);
+            }
+
+            // Replay idempoten DIDAHULUKAN: RMA yang sudah diputus (status
+            // refunded/received + penanda [diputus]) mengembalikan hasil sama.
+            // Total diambil dari penanda [total:X] karena kolom amount sudah
+            // berisi total putusan (komponen dihitung ulang deterministik).
+            if ($locked->resolution() === $resolution && str_contains((string) $locked->admin_note, '[diputus]')) {
+                $order = Order::find($locked->order_id);
+                $breakdown = $order
+                    ? $locked->proportionalRefund((float) $order->sub_total, (float) $order->shipping_cost, (float) $order->tax, $restockingPercent)
+                    : ['shipping' => 0.0, 'tax' => 0.0, 'items' => (float) $locked->amount, 'restocking_fee' => 0.0, 'total' => (float) $locked->amount];
+
+                if (preg_match('/\[total:([\d.]+)\]/', (string) $locked->admin_note, $m)) {
+                    $breakdown['total'] = round((float) $m[1], 2);
+                }
+
+                return ['resolution' => $resolution, 'breakdown' => $breakdown, 'rma' => $locked->fresh()];
+            }
+
+            if (! in_array((string) $locked->status, ['approved', 'received'], true)) {
+                throw ValidationException::withMessages(['status' => 'RMA harus disetujui sebelum diputus resolusinya.']);
+            }
+
+            $feePct = max(0.0, min(100.0, $restockingPercent > 0
+                ? $restockingPercent
+                : (float) (\App\Models\SystemSetting::get('restocking_fee_percent', '0') ?: 0)));
+
+            $order = Order::lockForUpdate()->findOrFail($locked->order_id);
+            $breakdown = $locked->proportionalRefund(
+                (float) $order->sub_total, (float) $order->shipping_cost, (float) $order->tax, $feePct
+            );
+
+            $suffix = '[resolusi:'.$resolution.'] [diputus] [total:'.$breakdown['total'].']'.($note !== null && trim($note) !== '' ? ' '.mb_substr(trim($note), 0, 400) : '');
+            $locked->forceFill([
+                'status' => $resolution === 'refund' ? 'refunded' : 'received',
+                'admin_note' => trim(((string) $locked->admin_note.' '.$suffix)),
+                'amount' => $resolution === 'refund' ? $breakdown['total'] : (float) $locked->amount,
+                'decided_by' => $actorId,
+                'decided_at' => now(),
+            ])->save();
+
+            $order->statusHistory()->create([
+                'status' => 'rma_resolved',
+                'changed_by' => $actorId,
+                'note' => 'RMA '.$locked->rma_number.' diputus: '.\App\Models\OrderReturn::resolutionLabels()[$resolution]
+                    .($resolution === 'refund' ? ' Rp'.number_format($breakdown['total'], 0, ',', '.') : '').'.',
+            ]);
+
+            app(AuditLogger::class)->log('rma.resolved', $locked, [], [
+                'resolution' => $resolution,
+                'total' => $breakdown['total'],
+            ], $actorId);
+
+            return ['resolution' => $resolution, 'breakdown' => $breakdown, 'rma' => $locked->fresh()];
+        }, 3);
+    }
+
     private function prepare(
         OrderItem $item,
         float|int|string|null $amount,

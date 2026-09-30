@@ -759,4 +759,99 @@ class PaymentGatewayService
             return true;
         }, 3);
     }
+
+    // ── ADITIF pendalaman: fee provider -> ledger + settlement deterministik
+    // ── + dashboard rekonsiliasi + matriks dukungan webhook. Adapter existing
+    // ── di atas TIDAK diubah.
+
+    /** Hitung biaya provider untuk nominal tertentu (deterministik). */
+    public function providerFeeFor(Provider $provider, float $amount, string $currency = 'IDR'): array
+    {
+        return \App\Payments\ProviderFee::for($provider, $amount, $currency);
+    }
+
+    /**
+     * Catat biaya provider ke ledger (balanced, idempoten per grup transaksi).
+     * debit platform_fee_expense / kredit gateway_escrow.
+     */
+    public function postProviderFeeToLedger(Provider $provider, float $amount, array $context = []): string
+    {
+        $fee = \App\Payments\ProviderFee::for($provider, $amount, (string) ($context['currency'] ?? 'IDR'))['fee'];
+        if ($fee <= 0) {
+            return (string) ($context['transaction_group'] ?? \Illuminate\Support\Str::uuid()->toString());
+        }
+        $group = (string) ($context['transaction_group'] ?? 'provider_fee:'.$provider->id.':'.number_format($amount, 2, '.', ''));
+        if (\App\Models\LedgerEntry::where('transaction_group', $group)->exists()) {
+            return $group;
+        }
+
+        return app(\App\Services\Finance\LedgerService::class)->post('provider_fee', [
+            ['account' => 'platform_fee_expense', 'direction' => 'debit', 'amount' => $fee, 'memo' => 'Biaya '.$provider->api_format],
+            ['account' => 'gateway_escrow', 'direction' => 'credit', 'amount' => $fee, 'memo' => 'Biaya '.$provider->api_format],
+        ], array_merge([
+            'reference_type' => Provider::class,
+            'reference_id' => $provider->id,
+            'transaction_group' => $group,
+            'currency' => 'IDR',
+            'meta' => ['api_format' => $provider->api_format],
+        ], $context));
+    }
+
+    /**
+     * Settlement deterministik satu grup multi-vendor: bagi grand_total per
+     * toko (minor unit, sisa ke shop terkecil) + kurangi fee proporsional,
+     * lalu jurnal tiap toko via LedgerService (balanced per toko).
+     *
+     * @return array{transaction_groups:array<int,string>,splits:array}
+     */
+    public function settleGroupDeterministically(\App\Models\PaymentGroup $group): array
+    {
+        $provider = $group->provider;
+        $fee = $provider ? $this->providerFeeFor($provider, (float) $group->grand_total)['fee'] : 0.0;
+        $splits = \App\Payments\SettlementSplitter::split($group, $fee);
+        $ledger = app(\App\Services\Finance\LedgerService::class);
+        $groups = [];
+
+        foreach ($splits as $split) {
+            $txGroup = 'settlement:'.$group->id.':'.$split['shop_id'];
+            if (\App\Models\LedgerEntry::where('transaction_group', $txGroup)->exists()) {
+                $groups[$split['shop_id']] = $txGroup;
+                continue;
+            }
+            $groups[$split['shop_id']] = $ledger->post('order_settlement', [
+                ['account' => 'gateway_escrow', 'direction' => 'debit', 'amount' => $split['gross'], 'memo' => 'Settlement '.$group->payment_number],
+                ['account' => 'vendor_payable', 'direction' => 'credit', 'amount' => $split['net'], 'memo' => 'Vendor '.$split['shop_id']],
+                ['account' => 'platform_revenue', 'direction' => 'credit', 'amount' => $split['fee_share'], 'memo' => 'Fee '.$group->payment_number],
+            ], [
+                'reference_type' => \App\Models\PaymentGroup::class,
+                'reference_id' => $group->id,
+                'shop_id' => $split['shop_id'],
+                'transaction_group' => $txGroup,
+                'currency' => 'IDR',
+            ]);
+        }
+
+        return ['transaction_groups' => $groups, 'splits' => $splits];
+    }
+
+    /** Data dashboard rekonsiliasi (tanpa view): ringkasan + temuan terbaru. */
+    public function reconciliationDashboard(): array
+    {
+        return \App\Payments\ReconciliationReport::dashboard();
+    }
+
+    /** Matriks jujur dukungan webhook/refund/rekonsiliasi per format. */
+    public function webhookSupportMatrix(): array
+    {
+        $out = [];
+        foreach (self::supportedFormats() as $format) {
+            $out[$format] = [
+                'callback_verification' => self::supportsCallbackVerification($format),
+                'refunds' => self::supportsRefunds($format),
+                'reconciliation' => self::supportsReconciliation($format),
+            ];
+        }
+
+        return $out;
+    }
 }

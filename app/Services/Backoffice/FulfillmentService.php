@@ -845,4 +845,29 @@ final class FulfillmentService
             'returns' => (int) $order->returns()->count(),
         ];
     }
+
+    // ── Pendalaman RMA: QC → resolusi (delegasi, aditif) ──
+
+    /**
+     * Alur penuh: grade QC lalu putus resolusi (refund/replace/exchange).
+     * Idempoten di kedua langkah; refund dana memakai fee dari pengaturan.
+     *
+     * @return array{resolution:string, breakdown:array<string,float>, rma:OrderReturn}
+     */
+    public function qcResolve(
+        OrderReturn $retur,
+        string $grade,
+        string $resolution,
+        ?int $actorId = null,
+        ?string $note = null,
+        ?int $quantity = null,
+    ): array {
+        $graded = app(\App\Services\RefundWorkflowService::class)
+            ->gradeReturn($retur, $grade, $actorId, $note, $quantity);
+
+        $fee = (float) (\App\Models\SystemSetting::get('restocking_fee_percent', '0') ?: 0);
+
+        return app(\App\Services\RefundWorkflowService::class)
+            ->resolveReturn($graded, $resolution, $actorId, $note, $fee);
+    }
 }

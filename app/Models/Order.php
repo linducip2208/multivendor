@@ -256,4 +256,44 @@ class Order extends Model
     {
         return $this->getAttribute('cod_otp_verified_at') !== null;
     }
+
+    // ── Pendalaman suborder deterministik (aditif, kolom parent existing) ──
+
+    /** Order ini pecahan dari order induk multi-vendor. */
+    public function isSuborder(): bool
+    {
+        return $this->getAttribute('parent_order_id') !== null;
+    }
+
+    /**
+     * Ringkasan alokasi suborder dari children (rekonsiliasi ke total induk).
+     *
+     * @return array{vendors:list<array<string,mixed>>, totals:array<string,float>}
+     */
+    public function suborderAllocation(): array
+    {
+        $children = $this->relationLoaded('children') ? $this->children : $this->children()->get();
+
+        if ($children->isEmpty()) {
+            return \App\Domain\Order\SuborderSplitter::split([[
+                'shop_id' => (int) $this->shop_id,
+                'subtotal' => (float) $this->sub_total,
+                'tax' => (float) $this->tax,
+                'shipping' => (float) $this->shipping_cost,
+                'discount' => (float) $this->discount + (float) $this->coupon_discount,
+                'commission_rate' => 0.0,
+            ]]);
+        }
+
+        return \App\Domain\Order\SuborderSplitter::split(
+            $children->map(fn (self $child): array => [
+                'shop_id' => (int) $child->shop_id,
+                'subtotal' => (float) $child->sub_total,
+                'tax' => (float) $child->tax,
+                'shipping' => (float) $child->shipping_cost,
+                'discount' => (float) $child->discount + (float) $child->coupon_discount,
+                'commission_rate' => 0.0,
+            ])->all()
+        );
+    }
 }

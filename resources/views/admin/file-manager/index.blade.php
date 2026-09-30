@@ -143,6 +143,19 @@
         </div>
     </div>
 
+    @isset($mediaInventory)
+        <x-admin.card title="Meta & Kebersihan Media" icon="tags" class="mt-3" subtitle="Tag / koleksi / alt massal + kandidat tak terpakai (tidak dihapus otomatis).">
+            <p class="small mb-2">Koleksi: @forelse ($mediaInventory['collections'] as $collection)<span class="badge bg-info me-1">{{ $collection }}</span>@empty<span class="text-secondary">belum ada koleksi</span>@endforelse</p>
+            <p class="small mb-2"><strong>{{ count($mediaInventory['unused']) }}</strong> kandidat tak terpakai dirujuk nol blok/banner/blog/popup.
+                @if (count($mediaInventory['unused']) > 0)
+                    <details class="mt-1"><summary class="small">Lihat {{ min(20, count($mediaInventory['unused'])) }} pertama</summary>
+                    <ul class="small mb-0">@foreach (array_slice($mediaInventory['unused'], 0, 20) as $path)<li><code>{{ $path }}</code></li>@endforeach</ul></details>
+                @endif
+            </p>
+            <p class="text-secondary small mb-0">Kelola via <code>FileManagerController::saveMeta / bulkAlt</code> — perlu wiring route oleh integrator. Alt kosong disorot agar SEO gambar tetap hijau.</p>
+        </x-admin.card>
+    @endisset
+
     <div class="modal fade" id="media-preview-modal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
             <div class="modal-content">

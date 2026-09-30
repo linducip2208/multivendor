@@ -78,6 +78,23 @@ class PageController extends Controller
         ]);
     }
 
+    public function submitForm(Request $request, string $key)
+    {
+        $service = app(\App\Services\Cms\CmsFormService::class);
+
+        try {
+            $clean = $service->validateSubmission($key, (array) $request->all());
+            $service->submit($key, $clean);
+            app(\App\Services\Cms\CmsFormAutomationService::class)->run($key, $clean);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e;
+        } catch (\Throwable) {
+            return back()->withInput()->with('error', 'Formulir tidak dapat dikirim. Coba lagi.');
+        }
+
+        return back()->with('success', 'Terima kasih! Formulir Anda sudah terkirim.');
+    }
+
     public function blogIndex(Request $request)
     {
         $posts = BlogPost::query()

@@ -316,6 +316,263 @@ final class VendorRegistrationService
         return $slug;
     }
 
+    // ── Pendalaman KYC: verifikasi bertahap + expiry + alasan tolak ──
+    // Tanpa migrasi: expiry & salinan terenkripsi disimpan di
+    // vendor_applications.meta (JSON). Audit TIDAK PERNAH menulis PII
+    // (email/nomor rekening/nama file) — hanya id + keputusan + alasan.
+
+    /** Tahapan KYC berurutan: tiap tahap butuh jenis dokumen tertentu. */
+    public const KYC_STAGES = [
+        'identity' => ['label' => 'Identitas', 'kinds' => ['identity', 'selfie']],
+        'business' => ['label' => 'Legalitas usaha', 'kinds' => ['business_license', 'tax_document']],
+        'bank' => ['label' => 'Rekening', 'kinds' => ['bank_letter']],
+    ];
+
+    /**
+     * Verifikasi satu dokumen: setujui (dengan masa berlaku) atau tolak
+     * (dengan alasan). Idempoten: keputusan sama → kembalikan apa adanya.
+     *
+     * @return array{document: object, application: object}
+     */
+    public function verifyDocument(int $applicationId, int $documentId, string $decision, ?string $note = null, ?string $expiresAt = null, ?int $verifierId = null): array
+    {
+        return DB::transaction(function () use ($applicationId, $documentId, $decision, $note, $expiresAt, $verifierId): array {
+            if (! in_array($decision, ['approved', 'rejected'], true)) {
+                throw ValidationException::withMessages(['decision' => 'Keputusan harus approved atau rejected.']);
+            }
+
+            $application = DB::table('vendor_applications')->where('id', $applicationId)->lockForUpdate()->first();
+            abort_if($application === null, 404);
+
+            $document = DB::table('vendor_application_documents')
+                ->where('id', $documentId)
+                ->where('vendor_application_id', $applicationId)
+                ->lockForUpdate()
+                ->first();
+            abort_if($document === null, 404);
+
+            $cleanNote = VendorScope::cleanNullable($note, 500);
+            $expiry = $expiresAt !== null && trim($expiresAt) !== '' ? trim($expiresAt) : null;
+
+            if ($expiry !== null) {
+                try {
+                    $date = new \DateTimeImmutable($expiry);
+                    $expiry = $date->format('Y-m-d');
+                } catch (\Throwable) {
+                    throw ValidationException::withMessages(['expires_at' => 'Tanggal kedaluwarsa tidak valid (YYYY-MM-DD).']);
+                }
+            }
+
+            if ((string) $document->status === ($decision === 'approved' ? 'verified' : 'rejected')
+                && (string) ($document->note ?? '') === (string) ($cleanNote ?? '')) {
+                return ['document' => $document, 'application' => $application];
+            }
+
+            DB::table('vendor_application_documents')->where('id', $documentId)->update([
+                'status' => $decision === 'approved' ? 'verified' : 'rejected',
+                'note' => $cleanNote,
+                'verified_by' => $verifierId,
+                'verified_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            // Expiry disimpan di meta aplikasi (tanpa kolom baru).
+            $meta = $this->readMeta($application->meta ?? null);
+            $map = is_array($meta['doc_expiry'] ?? null) ? $meta['doc_expiry'] : [];
+
+            if ($decision === 'approved' && $expiry !== null) {
+                $map[(string) $documentId] = $expiry;
+            } else {
+                unset($map[(string) $documentId]);
+            }
+
+            $meta['doc_expiry'] = $map;
+            $meta['kyc_stage'] = $this->computeStage($applicationId, $meta);
+
+            DB::table('vendor_applications')->where('id', $applicationId)->update([
+                'meta' => json_encode($meta, JSON_UNESCAPED_UNICODE),
+                'rejection_reason' => $decision === 'rejected'
+                    ? VendorScope::clean(($document->kind ?? 'Dokumen').': '.($cleanNote ?? 'tidak memenuhi syarat'), 500)
+                    : $application->rejection_reason,
+                'updated_at' => now(),
+            ]);
+
+            // Audit redacted: tanpa PII.
+            app(AuditLogger::class)->log('vendor.kyc.document_'.$decision, 'vendor_application', [
+                'id' => $applicationId,
+            ], [
+                'document_id' => $documentId,
+                'kind' => $document->kind ?? null,
+                'expires_at' => $expiry,
+            ], $verifierId);
+
+            return [
+                'document' => DB::table('vendor_application_documents')->where('id', $documentId)->first(),
+                'application' => DB::table('vendor_applications')->where('id', $applicationId)->first(),
+            ];
+        }, 3);
+    }
+
+    /**
+     * Status kedaluwarsa dokumen dari meta (tanpa kolom baru).
+     *
+     * @return array{expired:list<int>, expiring:list<int>, valid:list<int>}
+     */
+    public function documentExpiryStatus(object $application, int $warnDays = 30): array
+    {
+        $meta = $this->readMeta($application->meta ?? null);
+        $map = is_array($meta['doc_expiry'] ?? null) ? $meta['doc_expiry'] : [];
+        $today = new \DateTimeImmutable('today');
+        $warn = $today->modify('+'.max(1, $warnDays).' days');
+
+        $expired = [];
+        $expiring = [];
+        $valid = [];
+
+        foreach ($map as $docId => $date) {
+            try {
+                $at = new \DateTimeImmutable((string) $date);
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($at < $today) {
+                $expired[] = (int) $docId;
+            } elseif ($at <= $warn) {
+                $expiring[] = (int) $docId;
+            } else {
+                $valid[] = (int) $docId;
+            }
+        }
+
+        return ['expired' => $expired, 'expiring' => $expiring, 'valid' => $valid];
+    }
+
+    /** Progres KYC bertahap per aplikasi (memakai dokumen existing). */
+    public function stagedProgress(int $applicationId): array
+    {
+        $application = DB::table('vendor_applications')->where('id', $applicationId)->first();
+        abort_if($application === null, 404);
+
+        $documents = DB::table('vendor_application_documents')
+            ->where('vendor_application_id', $applicationId)
+            ->get();
+
+        $expiry = $this->documentExpiryStatus($application);
+        $stages = [];
+
+        foreach (self::KYC_STAGES as $key => $stage) {
+            $relevant = $documents->whereIn('kind', $stage['kinds']);
+            $verified = $relevant->where('status', 'verified')->count();
+            $rejected = $relevant->where('status', 'rejected')->count();
+            $stages[] = [
+                'key' => $key,
+                'label' => $stage['label'],
+                'done' => $relevant->isNotEmpty() && $verified > 0 && $rejected === 0,
+                'verified' => $verified,
+                'rejected' => $rejected,
+                'total' => $relevant->count(),
+            ];
+        }
+
+        $done = count(array_filter($stages, fn (array $s): bool => $s['done']));
+
+        return [
+            'stages' => $stages,
+            'done' => $done,
+            'percent' => (int) round($done / max(1, count($stages)) * 100),
+            'expired_documents' => $expiry['expired'],
+            'expiring_documents' => $expiry['expiring'],
+        ];
+    }
+
+    /**
+     * Simpan salinan terenkripsi data sensitif ke meta (JANGAN log PII).
+     * Kolom plaintext dipertahankan untuk kompatibilitas baca existing.
+     */
+    public function sealSensitive(int $applicationId, ?int $actorId = null): object
+    {
+        return DB::transaction(function () use ($applicationId, $actorId): object {
+            $application = DB::table('vendor_applications')->where('id', $applicationId)->lockForUpdate()->first();
+            abort_if($application === null, 404);
+
+            $meta = $this->readMeta($application->meta ?? null);
+
+            foreach (['bank_account_number' => 'bank_enc', 'phone' => 'phone_enc'] as $column => $key) {
+                $value = trim((string) ($application->{$column} ?? ''));
+
+                if ($value !== '') {
+                    $meta[$key] = \Illuminate\Support\Facades\Crypt::encryptString($value);
+                }
+            }
+
+            DB::table('vendor_applications')->where('id', $applicationId)->update([
+                'meta' => json_encode($meta, JSON_UNESCAPED_UNICODE),
+                'updated_at' => now(),
+            ]);
+
+            app(AuditLogger::class)->log('vendor.kyc.sealed', 'vendor_application', ['id' => $applicationId], ['sealed' => true], $actorId);
+
+            return DB::table('vendor_applications')->where('id', $applicationId)->first();
+        }, 3);
+    }
+
+    /** Baca kembali data tersegel (hanya untuk proses yang berhak). */
+    public function unsealSensitive(object $application, string $key): ?string
+    {
+        $meta = $this->readMeta($application->meta ?? null);
+        $cipher = $meta[$key] ?? null;
+
+        if (! is_string($cipher) || $cipher === '') {
+            return null;
+        }
+
+        try {
+            return \Illuminate\Support\Facades\Crypt::decryptString($cipher);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    /** @return array<string,mixed> */
+    private function readMeta(mixed $meta): array
+    {
+        if (is_array($meta)) {
+            return $meta;
+        }
+
+        if (is_string($meta) && $meta !== '') {
+            $decoded = json_decode($meta, true);
+
+            if (is_array($decoded)) {
+                return $decoded;
+            }
+        }
+
+        return [];
+    }
+
+    /** Tahap KYC dari dokumen terverifikasi (disimpan di meta). */
+    private function computeStage(int $applicationId, array $meta): string
+    {
+        $documents = DB::table('vendor_application_documents')
+            ->where('vendor_application_id', $applicationId)
+            ->get();
+
+        foreach (['bank', 'business', 'identity'] as $stage) {
+            $kinds = self::KYC_STAGES[$stage]['kinds'];
+            $ok = $documents->whereIn('kind', $kinds)->where('status', 'verified')->isNotEmpty();
+
+            if ($ok) {
+                continue;
+            }
+
+            return $stage === 'bank' ? 'business' : ($stage === 'business' ? 'identity' : 'identity');
+        }
+
+        return 'complete';
+    }
+
     private function reference(): string
     {
         do {

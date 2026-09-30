@@ -112,6 +112,38 @@ class OrderService
         app(OrderWorkflowService::class)->ship($order, auth()->id(), $trackingId);
     }
 
+    /**
+     * Settlement deterministik order induk multi-vendor: tiap child disettle
+     * via jalur existing (idempoten), lalu verifikasi jumlah = total induk.
+     *
+     * @return array{children:int, vendor_total:float, balanced:bool}
+     */
+    public function settleSuborders(Order $parent): array
+    {
+        $children = $parent->children()->lockForUpdate()->get();
+
+        if ($children->isEmpty()) {
+            $this->settleDelivered($parent->fresh() ?? $parent);
+
+            return ['children' => 0, 'vendor_total' => (float) $parent->total, 'balanced' => true];
+        }
+
+        $vendorTotal = 0.0;
+
+        foreach ($children as $child) {
+            $this->settleDelivered($child);
+            $vendorTotal += (float) $child->fresh()->total;
+        }
+
+        $allocation = $parent->suborderAllocation();
+
+        return [
+            'children' => $children->count(),
+            'vendor_total' => round($vendorTotal, 2),
+            'balanced' => abs($vendorTotal - (float) ($allocation['totals']['grand_total'] ?? $vendorTotal)) < 0.01,
+        ];
+    }
+
     private function commissionFor(Shop $shop, Money $subTotal): Money
     {
         $value = (float) ($shop->commission_value ?? 0);

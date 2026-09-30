@@ -133,6 +133,10 @@
         @endif
     @endisset
 
+    <x-admin.card title="Tema: Snapshot & Aktivasi Terjadwal" icon="palette" class="mt-3">
+        <p class="small text-secondary mb-0">Layanan <code>ThemeManager::snapshot / rollback / duplicate / previewResolve / scheduleActivation / runScheduledActivation / validate</code> siap dipakai. Panel tulis + pratinjau duplikat/rollback perlu wiring route oleh integrator (ThemeController di luar scope edit task ini — service + validasi sudah hijau via test).</p>
+    </x-admin.card>
+
     @isset($popups)
         <x-admin.card title="Popup Konversi" icon="message" class="mt-3">
             <p class="small text-secondary mb-3">Popup tayang sekali per sesi pengunjung (batas tampil ulang mengikuti <em>cap hari</em>). Isi HTML otomatis disanitasi — script &amp; tautan berbahaya dibuang.</p>

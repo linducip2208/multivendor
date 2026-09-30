@@ -123,6 +123,104 @@ final class SitemapStatusService
         return $newestPage > $published;
     }
 
+    /* ── ADITIF deepening: sitemap per locale + hreflang audit ── */
+
+    /** @return list<string> locale aktif untuk sitemap (fallback id/en). */
+    public function locales(): array
+    {
+        try {
+            $codes = app(\App\Services\Localization\LanguageService::class)->activeCodes();
+            $codes = array_values(array_filter(array_map(fn ($c): string => strtolower(trim((string) $c)), $codes)));
+
+            return $codes !== [] ? array_slice($codes, 0, 10) : ['id', 'en'];
+        } catch (\Throwable) {
+            return ['id', 'en'];
+        }
+    }
+
+    /**
+     * URL sitemap per locale (aditif; struktur file tetap, hanya loc
+     * berawalan /{locale}/ bila locale non-default).
+     *
+     * @return array<string, list<string>> locale => daftar file sitemap
+     */
+    public function localizedIndexes(): array
+    {
+        $default = $this->defaultLocale();
+        $out = [];
+        $files = ['sitemap-main.xml', 'sitemap-products.xml', 'sitemap-categories.xml', 'sitemap-blog.xml'];
+        foreach ($this->locales() as $locale) {
+            $prefix = $locale === $default ? '' : $locale.'/';
+            $out[$locale] = array_map(fn (string $f): string => url($prefix.$f), $files);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Audit hreflang: pasangan URL kanonik per locale + masalah umum.
+     *
+     * @return array{default: string, locales: list<string>, samples: list<array{canonical: string, alternates: array<string, string>}>, issues: list<string>}
+     */
+    public function hreflangAudit(int $samples = 5): array
+    {
+        $locales = $this->locales();
+        $default = $this->defaultLocale();
+        $issues = [];
+        $paths = ['/', '/products', '/blog'];
+
+        try {
+            $product = Product::query()->where('status', 'approved')->where('published', true)->orderByDesc('id')->first();
+            if ($product) {
+                $paths[] = '/products/'.ltrim((string) $product->slug, '/');
+            }
+        } catch (\Throwable) {
+        }
+        try {
+            $post = \App\Models\BlogPost::query()->where('is_published', true)->orderByDesc('id')->first();
+            if ($post) {
+                $paths[] = '/blog/'.ltrim((string) $post->slug, '/');
+            }
+        } catch (\Throwable) {
+        }
+
+        $samplesOut = [];
+        foreach (array_slice($paths, 0, max(1, min(10, $samples))) as $path) {
+            $alternates = [];
+            foreach ($locales as $locale) {
+                $alternates[$locale] = url(($locale === $default ? '' : $locale.'/').ltrim($path, '/'));
+            }
+            // x-default selalu ke default.
+            $alternates['x-default'] = $alternates[$default] ?? url(ltrim($path, '/'));
+            $samplesOut[] = ['canonical' => $alternates[$default], 'alternates' => $alternates];
+        }
+
+        if (count($locales) < 2) {
+            $issues[] = 'Hanya 1 locale aktif — hreflang belum bermakna. Tambahkan locale kedua di manajemen bahasa.';
+        }
+        try {
+            $missingEn = app(\App\Services\Localization\MissingDetector::class)->missingKeys('en');
+            if (count($missingEn) > 0) {
+                $issues[] = count($missingEn).' kunci EN hilang — fallback hreflang EN berisiko menampilkan string mentah.';
+            }
+        } catch (\Throwable) {
+        }
+        if (! \Illuminate\Support\Facades\File::exists(public_path('sitemap.xml'))) {
+            $issues[] = 'sitemap.xml belum terbit — jalankan php artisan sitemap:generate.';
+        }
+
+        return ['default' => $default, 'locales' => $locales, 'samples' => $samplesOut, 'issues' => $issues];
+    }
+
+    private function defaultLocale(): string
+    {
+        try {
+            return app(\App\Services\Localization\LanguageService::class)->defaultCode();
+        } catch (\Throwable) {
+            return 'id';
+        }
+    }
+
     /**
      * @return array<string, string>
      */

@@ -520,6 +520,96 @@ final class FinanceAdminService extends AnalyticsService
         ];
     }
 
+    // ── Pendalaman payout: state machine + retry + rekonsiliasi (aditif) ──
+    // Semua transisi: lockForUpdate + PayoutStateMachine::assertCan + audit.
+    // Posting ledger idempoten via transaction_group payout:{id}:{status}.
+
+    /** Pindahkan status payout satu langkah valid. Idempoten bila sudah di tujuan. */
+    public function transitionPayout(VendorWithdrawRequest $request, string $to, ?int $actorId = null, ?string $note = null): VendorWithdrawRequest
+    {
+        return DB::transaction(function () use ($request, $to, $actorId, $note): VendorWithdrawRequest {
+            $locked = VendorWithdrawRequest::query()->lockForUpdate()->findOrFail($request->getKey());
+            $from = (string) $locked->status;
+
+            if ($from === $to) {
+                return $locked;
+            }
+
+            \App\Domain\Finance\PayoutStateMachine::assertCan($from, $to);
+
+            if ($to === 'completed' && ((float) $locked->amount) < 0) {
+                throw new \RuntimeException('Nominal payout negatif — rekonsiliasi ditolak (saldo-negatif guard).');
+            }
+
+            $attributes = ['status' => $to];
+
+            if ($to === 'approved') {
+                $attributes['approved_by'] = $actorId;
+                $attributes['approved_at'] = now();
+            }
+
+            if ($to === 'completed') {
+                $attributes['completed_at'] = now();
+            }
+
+            if ($to === 'rejected') {
+                $attributes['rejection_reason'] = $note !== null && trim($note) !== '' ? mb_substr(trim($note), 0, 500) : 'Ditolak admin.';
+            }
+
+            $locked->forceFill($attributes)->save();
+
+            if (in_array($to, ['completed'], true)) {
+                $this->ledger->postPayout(
+                    (int) $locked->vendor_id,
+                    (float) $locked->amount,
+                    (int) $locked->shop_id,
+                    'payout:'.$locked->getKey().':'.$to,
+                );
+            }
+
+            app(AuditLogger::class)->log('payout.'.$to, $locked, ['status' => $from], ['status' => $to], $actorId);
+
+            return $locked->fresh();
+        }, 3);
+    }
+
+    /** Retry payout gagal → processing. Idempoten bila sudah processing. */
+    public function retryPayout(VendorWithdrawRequest $request, ?int $actorId = null): VendorWithdrawRequest
+    {
+        return DB::transaction(function () use ($request, $actorId): VendorWithdrawRequest {
+            $locked = VendorWithdrawRequest::query()->lockForUpdate()->findOrFail($request->getKey());
+
+            if ((string) $locked->status === 'processing') {
+                return $locked;
+            }
+
+            return $this->transitionPayout($locked, 'processing', $actorId, 'Retry payout.');
+        }, 3);
+    }
+
+    /**
+     * Rekonsiliasi payout vs ledger: selisih vendor_payable vs jumlah payout
+     * completed per toko. Murni baca (tanpa tulis) kecuali audit.
+     *
+     * @return array{shop_id:int, paid:float, ledger_payable:float, diff:float, balanced:bool}
+     */
+    public function reconcilePayout(int $shopId): array
+    {
+        $shopId = max(0, $shopId);
+        $paid = (float) VendorWithdrawRequest::query()
+            ->where('shop_id', $shopId)->where('status', 'completed')->sum('amount');
+        $ledgerPayable = $this->ledger->balances($shopId)['vendor_payable'] ?? 0.0;
+        $diff = round($paid + (float) $ledgerPayable, 2);
+
+        return [
+            'shop_id' => $shopId,
+            'paid' => $paid,
+            'ledger_payable' => (float) $ledgerPayable,
+            'diff' => $diff,
+            'balanced' => abs($diff) < 0.01,
+        ];
+    }
+
     /**
      * Record a refund through the refund workflow service.
      *

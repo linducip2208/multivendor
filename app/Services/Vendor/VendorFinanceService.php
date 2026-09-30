@@ -603,6 +603,90 @@ final class VendorFinanceService
         return (string) stream_get_contents($stream);
     }
 
+    // ── Pendalaman: komisi bertingkat + payout request (aditif) ──
+
+    /** GMV 30 hari terakhir toko (basis tier komisi). */
+    public function monthlyGmv(int $shopId): float
+    {
+        return (float) Order::query()
+            ->where('shop_id', $shopId)
+            ->where('created_at', '>=', now()->subDays(30))
+            ->whereIn('order_status', \App\Services\Analytics\AnalyticsService::revenueOrderStatuses())
+            ->sum('sub_total');
+    }
+
+    /** Tarif & tier komisi bertingkat toko saat ini. */
+    public function tieredRate(int $shopId): array
+    {
+        return \App\Domain\Finance\TieredCommission::tierFor($this->monthlyGmv($shopId));
+    }
+
+    /** Pratinjau komisi bertingkat untuk nominal subtotal tertentu. */
+    public function previewTieredCommission(int $shopId, float $subtotal): array
+    {
+        return \App\Domain\Finance\TieredCommission::forOrder(max(0.0, $subtotal), $this->monthlyGmv($shopId));
+    }
+
+    /**
+     * Ajukan payout: status awal pending (state machine), anti-duplikat via
+     * kunci idempotensi period_label+nominal, guard saldo-negatif.
+     */
+    public function requestPayout(float $amount, ?string $note = null, ?string $periodLabel = null): \App\Models\VendorWithdrawRequest
+    {
+        return DB::transaction(function () use ($amount, $note, $periodLabel): \App\Models\VendorWithdrawRequest {
+            $shop = $this->scope->shop();
+            $shopId = (int) $shop->getKey();
+            $vendorId = $this->scope->userId();
+            $amount = round(max(0.0, $amount), 2);
+
+            if ($amount <= 0) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'Nominal payout harus lebih dari nol.']);
+            }
+
+            $wallet = \App\Models\Wallet::query()->firstOrCreate(
+                ['user_id' => $vendorId], ['balance' => 0, 'pending_balance' => 0],
+            );
+
+            if ($amount > (float) $wallet->balance) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['amount' => 'Saldo tidak mencukupi (saldo-negatif guard).']);
+            }
+
+            $label = $periodLabel !== null && trim($periodLabel) !== ''
+                ? mb_substr(trim($periodLabel), 0, 20)
+                : now()->format('Y-m');
+
+            $existing = \App\Models\VendorWithdrawRequest::query()
+                ->where('shop_id', $shopId)
+                ->where('period_label', $label)
+                ->where('amount', $amount)
+                ->whereIn('status', ['pending', 'approved', 'processing'])
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            // forceFill: period_label/settlement_batch_id bukan fillable model
+            // (di luar scope edit) namun kolomnya ada — tulis eksplisit.
+            $request = new \App\Models\VendorWithdrawRequest;
+            $request->forceFill([
+                'vendor_id' => $vendorId,
+                'shop_id' => $shopId,
+                'settlement_batch_id' => null,
+                'period_label' => $label,
+                'amount' => $amount,
+                'note' => $note !== null ? VendorScope::clean($note, 500) : null,
+                'bank_name' => $shop->bank_name,
+                'bank_account_number' => $shop->bank_account_number,
+                'bank_account_name' => $shop->bank_account_name,
+                'status' => 'pending',
+            ])->save();
+
+            return $request->fresh();
+        }, 3);
+    }
+
     private function vendorShareFor(Order $order): float
     {
         $tx = Transaction::query()->where('order_id', $order->id)->first();

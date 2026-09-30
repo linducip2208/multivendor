@@ -27,6 +27,28 @@ class ProductStock extends Model
         return (int) $this->on_hand - (int) $this->reserved;
     }
 
+    // ── Pendalaman ledger states (aditif) ──
+
+    /** State ledger yang didukung (available derivasi; damaged/returned virtual dari movements). */
+    public const LEDGER_STATES = ['on_hand', 'reserved', 'available', 'damaged', 'returned', 'incoming'];
+
+    /** Snapshot state lengkap baris ini (tak pernah negatif). */
+    public function ledgerSnapshot(int $damaged = 0, int $returned = 0): array
+    {
+        return \App\Domain\Inventory\InventoryLedger::snapshot([
+            'on_hand' => (int) $this->on_hand,
+            'reserved' => (int) $this->reserved,
+            'incoming' => (int) $this->incoming,
+            'damaged' => $damaged,
+            'returned' => $returned,
+        ]);
+    }
+
+    public function scopeAvailable($query, int $min = 1)
+    {
+        return $query->whereRaw('(on_hand - reserved) >= ?', [$min]);
+    }
+
     public function isLow(): bool
     {
         return $this->available() <= (int) $this->safety_stock;
