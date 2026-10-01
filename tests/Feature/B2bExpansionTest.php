@@ -384,6 +384,25 @@ class B2bExpansionTest extends TestCase
         $this->assertSame(2, app(B2bCartGuard::class)->effectiveMoq($produk));
     }
 
+    public function test_price_for_pintu_tunggal_cart_checkout(): void
+    {
+        $quote = app(\App\Services\B2b\B2bQuoteService::class);
+        $produk = $this->produkGrosir();
+
+        // Tanpa tier → ecer; tier memenuhi → tier; tak pernah naik.
+        $this->assertSame(100000.0, $quote->priceFor($produk, 5));
+        $this->assertSame(90000.0, $quote->priceFor($produk, 10));
+        $this->assertSame(80000.0, $quote->priceFor($produk, 500));
+        $this->assertSame(50000.0, $quote->priceFor($produk, 1, 50000.0));
+
+        $eceran = Product::create([
+            'shop_id' => 1, 'category_id' => 1, 'name' => 'Eceran',
+            'slug' => 'eceran', 'price' => 20000, 'current_stock' => 10,
+            'status' => 'approved', 'published' => true,
+        ]);
+        $this->assertSame(20000.0, $quote->priceFor($eceran, 3));
+    }
+
     public function test_migrasi_b2b_wholesale_benar_dan_rollback_lengkap(): void
     {
         $berkas = base_path('database/migrations/2026_09_30_010000_b2b_wholesale.php');

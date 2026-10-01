@@ -75,6 +75,30 @@ final class B2bQuoteService
     }
 
     /**
+     * SATU-SATUNYA titik harga grosir untuk cart & checkout.
+     *
+     * Mengembalikan harga tier bila memenuhi syarat dan lebih murah,
+     * selain itu harga ecer efektif. Tidak pernah melempar dan tidak
+     * pernah menaikkan harga — aman dipanggil di semua jalur.
+     */
+    public function priceFor(\App\Models\Product $product, int $qty, ?float $fallback = null): float
+    {
+        try {
+            $ecer = $fallback ?? (float) $product->getEffectivePrice();
+        } catch (\Throwable) {
+            $ecer = (float) ($product->price ?? 0);
+        }
+
+        try {
+            $tier = $this->pricing->unitPriceFor($product, max(1, $qty));
+        } catch (\Throwable) {
+            return $ecer;
+        }
+
+        return ($tier > 0 && $tier < $ecer) ? $tier : $ecer;
+    }
+
+    /**
      * Wiring ke checkout existing: kembalikan cart lines generik
      * (product_id, quantity, unit_price) yang bisa diumpan ke alur
      * keranjang/checkout tanpa perubahan logika di sisi sana.

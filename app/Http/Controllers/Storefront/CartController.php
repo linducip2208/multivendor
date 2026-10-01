@@ -69,11 +69,8 @@ class CartController extends Controller
 
         $product = Product::with('shop')->findOrFail($request->product_id);
         $quantity = $request->quantity;
-        $price = $product->getEffectivePrice();
-        try {
-            $price = app(\App\Services\B2b\B2bPricingService::class)->unitPriceFor($product, (int) $quantity);
-        } catch (\Throwable) {
-        }
+        // Satu pipeline harga grosir (tier bila lebih murah, else ecer).
+        $price = app(\App\Services\B2b\B2bQuoteService::class)->priceFor($product, (int) $quantity);
         $variant = null;
 
         $this->assertCartable($product, $quantity);

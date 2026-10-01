@@ -45,13 +45,9 @@ class CheckoutCalculator
 
             $price = Money::of($variant?->getEffectivePrice() ?? $product->getEffectivePrice());
             if ($variant === null) {
-                try {
-                    $tierPrice = app(\App\Services\B2b\B2bPricingService::class)->unitPriceFor($product, (int) $cartItem->quantity);
-                    if ($tierPrice > 0 && $tierPrice < (float) $price->toFloat()) {
-                        $price = Money::of($tierPrice);
-                    }
-                } catch (\Throwable) {
-                }
+                // Satu pipeline harga grosir (tier bila lebih murah, else ecer).
+                $tier = app(\App\Services\B2b\B2bQuoteService::class)->priceFor($product, (int) $cartItem->quantity, (float) $price->toFloat());
+                $price = Money::of($tier);
             }
             $taxRate = $this->taxRateFor($product);
 
